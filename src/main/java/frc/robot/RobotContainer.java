@@ -53,7 +53,7 @@ public class RobotContainer {
               drivebase.getSwerveDrive(),
               () -> driverXbox.getLeftY() * -1,
               () -> driverXbox.getLeftX() * -1)
-          .withControllerRotationAxis(driverXbox::getRightX)
+          .withControllerRotationAxis(() -> driverXbox.getRightX() * -1)
           .deadband(OperatorConstants.DEADBAND)
           .scaleTranslation(0.8)
           .allianceRelativeControl(true);
@@ -62,7 +62,8 @@ public class RobotContainer {
   SwerveInputStream driveDirectAngle =
       driveAngularVelocity
           .copy()
-          .withControllerHeadingAxis(driverXbox::getRightX, driverXbox::getRightY)
+          .withControllerHeadingAxis(
+              () -> Math.pow(2, driverXbox.getRightX()), () -> Math.pow(2, driverXbox.getRightY()))
           .headingWhile(true);
 
   /** Clone's the angular velocity input stream and converts it to a robotRelative input stream. */
@@ -135,7 +136,7 @@ public class RobotContainer {
     if (RobotBase.isSimulation()) {
       drivebase.setDefaultCommand(driveFieldOrientedDirectAngleKeyboard);
     } else {
-      drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
+      drivebase.setDefaultCommand(driveFieldOrientedAnglularVelocity);
     }
 
     if (Robot.isSimulation()) {
@@ -158,11 +159,11 @@ public class RobotContainer {
                   () -> driveDirectAngleKeyboard.driveToPoseEnabled(true),
                   () -> driveDirectAngleKeyboard.driveToPoseEnabled(false)));
 
-      //      driverXbox.b().whileTrue(
-      //          drivebase.driveToPose(
-      //              new Pose2d(new Translation2d(4, 4), Rotation2d.fromDegrees(0)))
-      //                              );
-
+      driverXbox
+          .b()
+          .whileTrue(
+              drivebase.driveToPose(
+                  new Pose2d(new Translation2d(14, 3), Rotation2d.fromDegrees(180))));
     }
     if (DriverStation.isTest()) {
       drivebase.setDefaultCommand(
@@ -175,11 +176,19 @@ public class RobotContainer {
       driverXbox.rightBumper().onTrue(Commands.none());
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyro)));
-      driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
+      // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
       driverXbox.start().whileTrue(Commands.none());
       driverXbox.back().whileTrue(Commands.none());
       driverXbox.leftBumper().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
       driverXbox.rightBumper().onTrue(Commands.none());
+
+      driverXbox
+          .b()
+          .whileTrue(
+              drivebase.driveToPose(
+                  new Pose2d(new Translation2d(14, 4), Rotation2d.fromDegrees(0))));
+
+      driverXbox.y().whileTrue(drivebase.sysIdDriveMotorCommand());
     }
   }
 

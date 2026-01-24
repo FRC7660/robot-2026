@@ -57,7 +57,7 @@ public class SwerveSubsystem extends SubsystemBase {
   private final SwerveDrive swerveDrive;
 
   /** Enable vision odometry updates while driving. */
-  private final boolean visionDriveTest = false;
+  private final boolean visionDriveTest = true;
 
   /** PhotonVision class to keep an accurate odometry. */
   private Vision vision;
@@ -253,7 +253,7 @@ public class SwerveSubsystem extends SubsystemBase {
     PathConstraints constraints =
         new PathConstraints(
             swerveDrive.getMaximumChassisVelocity(),
-            4.0,
+            0.2, // 4.0
             swerveDrive.getMaximumChassisAngularVelocity(),
             Units.degreesToRadians(720));
 
