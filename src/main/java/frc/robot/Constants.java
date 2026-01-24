@@ -4,6 +4,7 @@
 
 package frc.robot;
 
+import com.revrobotics.spark.*;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 import swervelib.math.Matter;
@@ -46,5 +47,15 @@ public final class Constants {
     public static final double LEFT_Y_DEADBAND = 0.1;
     public static final double RIGHT_X_DEADBAND = 0.1;
     public static final double TURN_CONSTANT = 6;
+  }
+
+  // Index Constants
+  public static final class IndexConstants {
+    public static final int INDEX_MOTOR_ID = 16;
+    public static final double INDEX_SPEED = 0.5;
+    public static final SparkLowLevel.MotorType INDEX_TYPE = SparkLowLevel.MotorType.kBrushless;
+    public static final int FUNNEL_MOTOR_ID = 19;
+    public static final double FUNNEL_SPEED = 0.5;
+    public static final SparkLowLevel.MotorType FUNNEL_TYPE = SparkLowLevel.MotorType.kBrushless;
   }
 }
