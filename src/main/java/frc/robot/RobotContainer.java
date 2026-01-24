@@ -62,7 +62,8 @@ public class RobotContainer {
   SwerveInputStream driveDirectAngle =
       driveAngularVelocity
           .copy()
-          .withControllerHeadingAxis(() -> Math.pow(2,driverXbox.getRightX()), () -> Math.pow(2,driverXbox.getRightY()))
+          .withControllerHeadingAxis(
+              () -> Math.pow(2, driverXbox.getRightX()), () -> Math.pow(2, driverXbox.getRightY()))
           .headingWhile(true);
 
   /** Clone's the angular velocity input stream and converts it to a robotRelative input stream. */
