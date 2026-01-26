@@ -4,6 +4,8 @@
 
 package frc.robot;
 
+import com.revrobotics.spark.SparkLowLevel;
+
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 import swervelib.math.Matter;
@@ -46,5 +48,29 @@ public final class Constants {
     public static final double LEFT_Y_DEADBAND = 0.1;
     public static final double RIGHT_X_DEADBAND = 0.1;
     public static final double TURN_CONSTANT = 6;
+  }
+
+  public static class Intake {
+
+  public static final int kLiftMotorId = 10;
+  public static final int kRollerMotorId = 11;
+  public static final int kLiftLimitChannel = 0;
+
+  public static final int kLiftCurrentLimit = 30;
+  public static final int kRollerCurrentLimit = 40;
+
+  public static final double kIntakeSpeed = 0.8;
+  public static final double kEjectSpeed = 0.8;
+
+  public static final double kLiftTolerance = 0.05;
+
+  public static final double kStowedPosition = 0.0;
+  public static final double kDeployedPosition = 25.0;
+
+  public static final double kHomingSpeed = 0.2;
+
+  public static final SparkLowLevel.MotorType LIFT_MOTOR_TYPE = SparkLowLevel.MotorType.kBrushless;
+  public static final SparkLowLevel.MotorType ROLLER_MOTOR_TYPE = SparkLowLevel.MotorType.kBrushless;
+
   }
 }
