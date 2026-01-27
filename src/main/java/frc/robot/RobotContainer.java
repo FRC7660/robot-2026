@@ -63,7 +63,7 @@ public class RobotContainer {
       driveAngularVelocity
           .copy()
           .withControllerHeadingAxis(
-              () -> Math.pow(2, driverXbox.getRightX()), () -> Math.pow(2, driverXbox.getRightY()))
+              () -> Math.pow(driverXbox.getRightX(), 3), () -> Math.pow(driverXbox.getRightY(), 3))
           .headingWhile(true);
 
   /** Clone's the angular velocity input stream and converts it to a robotRelative input stream. */
@@ -136,7 +136,7 @@ public class RobotContainer {
     if (RobotBase.isSimulation()) {
       drivebase.setDefaultCommand(driveFieldOrientedDirectAngleKeyboard);
     } else {
-      drivebase.setDefaultCommand(driveFieldOrientedAnglularVelocity);
+      drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
     }
 
     if (Robot.isSimulation()) {

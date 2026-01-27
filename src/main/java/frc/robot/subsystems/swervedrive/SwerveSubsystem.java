@@ -68,11 +68,12 @@ public class SwerveSubsystem extends SubsystemBase {
    * @param directory Directory of swerve drive config files.
    */
   public SwerveSubsystem(File directory) {
-    boolean blueAlliance = false;
-    Pose2d startingPose =
-        blueAlliance
-            ? new Pose2d(new Translation2d(Meter.of(1), Meter.of(4)), Rotation2d.fromDegrees(0))
-            : new Pose2d(new Translation2d(Meter.of(16), Meter.of(4)), Rotation2d.fromDegrees(180));
+    // STARTUP POSE: Controls which way the robot assumes it is facing on boot.
+    // IMPORANT: DriverStation.getAlliance() is often empty during robotInit/constructor.
+    // The best practice is to assume Blue Alliance (0,0 origin) by default.
+    // PathPlanner/AutoBuilder will automatically reset the odometry to the correct start pose
+    // based on the selected auto and Alliance color when the match starts.
+    Pose2d startingPose = new Pose2d(new Translation2d(Meter.of(1), Meter.of(4)), Rotation2d.fromDegrees(0));
     // Configure the Telemetry before creating the SwerveDrive to avoid unnecessary objects being
     // created.
     SwerveDriveTelemetry.verbosity = TelemetryVerbosity.HIGH;
