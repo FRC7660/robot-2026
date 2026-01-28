@@ -68,11 +68,13 @@ public class SwerveSubsystem extends SubsystemBase {
    * @param directory Directory of swerve drive config files.
    */
   public SwerveSubsystem(File directory) {
-    boolean blueAlliance = false;
-    Pose2d startingPose =
-        blueAlliance
-            ? new Pose2d(new Translation2d(Meter.of(1), Meter.of(4)), Rotation2d.fromDegrees(0))
-            : new Pose2d(new Translation2d(Meter.of(16), Meter.of(4)), Rotation2d.fromDegrees(180));
+    // We default to Blue Alliance (0) to match the default behavior of the
+    // DriverStation and SwerveInputStream.
+    // The correct pose will be set by Autonomous or zeroGyroWithAlliance at runtime.
+    boolean blueAlliance = true;
+    Pose2d startingPose = blueAlliance
+        ? new Pose2d(new Translation2d(Meter.of(1), Meter.of(4)), Rotation2d.fromDegrees(0))
+        : new Pose2d(new Translation2d(Meter.of(16), Meter.of(4)), Rotation2d.fromDegrees(180));
     // Configure the Telemetry before creating the SwerveDrive to avoid unnecessary objects being
     // created.
     SwerveDriveTelemetry.verbosity = TelemetryVerbosity.HIGH;
@@ -467,18 +469,7 @@ public class SwerveSubsystem extends SubsystemBase {
    * @param velocity Velocity according to the field.
    */
   public void driveFieldOriented(ChassisSpeeds velocity) {
-    // Mirror field-relative velocities for red alliance to keep a single centralized
-    // alliance-frame transform. Translation is negated for red alliance; angular
-    // velocity is unchanged (rotation sign convention stays the same).
-    if (isRedAlliance()) {
-      swerveDrive.driveFieldOriented(
-          new ChassisSpeeds(
-              -velocity.vxMetersPerSecond,
-              -velocity.vyMetersPerSecond,
-              velocity.omegaRadiansPerSecond));
-    } else {
-      swerveDrive.driveFieldOriented(velocity);
-    }
+    swerveDrive.driveFieldOriented(velocity);
   }
 
   /**
@@ -489,13 +480,7 @@ public class SwerveSubsystem extends SubsystemBase {
   public Command driveFieldOriented(Supplier<ChassisSpeeds> velocity) {
     return run(
         () -> {
-          ChassisSpeeds v = velocity.get();
-          if (isRedAlliance()) {
-            v =
-                new ChassisSpeeds(
-                    -v.vxMetersPerSecond, -v.vyMetersPerSecond, v.omegaRadiansPerSecond);
-          }
-          swerveDrive.driveFieldOriented(v);
+          swerveDrive.driveFieldOriented(velocity.get());
         });
   }
 

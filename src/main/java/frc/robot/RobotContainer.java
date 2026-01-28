@@ -187,8 +187,6 @@ public class RobotContainer {
                   new Pose2d(new Translation2d(14, 4), Rotation2d.fromDegrees(0))));
 
       driverXbox.y().whileTrue(drivebase.sysIdDriveMotorCommand());
-
-      drivebase.zeroGyroWithAlliance();
     }
   }
 
