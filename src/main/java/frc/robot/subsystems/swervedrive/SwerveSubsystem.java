@@ -467,7 +467,18 @@ public class SwerveSubsystem extends SubsystemBase {
    * @param velocity Velocity according to the field.
    */
   public void driveFieldOriented(ChassisSpeeds velocity) {
-    swerveDrive.driveFieldOriented(velocity);
+    // Mirror field-relative velocities for red alliance to keep a single centralized
+    // alliance-frame transform. Translation is negated for red alliance; angular
+    // velocity is unchanged (rotation sign convention stays the same).
+    if (isRedAlliance()) {
+      swerveDrive.driveFieldOriented(
+          new ChassisSpeeds(
+              -velocity.vxMetersPerSecond,
+              -velocity.vyMetersPerSecond,
+              velocity.omegaRadiansPerSecond));
+    } else {
+      swerveDrive.driveFieldOriented(velocity);
+    }
   }
 
   /**
@@ -478,7 +489,13 @@ public class SwerveSubsystem extends SubsystemBase {
   public Command driveFieldOriented(Supplier<ChassisSpeeds> velocity) {
     return run(
         () -> {
-          swerveDrive.driveFieldOriented(velocity.get());
+          ChassisSpeeds v = velocity.get();
+          if (isRedAlliance()) {
+            v =
+                new ChassisSpeeds(
+                    -v.vxMetersPerSecond, -v.vyMetersPerSecond, v.omegaRadiansPerSecond);
+          }
+          swerveDrive.driveFieldOriented(v);
         });
   }
 

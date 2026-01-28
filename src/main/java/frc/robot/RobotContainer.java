@@ -50,10 +50,8 @@ public class RobotContainer {
    */
   SwerveInputStream driveAngularVelocity =
       SwerveInputStream.of(
-              drivebase.getSwerveDrive(),
-              () -> driverXbox.getLeftY() * -1,
-              () -> driverXbox.getLeftX() * -1)
-          .withControllerRotationAxis(() -> driverXbox.getRightX() * -1)
+              drivebase.getSwerveDrive(), () -> driverXbox.getLeftY(), () -> driverXbox.getLeftX())
+          .withControllerRotationAxis(() -> driverXbox.getRightX())
           .deadband(OperatorConstants.DEADBAND)
           .scaleTranslation(0.8)
           .allianceRelativeControl(true);
@@ -63,7 +61,7 @@ public class RobotContainer {
       driveAngularVelocity
           .copy()
           .withControllerHeadingAxis(
-              () -> Math.pow(2, driverXbox.getRightX()), () -> Math.pow(2, driverXbox.getRightY()))
+              () -> Math.pow(driverXbox.getRightX(), 1), () -> Math.pow(driverXbox.getRightY(), 1))
           .headingWhile(true);
 
   /** Clone's the angular velocity input stream and converts it to a robotRelative input stream. */
@@ -136,7 +134,7 @@ public class RobotContainer {
     if (RobotBase.isSimulation()) {
       drivebase.setDefaultCommand(driveFieldOrientedDirectAngleKeyboard);
     } else {
-      drivebase.setDefaultCommand(driveFieldOrientedAnglularVelocity);
+      drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
     }
 
     if (Robot.isSimulation()) {
@@ -175,7 +173,7 @@ public class RobotContainer {
       driverXbox.leftBumper().onTrue(Commands.none());
       driverXbox.rightBumper().onTrue(Commands.none());
     } else {
-      driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyro)));
+      driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
       driverXbox.start().whileTrue(Commands.none());
       driverXbox.back().whileTrue(Commands.none());
@@ -189,6 +187,8 @@ public class RobotContainer {
                   new Pose2d(new Translation2d(14, 4), Rotation2d.fromDegrees(0))));
 
       driverXbox.y().whileTrue(drivebase.sysIdDriveMotorCommand());
+
+      drivebase.zeroGyroWithAlliance();
     }
   }
 
