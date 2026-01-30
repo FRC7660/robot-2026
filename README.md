@@ -1,4 +1,4 @@
-# FRC-7660: The Byting Irish Varsity Robot 2026
+# ☘  FRC-7660: The Byting Irish's Varsity Robot 2026 ☘
 
 This robot was built by Father Gabriel Richard Highschool's robotics team: The Byting Irish. It is quite a lively little fellow, and enjoys spinning around in its freetime. Learn more about our robotics team on [our website](https://fgrhs.org/byting-irish) and follow us on [our youtube channel](https://www.youtube.com/@frc7660) or on [our Instagram page](https://instagram.com/fgrrobotics)
 
