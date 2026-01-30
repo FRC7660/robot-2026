@@ -616,16 +616,6 @@ public class SwerveSubsystem extends SubsystemBase {
   public ChassisSpeeds getTargetSpeeds(
       double xInput, double yInput, double headingX, double headingY) {
     Translation2d scaledInputs = SwerveMath.cubeTranslation(new Translation2d(xInput, yInput));
-    // Mirror heading inputs for red alliance so the desired orientation matches the
-    // mirrored translation frame. Heading is represented as a vector
-    // (headingX,headingY)
-    // which corresponds to a desired angle; rotating the field by 180deg maps that
-    // vector to (-headingX,-headingY).
-
-    // if (isRedAlliance()) {
-    //   headingX = -headingX;
-    //   headingY = -headingY;
-    // }
 
     return swerveDrive.swerveController.getTargetSpeeds(
         scaledInputs.getX(),
@@ -647,11 +637,6 @@ public class SwerveSubsystem extends SubsystemBase {
    */
   public ChassisSpeeds getTargetSpeeds(double xInput, double yInput, Rotation2d angle) {
     Translation2d scaledInputs = SwerveMath.cubeTranslation(new Translation2d(xInput, yInput));
-    // If alliance is red, rotate the desired heading by 180 degrees so it matches
-    // the mirrored translation frame. Do not change rotation sign convention.
-    // if (isRedAlliance()) {
-    //   angle = angle.plus(Rotation2d.fromDegrees(180.0));
-    // }
 
     return swerveDrive.swerveController.getTargetSpeeds(
         scaledInputs.getX(),
