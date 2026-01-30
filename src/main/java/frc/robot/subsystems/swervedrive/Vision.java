@@ -472,6 +472,30 @@ public class Vision {
           (PhotonPipelineResult a, PhotonPipelineResult b) -> {
             return a.getTimestampSeconds() >= b.getTimestampSeconds() ? 1 : -1;
           });
+      // --- Object detection extraction: map Photon detected objects to quick console output ---
+      // Use the latest result (index 0 after sorting) to print detected object class IDs,
+      // confidences, and angular offsets. This is a lightweight, safe-to-run debug output.
+      if (!resultsList.isEmpty()) {
+        PhotonPipelineResult latestResult = resultsList.get(0);
+        if (latestResult.hasTargets()) {
+          for (PhotonTrackedTarget t : latestResult.getTargets()) {
+            try {
+              int classId = t.getDetectedObjectClassID();
+              double conf = t.getDetectedObjectConfidence();
+              double yaw = t.getYaw();
+              double pitch = t.getPitch();
+              // Print a compact one-line summary per detected object. Use camera.getName()
+              // to indicate which camera produced the reading.
+              System.out.printf(
+                  "%s detected: classId=%d conf=%.3f yaw=%.3f pitch=%.3f\n",
+                  camera.getName(), classId, conf, yaw, pitch);
+            } catch (NoSuchMethodError | UnsupportedOperationException e) {
+              // Some pipelines (e.g., AprilTag) or older Photon versions may not provide
+              // object-detection fields. Ignore and continue.
+            }
+          }
+        }
+      }
       if (!resultsList.isEmpty()) {
         updateEstimatedGlobalPose();
       }
