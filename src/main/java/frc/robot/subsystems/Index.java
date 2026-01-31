@@ -2,6 +2,7 @@ package frc.robot.subsystems;
 
 import com.revrobotics.PersistMode;
 import com.revrobotics.ResetMode;
+import com.revrobotics.spark.SparkLowLevel;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig;
 import com.revrobotics.spark.config.SparkMaxConfig;
@@ -11,13 +12,12 @@ import frc.robot.Constants;
 // initializes index and funnel motors
 public class Index extends SubsystemBase {
   private final SparkMax indexMotor =
-      new SparkMax(Constants.Index.INDEX_MOTOR_ID, Constants.Index.INDEX_TYPE);
+      new SparkMax(Constants.Index.INDEX_MOTOR_ID, SparkLowLevel.MotorType.kBrushless);
 
   private final SparkMax funnelMotor =
-      new SparkMax(Constants.Index.FUNNEL_MOTOR_ID, Constants.Index.FUNNEL_TYPE);
+      new SparkMax(Constants.Index.FUNNEL_MOTOR_ID, SparkLowLevel.MotorType.kBrushless);
 
   public Index() {
-    // Configure motors with settings from Constants
     SparkMaxConfig indexConfig = configureIndexMotor();
     SparkMaxConfig funnelConfig = configureFunnelMotor();
 

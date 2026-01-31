@@ -53,10 +53,8 @@ public final class Constants {
   public static final class Index {
     public static final int INDEX_MOTOR_ID = 16;
     public static final double INDEX_SPEED = 0.5;
-    public static final SparkLowLevel.MotorType INDEX_TYPE = SparkLowLevel.MotorType.kBrushless;
     public static final int FUNNEL_MOTOR_ID = 19;
     public static final double FUNNEL_SPEED = 0.5;
-    public static final SparkLowLevel.MotorType FUNNEL_TYPE = SparkLowLevel.MotorType.kBrushless;
   }
 
   // Intake Constants
@@ -67,5 +65,11 @@ public final class Constants {
     public static final int ROLLER_MOTOR_ID = 17;
     public static final double ROLLER_SPEED = 0.5;
     public static final int ROLLER_CURRENT_LIMIT = 25; // amps
+  }
+
+  // Launch Constants
+  public static final class Launch {
+    public static final int MOTOR1_ID = 31;
+    public static final int MOTOR2_ID = 37;
   }
 }
