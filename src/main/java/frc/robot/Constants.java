@@ -4,6 +4,7 @@
 
 package frc.robot;
 
+import com.revrobotics.spark.*;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 import swervelib.math.Matter;
@@ -46,5 +47,35 @@ public final class Constants {
     public static final double LEFT_Y_DEADBAND = 0.1;
     public static final double RIGHT_X_DEADBAND = 0.1;
     public static final double TURN_CONSTANT = 6;
+  }
+
+  // Index Constants
+  public static final class Index {
+    public static final int INDEX_MOTOR_ID = 16;
+    public static final double INDEX_SPEED = 0.5;
+    public static final int FUNNEL_MOTOR_ID = 19;
+    public static final double FUNNEL_SPEED = 0.5;
+  }
+
+  // Intake Constants
+  public static final class Intake {
+    public static final int LIFT_MOTOR_ID = 15;
+    public static final double LIFT_SPEED = 0.5;
+    public static final int LIFT_CURRENT_LIMIT = 30; // amps
+    public static final int ROLLER_MOTOR_ID = 17;
+    public static final double ROLLER_SPEED = 0.5;
+    public static final int ROLLER_CURRENT_LIMIT = 25; // amps
+  }
+
+  // Launch Constants
+  public static final class Launch {
+    public static final int MOTOR1_ID = 31;
+    public static final int MOTOR2_ID = 37;
+  }
+
+  // Turret Constants
+  public static final class Turret {
+    public static final int MOTOR_ID = 18;
+    public static final double TURRET_SPEED = 0.5;
   }
 }

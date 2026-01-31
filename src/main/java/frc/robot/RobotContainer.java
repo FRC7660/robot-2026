@@ -44,6 +44,22 @@ public class RobotContainer {
   // selection of desired auto
   private final SendableChooser<Command> autoChooser;
 
+  private double getRightXCorrected() {
+    double base = driverXbox.getRightX();
+    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
+      base *= -1;
+    }
+    return base;
+  }
+
+  private double getRightYCorrected() {
+    double base = driverXbox.getRightY();
+    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
+      base *= -1;
+    }
+    return base;
+  }
+
   /**
    * Converts driver input into a field-relative ChassisSpeeds that is controlled by angular
    * velocity.
@@ -62,8 +78,7 @@ public class RobotContainer {
   SwerveInputStream driveDirectAngle =
       driveAngularVelocity
           .copy()
-          .withControllerHeadingAxis(
-              () -> Math.pow(2, driverXbox.getRightX()), () -> Math.pow(2, driverXbox.getRightY()))
+          .withControllerHeadingAxis(() -> getRightXCorrected(), () -> getRightYCorrected())
           .headingWhile(true);
 
   /** Clone's the angular velocity input stream and converts it to a robotRelative input stream. */
@@ -136,7 +151,7 @@ public class RobotContainer {
     if (RobotBase.isSimulation()) {
       drivebase.setDefaultCommand(driveFieldOrientedDirectAngleKeyboard);
     } else {
-      drivebase.setDefaultCommand(driveFieldOrientedAnglularVelocity);
+      drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
     }
 
     if (Robot.isSimulation()) {
@@ -175,7 +190,7 @@ public class RobotContainer {
       driverXbox.leftBumper().onTrue(Commands.none());
       driverXbox.rightBumper().onTrue(Commands.none());
     } else {
-      driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyro)));
+      driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
       driverXbox.start().whileTrue(Commands.none());
       driverXbox.back().whileTrue(Commands.none());
