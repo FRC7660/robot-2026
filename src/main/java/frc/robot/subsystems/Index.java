@@ -6,8 +6,10 @@ import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
 import com.revrobotics.spark.config.SparkBaseConfig;
 import com.revrobotics.spark.config.SparkFlexConfig;
+import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
+import java.util.function.DoubleSupplier;
 
 // initializes index and funnel motors
 public class Index extends SubsystemBase {
@@ -47,5 +49,29 @@ public class Index extends SubsystemBase {
 
   public void setFunnelSpeed(double speed) {
     this.funnelMotor.set(speed);
+  }
+
+  private void run() {
+    setIndexSpeed(Constants.Index.INDEX_SPEED);
+    setFunnelSpeed(Constants.Index.FUNNEL_SPEED);
+  }
+
+  private void stop() {
+    setIndexSpeed(0);
+    setFunnelSpeed(0);
+  }
+
+  public Command runCommand() {
+    return startEnd(() -> run(), () -> stop());
+  }
+
+  public Command runCommand(DoubleSupplier speedSupplier) {
+    return runEnd(
+        () -> {
+          double speed = speedSupplier.getAsDouble();
+          setIndexSpeed(speed);
+          setFunnelSpeed(speed);
+        },
+        () -> stop());
   }
 }
