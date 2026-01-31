@@ -2,24 +2,24 @@ package frc.robot.subsystems;
 
 import com.revrobotics.PersistMode;
 import com.revrobotics.ResetMode;
+import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
-import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig;
-import com.revrobotics.spark.config.SparkMaxConfig;
+import com.revrobotics.spark.config.SparkFlexConfig;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 
 // initializes index and funnel motors
 public class Index extends SubsystemBase {
-  private final SparkMax indexMotor =
-      new SparkMax(Constants.Index.INDEX_MOTOR_ID, SparkLowLevel.MotorType.kBrushless);
+  private final SparkFlex indexMotor =
+      new SparkFlex(Constants.Index.INDEX_MOTOR_ID, SparkLowLevel.MotorType.kBrushless);
 
-  private final SparkMax funnelMotor =
-      new SparkMax(Constants.Index.FUNNEL_MOTOR_ID, SparkLowLevel.MotorType.kBrushless);
+  private final SparkFlex funnelMotor =
+      new SparkFlex(Constants.Index.FUNNEL_MOTOR_ID, SparkLowLevel.MotorType.kBrushless);
 
   public Index() {
-    SparkMaxConfig indexConfig = configureIndexMotor();
-    SparkMaxConfig funnelConfig = configureFunnelMotor();
+    SparkFlexConfig indexConfig = configureIndexMotor();
+    SparkFlexConfig funnelConfig = configureFunnelMotor();
 
     indexMotor.configure(
         indexConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
@@ -28,15 +28,15 @@ public class Index extends SubsystemBase {
   }
 
   // Index Motor Config
-  public SparkMaxConfig configureIndexMotor() {
-    SparkMaxConfig indexConfig = new SparkMaxConfig();
+  public SparkFlexConfig configureIndexMotor() {
+    SparkFlexConfig indexConfig = new SparkFlexConfig();
     indexConfig.idleMode(SparkBaseConfig.IdleMode.kBrake).inverted(false);
     return indexConfig;
   }
 
   // Funnel Motor Config
-  public SparkMaxConfig configureFunnelMotor() {
-    SparkMaxConfig funnelConfig = new SparkMaxConfig();
+  public SparkFlexConfig configureFunnelMotor() {
+    SparkFlexConfig funnelConfig = new SparkFlexConfig();
     funnelConfig.idleMode(SparkBaseConfig.IdleMode.kBrake).inverted(false);
     return funnelConfig;
   }
