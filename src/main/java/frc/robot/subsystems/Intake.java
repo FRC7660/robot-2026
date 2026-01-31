@@ -1,55 +1,48 @@
 package frc.robot.subsystems;
 
-import com.revrobotics.PersistMode;
-import com.revrobotics.ResetMode;
-import com.revrobotics.spark.SparkLowLevel;
-import com.revrobotics.spark.SparkMax;
-import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
-import com.revrobotics.spark.config.SparkMaxConfig;
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.DutyCycleOut;
+import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.InvertedValue;
+import com.ctre.phoenix6.signals.NeutralModeValue;
 import frc.robot.Constants;
 
 // initializes intake arm and roller motors
 public class Intake {
-  private final SparkMax liftMotor =
-      new SparkMax(Constants.Intake.LIFT_MOTOR_ID, SparkLowLevel.MotorType.kBrushless);
+  private final TalonFX liftMotor = new TalonFX(Constants.Intake.LIFT_MOTOR_ID);
+  private final TalonFX rollerMotor = new TalonFX(Constants.Intake.ROLLER_MOTOR_ID);
 
-  private final SparkMax rollerMotor =
-      new SparkMax(Constants.Intake.ROLLER_MOTOR_ID, SparkLowLevel.MotorType.kBrushless);
+  private final DutyCycleOut liftDutyCycle = new DutyCycleOut(0);
+  private final DutyCycleOut rollerDutyCycle = new DutyCycleOut(0);
 
   public Intake() {
-    SparkMaxConfig liftConfig = configureLiftMotor();
-    SparkMaxConfig rollerConfig = configureRollerMotor();
-
-    liftMotor.configure(liftConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
-    rollerMotor.configure(
-        rollerConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+    configureLiftMotor();
+    configureRollerMotor();
   }
 
   public void setArmSpeed(double speed) {
-    this.liftMotor.set(speed);
+    this.liftMotor.setControl(liftDutyCycle.withOutput(speed));
   }
 
   public void setRollerSpeed(double speed) {
-    this.rollerMotor.set(speed);
+    this.rollerMotor.setControl(rollerDutyCycle.withOutput(speed));
   }
 
   // Lift Motor Config
-  public SparkMaxConfig configureLiftMotor() {
-    SparkMaxConfig liftConfig = new SparkMaxConfig();
-    liftConfig
-        .idleMode(IdleMode.kBrake)
-        .smartCurrentLimit(Constants.Intake.LIFT_CURRENT_LIMIT)
-        .inverted(false);
-    return liftConfig;
+  public void configureLiftMotor() {
+    TalonFXConfiguration liftConfig = new TalonFXConfiguration();
+    liftConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+    liftConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+
+    liftMotor.getConfigurator().apply(liftConfig);
   }
 
   // Roller Motor Config
-  public SparkMaxConfig configureRollerMotor() {
-    SparkMaxConfig liftConfig = new SparkMaxConfig();
-    liftConfig
-        .idleMode(IdleMode.kBrake)
-        .smartCurrentLimit(Constants.Intake.ROLLER_CURRENT_LIMIT)
-        .inverted(false);
-    return liftConfig;
+  public void configureRollerMotor() {
+    TalonFXConfiguration rollerConfig = new TalonFXConfiguration();
+    rollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+    rollerConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+
+    rollerMotor.getConfigurator().apply(rollerConfig);
   }
 }
