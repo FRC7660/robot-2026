@@ -3,29 +3,29 @@ package frc.robot.subsystems;
 import com.revrobotics.PersistMode;
 import com.revrobotics.ResetMode;
 import com.revrobotics.spark.SparkLowLevel;
-import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
-import com.revrobotics.spark.config.SparkMaxConfig;
+import com.revrobotics.spark.config.SparkFlexConfig;
 import frc.robot.Constants;
 
 public class Launch {
-  private final SparkMax motor1 =
-      new SparkMax(Constants.Launch.MOTOR1_ID, SparkLowLevel.MotorType.kBrushless);
+  private final SparkFlex motor1 =
+      new SparkFlex(Constants.Launch.MOTOR1_ID, SparkLowLevel.MotorType.kBrushless);
 
-  private final SparkMax motor2 =
-      new SparkMax(Constants.Launch.MOTOR2_ID, SparkLowLevel.MotorType.kBrushless);
+  private final SparkFlex motor2 =
+      new SparkFlex(Constants.Launch.MOTOR2_ID, SparkLowLevel.MotorType.kBrushless);
 
   public Launch() {
-    SparkMaxConfig baseConfig = new SparkMaxConfig();
+    SparkFlexConfig baseConfig = new SparkFlexConfig();
     baseConfig.idleMode(IdleMode.kCoast);
 
     motor1.configure(
-        new SparkMaxConfig().apply(baseConfig).inverted(true),
+        new SparkFlexConfig().apply(baseConfig).inverted(true),
         ResetMode.kResetSafeParameters,
         PersistMode.kPersistParameters);
 
     motor2.configure(
-        new SparkMaxConfig().apply(baseConfig).inverted(false),
+        new SparkFlexConfig().apply(baseConfig).inverted(false),
         ResetMode.kResetSafeParameters,
         PersistMode.kPersistParameters);
   }
