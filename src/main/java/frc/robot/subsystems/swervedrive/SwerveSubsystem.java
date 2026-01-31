@@ -649,19 +649,12 @@ public class SwerveSubsystem extends SubsystemBase {
       double xInput, double yInput, double headingX, double headingY) {
     Translation2d scaledInputs = SwerveMath.cubeTranslation(new Translation2d(xInput, yInput));
 
-    // Mirror current heading as well so the controller computes omega in the same
-    // mirrored frame as the desired heading.
-    Rotation2d currentHeading = getHeading();
-    if (isRedAlliance()) {
-      currentHeading = currentHeading.plus(Rotation2d.fromDegrees(180.0));
-    }
-
     return swerveDrive.swerveController.getTargetSpeeds(
         scaledInputs.getX(),
         scaledInputs.getY(),
         headingX,
         headingY,
-        currentHeading.getRadians(),
+        getHeading().getRadians(),
         Constants.MAX_SPEED);
   }
 
@@ -678,16 +671,11 @@ public class SwerveSubsystem extends SubsystemBase {
   public ChassisSpeeds getTargetSpeeds(double xInput, double yInput, Rotation2d angle) {
     Translation2d scaledInputs = SwerveMath.cubeTranslation(new Translation2d(xInput, yInput));
 
-    Rotation2d currentHeading = getHeading();
-    if (isRedAlliance()) {
-      currentHeading = currentHeading.plus(Rotation2d.fromDegrees(180.0));
-    }
-
     return swerveDrive.swerveController.getTargetSpeeds(
         scaledInputs.getX(),
         scaledInputs.getY(),
         angle.getRadians(),
-        currentHeading.getRadians(),
+        getHeading().getRadians(),
         Constants.MAX_SPEED);
   }
 

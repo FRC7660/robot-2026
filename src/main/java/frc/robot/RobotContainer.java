@@ -44,14 +44,32 @@ public class RobotContainer {
   // selection of desired auto
   private final SendableChooser<Command> autoChooser;
 
+  private double getRightXCorrected(){
+    double base = driverXbox.getRightX();
+    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red){
+      base *= -1;
+    }
+    return base; 
+  }
+
+  private double getRightYCorrected(){
+    double base = driverXbox.getRightY();
+    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red){
+      base *= -1;
+    }
+    return base; 
+  }
+
   /**
    * Converts driver input into a field-relative ChassisSpeeds that is controlled by angular
    * velocity.
    */
   SwerveInputStream driveAngularVelocity =
       SwerveInputStream.of(
-              drivebase.getSwerveDrive(), () -> driverXbox.getLeftY(), () -> driverXbox.getLeftX())
-          .withControllerRotationAxis(() -> driverXbox.getRightX())
+              drivebase.getSwerveDrive(),
+              () -> driverXbox.getLeftY() * -1,
+              () -> driverXbox.getLeftX() * -1)
+          .withControllerRotationAxis(() -> driverXbox.getRightX() * -1)
           .deadband(OperatorConstants.DEADBAND)
           .scaleTranslation(0.8)
           .allianceRelativeControl(true);
@@ -61,7 +79,8 @@ public class RobotContainer {
       driveAngularVelocity
           .copy()
           .withControllerHeadingAxis(
-              () -> Math.pow(driverXbox.getRightX(), 1), () -> Math.pow(driverXbox.getRightY(), 1))
+              () -> getRightXCorrected(),
+              () -> getRightYCorrected())
           .headingWhile(true);
 
   /** Clone's the angular velocity input stream and converts it to a robotRelative input stream. */
