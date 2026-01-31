@@ -72,4 +72,10 @@ public final class Constants {
     public static final int MOTOR1_ID = 31;
     public static final int MOTOR2_ID = 37;
   }
+
+  // Turret Constants
+  public static final class Turret {
+    public static final int MOTOR_ID = 18;
+    public static final double TURRET_SPEED = 0.5;
+  }
 }
