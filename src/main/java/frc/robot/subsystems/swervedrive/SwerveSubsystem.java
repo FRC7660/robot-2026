@@ -61,6 +61,7 @@ public class SwerveSubsystem extends SubsystemBase {
 
   /** PhotonVision class to keep an accurate odometry. */
   private Vision vision;
+
   /** Printer that logs photonvision object-detection once per second. */
   private PhotonObjectPrinter photonObjectPrinter;
 
