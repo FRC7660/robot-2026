@@ -44,20 +44,20 @@ public class RobotContainer {
   // selection of desired auto
   private final SendableChooser<Command> autoChooser;
 
-  private double getRightXCorrected(){
+  private double getRightXCorrected() {
     double base = driverXbox.getRightX();
-    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red){
+    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
       base *= -1;
     }
-    return base; 
+    return base;
   }
 
-  private double getRightYCorrected(){
+  private double getRightYCorrected() {
     double base = driverXbox.getRightY();
-    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red){
+    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
       base *= -1;
     }
-    return base; 
+    return base;
   }
 
   /**
@@ -78,9 +78,7 @@ public class RobotContainer {
   SwerveInputStream driveDirectAngle =
       driveAngularVelocity
           .copy()
-          .withControllerHeadingAxis(
-              () -> getRightXCorrected(),
-              () -> getRightYCorrected())
+          .withControllerHeadingAxis(() -> getRightXCorrected(), () -> getRightYCorrected())
           .headingWhile(true);
 
   /** Clone's the angular velocity input stream and converts it to a robotRelative input stream. */
