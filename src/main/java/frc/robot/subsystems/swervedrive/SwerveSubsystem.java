@@ -42,6 +42,7 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.json.simple.parser.ParseException;
 import org.photonvision.targeting.PhotonPipelineResult;
+import org.photonvision.targeting.PhotonTrackedTarget;
 import swervelib.SwerveController;
 import swervelib.SwerveDrive;
 import swervelib.SwerveDriveTest;
@@ -247,6 +248,101 @@ public class SwerveSubsystem extends SubsystemBase {
             }
           }
         });
+  }
+
+  /**
+   * Track a detected object (e.g. a ball) using PhotonVision object-detection.
+   * The command will run
+   * for {@code durationSeconds} seconds and continuously rotate the robot toward
+   * the object's yaw
+   * and drive forward based on the detected area (a proxy for distance).
+   *
+   * <p>
+   * This is a simple proportional controller and intended as a low-risk helper
+   * that can be bound
+   * to a button: e.g. schedule the returned command when a joystick button is
+   * pressed.
+   *
+   * @param camera          the camera to read results from (use {@link Cameras})
+   * @param durationSeconds how long to run the tracking for
+   * @return a {@link Command} that performs the timed tracking
+   */
+  public Command trackDetectedObject(Cameras camera, double durationSeconds) {
+    // Tunable gains and thresholds; adjust on robot for best behaviour
+    final double kYawDegToRadPerSec = 0.02; // scale yaw (deg) -> deg/s then convert to rad/s
+    final double maxAngularRadPerSec = Math.toRadians(180.0); // clamp rotation speed
+    final double yawToleranceDeg = 10.0; // degrees within which we consider we are aimed
+
+    final double targetArea = 0.02; // example area value considered "close" (tune)
+    final double kAreaForward = 1.0; // meters/sec per area-difference (scaled below)
+    final double maxForward = swerveDrive.getMaximumChassisVelocity() * 0.5;
+
+    return run(() -> {
+      var opt = camera.getLatestResult();
+      double rotationRadPerSec = 0.0;
+      double forwardMps = 0.0;
+
+      if (opt.isPresent()) {
+        PhotonPipelineResult res = opt.get();
+        if (res.hasTargets()) {
+          PhotonTrackedTarget t = res.getBestTarget();
+          double yawDeg = t.getYaw();
+          double area = t.getArea();
+
+          // Rotation: proportional on yaw (deg -> deg/s), then convert to rad/s
+          if (Math.abs(yawDeg) > yawToleranceDeg) {
+            double rotDegPerSec = kYawDegToRadPerSec * yawDeg;
+            rotationRadPerSec = Math.toRadians(rotDegPerSec);
+            rotationRadPerSec = Math.max(
+                -maxAngularRadPerSec, Math.min(maxAngularRadPerSec, rotationRadPerSec));
+          } else {
+            rotationRadPerSec = 0.0;
+          }
+
+          // Forward drive: if area smaller than target, drive forward proportional
+          if (area < targetArea) {
+            double areaError = targetArea - area;
+            forwardMps = Math.min(maxForward, kAreaForward * areaError * maxForward);
+          } else {
+            forwardMps = 0.0;
+          }
+        }
+      }
+
+      // Drive: field-relative forward (x) while rotating to aim. Open-loop false
+      swerveDrive.drive(
+          new edu.wpi.first.math.geometry.Translation2d(forwardMps, 0.0),
+          rotationRadPerSec,
+          true,
+          false);
+    })
+        .withTimeout(durationSeconds)
+        .finallyDo(
+            () -> swerveDrive.drive(
+                new edu.wpi.first.math.geometry.Translation2d(0, 0), 0, true, false));
+  }
+
+  /**
+   * Helper overload that accepts the camera enum name as a string. This is
+   * convenient for callers
+   * outside the package that cannot reference the package-private
+   * {@code Vision.Cameras} type.
+   *
+   * @param cameraEnumName  the enum constant name from {@code Vision.Cameras},
+   *                        e.g. "CENTER_CAM" or
+   *                        "BACK_CAM"
+   * @param durationSeconds timeout for the tracking command
+   * @return the tracking {@link Command} or {@link Commands#none()} if the name
+   *         is invalid
+   */
+  public Command trackDetectedObjectByCameraName(String cameraEnumName, double durationSeconds) {
+    try {
+      Cameras cam = Cameras.valueOf(cameraEnumName);
+      return trackDetectedObject(cam, durationSeconds);
+    } catch (IllegalArgumentException e) {
+      // Invalid camera name: return a noop command
+      return Commands.none();
+    }
   }
 
   /**
