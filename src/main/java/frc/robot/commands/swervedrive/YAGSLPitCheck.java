@@ -45,7 +45,7 @@ public class YAGSLPitCheck extends Command {
   public void execute() {
     double elapsed = timer.get();
 
-    // Stage 1: Align all wheels to 0 degrees (0 - 1.5s)
+    // Stage 1: Align all wheels to 90 degrees (0 - 1.5s)
     if (elapsed < 1.5) {
       for (SwerveModule module : swerveDrive.getModules()) {
         module.setAngle(90.0);
@@ -60,7 +60,7 @@ public class YAGSLPitCheck extends Command {
       runHardwareSanityChecks();
       // YAGSL setRaw method to spin drive motors directly
       for (SwerveModule module : swerveDrive.getModules()) {
-        if (module.moduleNumber == Math.floor(elapsed - 3.0)) { // counting from 0 to 3
+        if (module.moduleNumber == Math.floor((elapsed - 1.5) * 2.666)) { // counting from 0 to 3 over 1.5s
           identificationDrive(module, 2);
         }
       }
@@ -78,13 +78,16 @@ public class YAGSLPitCheck extends Command {
       }
     }
 
-    // Stage 4: Angle check
+    // Stage 4: Realign wheels to 90 degrees (7s - 9s)
     else if (elapsed < 9.0) {
+      // Actively control angle back to 90 degrees using PID
       for (SwerveModule module : swerveDrive.getModules()) {
-        identificationTwirl(module, 0);
+        module.setAngle(90.0);
       }
-      // dead period (allow the last wheel to realign from twirling)
-    } else if (elapsed > 9.0) {
+    }
+    
+    // Stage 5: Final alignment check with motors in coast mode (9s+)
+    else if (elapsed > 9.0) {
       swerveDrive.setMotorIdleMode(false);
       for (SwerveModule module : swerveDrive.getModules()) {
         module.getAngleMotor().setMotorBrake(false);
@@ -132,12 +135,12 @@ public class YAGSLPitCheck extends Command {
     int number = module.moduleNumber;
     String name = "ModuleNum" + number;
     String path = "Diag/" + name + "/";
-    module.getAngleMotor().setVoltage(voltage);
+    module.getDriveMotor().setVoltage(voltage);
     Double vel = module.getDriveMotor().getVelocity();
     if (Math.abs(vel) > 0) {
-      SmartDashboard.putBoolean(path + "Twirl Complete", true);
+      SmartDashboard.putBoolean(path + "Drive Complete", true);
     }
-    SmartDashboard.putNumber(path + "Spin Velocity", vel);
+    SmartDashboard.putNumber(path + "Drive Velocity", vel);
   }
 
   private void intelligentHelperFunction(SwerveModule module) {
