@@ -38,7 +38,7 @@ public class YAGSLPitCheck extends Command {
 
   public void start() {
     timer.reset();
-    //stage1start = false;
+    // stage1start = false;
   }
 
   @Override
@@ -50,8 +50,8 @@ public class YAGSLPitCheck extends Command {
       for (SwerveModule module : swerveDrive.getModules()) {
         module.setAngle(90.0);
       }
-        //drivebase.drive(new Translation2d(0, 1), 0, false);
-       
+      // drivebase.drive(new Translation2d(0, 1), 0, false);
+
     }
 
     // Stage 2: Spin Drive Motors at 10% (1.5s - 3s)
@@ -85,10 +85,13 @@ public class YAGSLPitCheck extends Command {
       }
       // dead period (allow the last wheel to realign from twirling)
     } else if (elapsed > 9.0) {
+      for (SwerveModule module : swerveDrive.getModules()) {
+        module.setAngle(90.0);
+      }
       swerveDrive.setMotorIdleMode(false);
       for (SwerveModule module : swerveDrive.getModules()) {
         module.getAngleMotor().setMotorBrake(false);
-        alignmentCheck(module,elapsed);
+        alignmentCheck(module, elapsed);
       }
     }
   }
@@ -103,11 +106,12 @@ public class YAGSLPitCheck extends Command {
       SmartDashboard.putString(path + "Alignment Result", "READ ERROR");
     } else if (angleCorrect == false) {
       SmartDashboard.putString(
-          path + "Alignment Result", "MISALIGNED: " + (Math.abs(90 - module.getAbsolutePosition() % 180)));
+          path + "Alignment Result",
+          "MISALIGNED: " + (Math.abs(90 - module.getAbsolutePosition() % 180)));
     } else {
       SmartDashboard.putString(path + "Alignment Result", "Aligned");
     }
-    SmartDashboard.putString(path, words[((int) Math.floor((number + time*-2)) % 4)]);
+    // SmartDashboard.putString(path, words[((int) Math.floor((number + time * -2)) % 4)]);
   }
 
   private void runHardwareSanityChecks() {
@@ -132,12 +136,12 @@ public class YAGSLPitCheck extends Command {
     int number = module.moduleNumber;
     String name = "ModuleNum" + number;
     String path = "Diag/" + name + "/";
-    module.getAngleMotor().setVoltage(voltage);
+    module.getDriveMotor().setVoltage(voltage);
     Double vel = module.getDriveMotor().getVelocity();
-    if (Math.abs(vel) > 0) {
-      SmartDashboard.putBoolean(path + "Twirl Complete", true);
-    }
-    SmartDashboard.putNumber(path + "Spin Velocity", vel);
+    // if (Math.abs(vel) > 0) {
+    //   SmartDashboard.putBoolean(path + "Twirl Complete", true);
+    // }
+    // SmartDashboard.putNumber(path + "Spin Velocity", vel);
   }
 
   private void intelligentHelperFunction(SwerveModule module) {
