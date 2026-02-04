@@ -533,14 +533,6 @@ public class SwerveSubsystem extends SubsystemBase {
     return swerveDrive.getPose();
   }
 
-  /**
-   * Gets the current robot translation (x, y) position from odometry.
-   *
-   * <p>This is a convenience accessor that returns the {@link Translation2d} component of the
-   * {@link Pose2d} returned by the underlying drive's odometry.
-   *
-   * @return The robot's translation in field coordinates (meters).
-   */
   
 
   /**
