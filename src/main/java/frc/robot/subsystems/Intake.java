@@ -73,10 +73,8 @@ public class Intake extends SubsystemBase {
   public void runArm() {
     setArmSpeed(Constants.Intake.LIFT_SPEED);
   }
+
   public void stopArm() {
     setArmSpeed(0);
   }
-
-  
-
 }
