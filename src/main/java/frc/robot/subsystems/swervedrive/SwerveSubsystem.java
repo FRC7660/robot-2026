@@ -530,7 +530,7 @@ public class SwerveSubsystem extends SubsystemBase {
    * @return The robot's pose
    */
   public Pose2d getPose() {
-    
+    return swerveDrive.getPose();
   }
 
   /**
@@ -541,9 +541,7 @@ public class SwerveSubsystem extends SubsystemBase {
    *
    * @return The robot's translation in field coordinates (meters).
    */
-  public Translation2d getPositionTranslation2d() {
-    return getPose().getTranslation();
-  }
+  
 
   /**
    * Set chassis speeds with closed-loop velocity control.
