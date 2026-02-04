@@ -41,8 +41,6 @@ public class RobotContainer {
   private final SwerveSubsystem drivebase =
       new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-chassis0"));
 
-  private final YAGSLPitCheck pitCheck = new YAGSLPitCheck(drivebase);
-
   // Establish a Sendable Chooser that will be able to be sent to the SmartDashboard, allowing
   // selection of desired auto
   private final SendableChooser<Command> autoChooser;
@@ -175,7 +173,8 @@ public class RobotContainer {
       driverXbox.x().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
       driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
       driverXbox.back().whileTrue(drivebase.centerModulesCommand());
-      //driverXbox.leftBumper().onTrue(Commands.runOnce(pitCheck::start, drivebase).andThen(pitCheck::execute, drivebase));
+      // driverXbox.leftBumper().onTrue(Commands.runOnce(pitCheck::start,
+      // drivebase).andThen(pitCheck::execute, drivebase));
       // This starts the command when you press LB, and stops it immediately when you let go.
       driverXbox.leftBumper().whileTrue(new YAGSLPitCheck(drivebase));
       driverXbox.rightBumper().onTrue(Commands.none());
