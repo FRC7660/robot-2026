@@ -26,7 +26,7 @@ public class YAGSLPitCheck extends Command {
     // this.subsystemOfSwerve = subsystemOfSwerve;
     this.drivebase = drivebase;
     this.swerveDrive = drivebase.getSwerveDrive();
-    // addRequirements(drivebase);
+    addRequirements(drivebase);
   }
 
   @Override
@@ -38,7 +38,7 @@ public class YAGSLPitCheck extends Command {
 
   public void start() {
     timer.reset();
-    stage1start = false;
+    //stage1start = false;
   }
 
   @Override
@@ -47,10 +47,11 @@ public class YAGSLPitCheck extends Command {
 
     // Stage 1: Align all wheels to 0 degrees (0 - 1.5s)
     if (elapsed < 1.5) {
-      if (stage1start == false) {
-        drivebase.drive(new Translation2d(0, 1), 0, false);
-        stage1start = true;
+      for (SwerveModule module : swerveDrive.getModules()) {
+        module.setAngle(90.0);
       }
+        //drivebase.drive(new Translation2d(0, 1), 0, false);
+       
     }
 
     // Stage 2: Spin Drive Motors at 10% (1.5s - 3s)
@@ -59,21 +60,29 @@ public class YAGSLPitCheck extends Command {
       runHardwareSanityChecks();
       // YAGSL setRaw method to spin drive motors directly
       for (SwerveModule module : swerveDrive.getModules()) {
-        module.getDriveMotor().set(0.2);
+        if (module.moduleNumber == Math.floor(elapsed - 3.0)) { // counting from 0 to 3
+          identificationDrive(module, 2);
+        }
       }
     }
 
     // Stage 3: Spin Angle Motors consecutively at 10% (3s - 7s)
     else if (elapsed < 7.0) {
       for (SwerveModule module : swerveDrive.getModules()) {
+        identificationTwirl(module, 0);
+      }
+      for (SwerveModule module : swerveDrive.getModules()) {
         if (module.moduleNumber == Math.floor(elapsed - 3.0)) { // counting from 0 to 3
-          identificationTwirl(module);
+          identificationTwirl(module, 2);
         }
       }
     }
 
     // Stage 4: Angle check
     else if (elapsed < 9.0) {
+      for (SwerveModule module : swerveDrive.getModules()) {
+        identificationTwirl(module, 0);
+      }
       // dead period (allow the last wheel to realign from twirling)
     } else if (elapsed > 9.0) {
       swerveDrive.setMotorIdleMode(false);
@@ -107,12 +116,24 @@ public class YAGSLPitCheck extends Command {
     }
   }
 
-  private void identificationTwirl(SwerveModule module) {
+  private void identificationTwirl(SwerveModule module, int voltage) {
     int number = module.moduleNumber;
     String name = "ModuleNum" + number;
     String path = "Diag/" + name + "/";
-    module.getAngleMotor().setVoltage(2);
+    module.getAngleMotor().setVoltage(voltage);
     Double vel = module.getAngleMotor().getVelocity();
+    if (Math.abs(vel) > 0) {
+      SmartDashboard.putBoolean(path + "Twirl Complete", true);
+    }
+    SmartDashboard.putNumber(path + "Spin Velocity", vel);
+  }
+
+  private void identificationDrive(SwerveModule module, int voltage) {
+    int number = module.moduleNumber;
+    String name = "ModuleNum" + number;
+    String path = "Diag/" + name + "/";
+    module.getAngleMotor().setVoltage(voltage);
+    Double vel = module.getDriveMotor().getVelocity();
     if (Math.abs(vel) > 0) {
       SmartDashboard.putBoolean(path + "Twirl Complete", true);
     }
