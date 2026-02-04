@@ -534,6 +534,18 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
+   * Gets the current robot translation (x, y) position from odometry.
+   *
+   * <p>This is a convenience accessor that returns the {@link Translation2d} component of the
+   * {@link Pose2d} returned by the underlying drive's odometry.
+   *
+   * @return The robot's translation in field coordinates (meters).
+   */
+  public Translation2d getPositionTranslation2d() {
+    return getPose().getTranslation();
+  }
+
+  /**
    * Set chassis speeds with closed-loop velocity control.
    *
    * @param chassisSpeeds Chassis Speeds to set.
