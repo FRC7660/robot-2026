@@ -58,7 +58,7 @@ public class Intake extends SubsystemBase {
   }
 
   public Command runCommand() {
-    return startEnd(() -> run(), () -> stop());
+    return startEnd(() -> runRoller(), () -> stopRoller());
   }
 
   public Command runCommand(DoubleSupplier speedSupplier) {
@@ -67,7 +67,7 @@ public class Intake extends SubsystemBase {
           double speed = speedSupplier.getAsDouble();
           setRollerSpeed(speed);
         },
-        () -> stop());
+        () -> stopRoller());
   }
 
   public void runArm() {
