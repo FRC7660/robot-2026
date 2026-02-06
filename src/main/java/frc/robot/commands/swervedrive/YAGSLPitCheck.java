@@ -9,10 +9,9 @@ import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import swervelib.SwerveDrive;
 import swervelib.SwerveModule;
 
-// import frc.robot.Constants;
+import frc.robot.Constants.PitCheckConstants;
 
 public class YAGSLPitCheck extends Command {
-  // private final Subsystem subsystemOfSwerve;
   private final SwerveSubsystem drivebase;
   private final SwerveDrive swerveDrive;
   private final Timer timer = new Timer();
@@ -38,7 +37,6 @@ public class YAGSLPitCheck extends Command {
 
   public void start() {
     timer.reset();
-    //stage1start = false;
   }
 
   @Override
@@ -69,7 +67,7 @@ public class YAGSLPitCheck extends Command {
     // Stage 3: Spin Angle Motors consecutively at 10% (3s - 7s)
     else if (elapsed < 7.0) {
       for (SwerveModule module : swerveDrive.getModules()) {
-        identificationTwirl(module, 0);
+        identificationDrive(module, 0);
       }
       for (SwerveModule module : swerveDrive.getModules()) {
         if (module.moduleNumber == Math.floor(elapsed - 3.0)) { // counting from 0 to 3
@@ -101,7 +99,7 @@ public class YAGSLPitCheck extends Command {
     String name = "ModuleNum" + number;
     String path = "Diag/" + name + "/";
     boolean readError = (module.getAbsoluteEncoderReadIssue());
-    boolean angleCorrect = (Math.abs(90 - module.getAbsolutePosition() % 180) < 4);
+    boolean angleCorrect = (Math.abs(90 - module.getAbsolutePosition() % 180) < PitCheckConstants.ANGLE_ENCODER_TOLERANCE);
     if (readError) {
       SmartDashboard.putString(path + "Alignment Result", "READ ERROR");
     } else if (angleCorrect == false) {
@@ -110,7 +108,8 @@ public class YAGSLPitCheck extends Command {
     } else {
       SmartDashboard.putString(path + "Alignment Result", "Aligned");
     }
-    SmartDashboard.putString(path, words[((int) Math.floor((number + time*-2)) % 4)]);
+    SmartDashboard.putNumber(path + "Absolute Encoder Value", module.getAbsolutePosition());
+    //SmartDashboard.putString(path, words[((int) Math.floor((number + time*-2)) % 4)]);
   }
 
   private void runHardwareSanityChecks() {
