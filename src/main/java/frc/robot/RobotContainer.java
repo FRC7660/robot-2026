@@ -150,6 +150,7 @@ public class RobotContainer {
    * {@link edu.wpi.first.wpilibj2.command.button.CommandJoystick Flight
    * joysticks}.
    */
+
   private void configureBindings() {
     Command driveFieldOrientedDirectAngle = drivebase.driveFieldOriented(driveDirectAngle);
     Command driveFieldOrientedAnglularVelocity = drivebase.driveFieldOriented(driveAngularVelocity);
@@ -164,7 +165,8 @@ public class RobotContainer {
     } else {
       drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
     }
-
+    // driverXbox.rightBumper().onTrue(drivebase.trackDetectedObjectByCameraName("camera0",
+    // 3.0));
     if (Robot.isSimulation()) {
       Pose2d target = new Pose2d(new Translation2d(1, 4), Rotation2d.fromDegrees(90));
       // drivebase.getSwerveDrive().field.getObject("targetPose").setPose(target);
@@ -191,7 +193,10 @@ public class RobotContainer {
               drivebase.driveToPose(
                   new Pose2d(new Translation2d(14, 3), Rotation2d.fromDegrees(180))));
     }
+    System.out.println("Pre-Test");
+
     if (DriverStation.isTest()) {
+      System.out.println("Yay it's working");
       drivebase.setDefaultCommand(
           driveFieldOrientedAnglularVelocity); // Overrides drive command above!
 
@@ -199,7 +204,7 @@ public class RobotContainer {
       driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
       driverXbox.back().whileTrue(drivebase.centerModulesCommand());
       driverXbox.leftBumper().onTrue(Commands.none());
-      driverXbox.rightBumper().onTrue(drivebase.trackDetectedObjectByCameraName("CENTER_CAM", 3.0));
+      driverXbox.rightBumper().onTrue(drivebase.trackDetectedObjectByCameraName("CAMERA0", 3.0));
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
