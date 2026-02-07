@@ -281,7 +281,7 @@ public class SwerveSubsystem extends SubsystemBase {
       var opt = camera.getLatestResult();
       double rotationRadPerSec = 0.0;
       double forwardMps = 0.0;
-
+      System.out.println("RUN");
       if (opt.isPresent()) {
         PhotonPipelineResult res = opt.get();
         if (res.hasTargets()) {
@@ -310,6 +310,7 @@ public class SwerveSubsystem extends SubsystemBase {
       }
 
       // Drive: field-relative forward (x) while rotating to aim. Open-loop false
+      System.out.println(forwardMps + ": " + rotationRadPerSec);
       swerveDrive.drive(
           new edu.wpi.first.math.geometry.Translation2d(forwardMps, 0.0),
           rotationRadPerSec,
@@ -336,6 +337,7 @@ public class SwerveSubsystem extends SubsystemBase {
    *         is invalid
    */
   public Command trackDetectedObjectByCameraName(String cameraEnumName, double durationSeconds) {
+    System.out.println("  trackDetectedObjectByCameraName ");
     try {
       Cameras cam = Cameras.valueOf(cameraEnumName);
       return trackDetectedObject(cam, durationSeconds);
