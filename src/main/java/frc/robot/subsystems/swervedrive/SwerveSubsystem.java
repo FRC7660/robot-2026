@@ -278,12 +278,12 @@ public class SwerveSubsystem extends SubsystemBase {
     final double maxForward = swerveDrive.getMaximumChassisVelocity() * 0.5;
 
     return run(() -> {
-      var opt = camera.getLatestResult();
+      Optional<PhotonPipelineResult> resultO = Optional.ofNullable(camera.camera.getLatestResult());
       double rotationRadPerSec = 0.0;
       double forwardMps = 0.0;
       System.out.println("RUN");
-      if (opt.isPresent()) {
-        PhotonPipelineResult res = opt.get();
+      if (resultO.isPresent()) {
+        PhotonPipelineResult res = resultO.get();
         if (res.hasTargets()) {
           PhotonTrackedTarget t = res.getBestTarget();
           double yawDeg = t.getYaw();
