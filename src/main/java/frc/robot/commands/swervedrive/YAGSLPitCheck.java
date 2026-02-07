@@ -5,21 +5,18 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import frc.robot.Constants.PitCheckConstants;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import swervelib.SwerveDrive;
 import swervelib.SwerveModule;
-
-import frc.robot.Constants.PitCheckConstants;
 
 public class YAGSLPitCheck extends Command {
   private final SwerveSubsystem drivebase;
   private final SwerveDrive swerveDrive;
   private final Timer timer = new Timer();
-  private boolean stage1start = false;
-  private String[] words = {"DONE", "...", "...", "..."};
 
-  // Config: Adjust these to match your robot's gear ratios
-  private final double STEER_GEAR_RATIO = 12.1; // Example for Mk4i
+  // private boolean stage1start = false;
+  // private String[] words = {"DONE", "...", "...", "..."};
 
   public YAGSLPitCheck(SwerveSubsystem drivebase) {
     // this.subsystemOfSwerve = subsystemOfSwerve;
@@ -32,7 +29,7 @@ public class YAGSLPitCheck extends Command {
   public void initialize() {
     timer.restart();
     System.out.println("restarting pit check");
-    stage1start = false;
+    // stage1start = false;
   }
 
   public void start() {
@@ -43,13 +40,13 @@ public class YAGSLPitCheck extends Command {
   public void execute() {
     double elapsed = timer.get();
 
-    // Stage 1: Align all wheels to 90 degrees (0 - 1.5s)
+    // Stage 1: Align all wheels to 0 degrees (0 - 1.5s)
     if (elapsed < 1.5) {
       for (SwerveModule module : swerveDrive.getModules()) {
-        module.setAngle(90.0);
+        module.setAngle(0.0);
       }
-        //drivebase.drive(new Translation2d(0, 1), 0, false);
-       
+      // drivebase.drive(new Translation2d(0, 1), 0, false);
+
     }
 
     // Stage 2: Spin Drive Motors at 10% (1.5s - 3s)
@@ -58,8 +55,9 @@ public class YAGSLPitCheck extends Command {
       runHardwareSanityChecks();
       // YAGSL setRaw method to spin drive motors directly
       for (SwerveModule module : swerveDrive.getModules()) {
-        if (module.moduleNumber == Math.floor((elapsed - 1.5) * 2.666)) { // counting from 0 to 3 over 1.5s
-          identificationDrive(module, 2);
+        if (module.moduleNumber
+            == Math.floor((elapsed - 1.5) * 2.666)) { // counting from 0 to 3 over 1.5s
+          identificationDrive(module, PitCheckConstants.MOTOR_TEST_VOLTAGE);
         }
       }
     }
@@ -71,25 +69,25 @@ public class YAGSLPitCheck extends Command {
       }
       for (SwerveModule module : swerveDrive.getModules()) {
         if (module.moduleNumber == Math.floor(elapsed - 3.0)) { // counting from 0 to 3
-          identificationTwirl(module, 2);
+          identificationTwirl(module, PitCheckConstants.MOTOR_TEST_VOLTAGE);
         }
       }
     }
 
-    // Stage 4: Realign wheels to 90 degrees (7s - 9s)
+    // Stage 4: Realign wheels to 0 degrees (7s - 9s)
     else if (elapsed < 9.0) {
-      // Actively control angle back to 90 degrees using PID
+      // Actively control angle back to 0 degrees using PID
       for (SwerveModule module : swerveDrive.getModules()) {
-        module.setAngle(90.0);
+        module.setAngle(0.0);
       }
     }
-    
+
     // Stage 5: Final alignment check with motors in coast mode (9s+)
     else if (elapsed > 9.0) {
       swerveDrive.setMotorIdleMode(false);
       for (SwerveModule module : swerveDrive.getModules()) {
         module.getAngleMotor().setMotorBrake(false);
-        alignmentCheck(module,elapsed);
+        alignmentCheck(module, elapsed);
       }
     }
   }
@@ -99,17 +97,19 @@ public class YAGSLPitCheck extends Command {
     String name = "ModuleNum" + number;
     String path = "Diag/" + name + "/";
     boolean readError = (module.getAbsoluteEncoderReadIssue());
-    boolean angleCorrect = (Math.abs(90 - module.getAbsolutePosition() % 180) < PitCheckConstants.ANGLE_ENCODER_TOLERANCE);
+    boolean angleCorrect =
+        (Math.abs(module.getAbsolutePosition() % 180) < PitCheckConstants.ANGLE_ENCODER_TOLERANCE);
     if (readError) {
       SmartDashboard.putString(path + "Alignment Result", "READ ERROR");
     } else if (angleCorrect == false) {
       SmartDashboard.putString(
-          path + "Alignment Result", "MISALIGNED: " + (Math.abs(90 - module.getAbsolutePosition() % 180)));
+          path + "Alignment Result",
+          "MISALIGNED: " + (Math.abs(module.getAbsolutePosition() % 180)));
     } else {
       SmartDashboard.putString(path + "Alignment Result", "Aligned");
     }
     SmartDashboard.putNumber(path + "Absolute Encoder Value", module.getAbsolutePosition());
-    //SmartDashboard.putString(path, words[((int) Math.floor((number + time*-2)) % 4)]);
+    // SmartDashboard.putString(path, words[((int) Math.floor((number + time*-2)) % 4)]);
   }
 
   private void runHardwareSanityChecks() {
@@ -118,7 +118,7 @@ public class YAGSLPitCheck extends Command {
     }
   }
 
-  private void identificationTwirl(SwerveModule module, int voltage) {
+  private void identificationTwirl(SwerveModule module, double voltage) {
     int number = module.moduleNumber;
     String name = "ModuleNum" + number;
     String path = "Diag/" + name + "/";
@@ -130,7 +130,7 @@ public class YAGSLPitCheck extends Command {
     SmartDashboard.putNumber(path + "Spin Velocity", vel);
   }
 
-  private void identificationDrive(SwerveModule module, int voltage) {
+  private void identificationDrive(SwerveModule module, double voltage) {
     int number = module.moduleNumber;
     String name = "ModuleNum" + number;
     String path = "Diag/" + name + "/";
@@ -162,7 +162,8 @@ public class YAGSLPitCheck extends Command {
     SmartDashboard.putNumber(path + "Stator Amps", amps);
 
     // Check for mechanical binding (> 2A at only 20% output is a bad sign)
-    SmartDashboard.putBoolean(path + "Drive Resistance OK", Math.abs(amps) < 2.0);
+    SmartDashboard.putBoolean(
+        path + "Drive Resistance OK", Math.abs(amps) < PitCheckConstants.STATOR_AMPS_THRESHOLD);
 
     // 4. Relative vs Absolute Consistency
     // Note: YAGSL handles the CANcoder, but we check the Kraken's internal rotor here
@@ -170,8 +171,9 @@ public class YAGSLPitCheck extends Command {
     double absolutePos = module.getAbsoluteEncoder().getAbsolutePosition(); // Degrees/Rotations
 
     // Verify if the internal rotor matches what the absolute encoder sees
-    double expectedAbs = (rotorPos / STEER_GEAR_RATIO) % 1.0;
-    boolean alignmentOK = Math.abs(expectedAbs - (absolutePos / 360.0)) < 0.05;
+    double expectedAbs = (rotorPos / PitCheckConstants.STEER_GEAR_RATIO) % 1.0;
+    boolean alignmentOK =
+        Math.abs(expectedAbs - (absolutePos / 360.0)) < PitCheckConstants.ALIGNMENT_ANGLE_TOLERANCE;
     // SmartDashboard.putBoolean(path + "Alignment OK", alignmentOK);
 
     // 5. Fault Reporting
