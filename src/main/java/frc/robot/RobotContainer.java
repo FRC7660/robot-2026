@@ -24,6 +24,8 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OperatorConstants;
 import frc.robot.commands.swervedrive.MisalignCorrection;
 import frc.robot.commands.swervedrive.YAGSLPitCheck;
+import frc.robot.commands.turret.DefaultCommand;
+import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
 import swervelib.SwerveInputStream;
@@ -45,9 +47,28 @@ public class RobotContainer {
   private final MisalignCorrection misalignCorrection =
       new MisalignCorrection(drivebase, chassisDirectory);
 
+  // Turret subsystem, constructed with a supplier that returns the current odometry pose
+  private final Turret turret = new Turret(drivebase::getPose);
+
   // Establish a Sendable Chooser that will be able to be sent to the SmartDashboard, allowing
   // selection of desired auto
   private final SendableChooser<Command> autoChooser;
+
+  private double getRightXCorrected() {
+    double base = driverXbox.getRightX();
+    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
+      base *= -1;
+    }
+    return base;
+  }
+
+  private double getRightYCorrected() {
+    double base = driverXbox.getRightY();
+    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
+      base *= -1;
+    }
+    return base;
+  }
 
   /**
    * Converts driver input into a field-relative ChassisSpeeds that is controlled by angular
@@ -67,8 +88,7 @@ public class RobotContainer {
   SwerveInputStream driveDirectAngle =
       driveAngularVelocity
           .copy()
-          .withControllerHeadingAxis(
-              () -> Math.pow(2, driverXbox.getRightX()), () -> Math.pow(2, driverXbox.getRightY()))
+          .withControllerHeadingAxis(() -> getRightXCorrected(), () -> getRightYCorrected())
           .headingWhile(true);
 
   /** Clone's the angular velocity input stream and converts it to a robotRelative input stream. */
@@ -115,6 +135,9 @@ public class RobotContainer {
 
     // Put the autoChooser on the SmartDashboard
     SmartDashboard.putData("Auto Chooser", autoChooser);
+
+    // Set the turret default command to compute targets from odometry
+    turret.setDefaultCommand(new DefaultCommand(turret));
   }
 
   /**
@@ -141,7 +164,7 @@ public class RobotContainer {
     if (RobotBase.isSimulation()) {
       drivebase.setDefaultCommand(driveFieldOrientedDirectAngleKeyboard);
     } else {
-      drivebase.setDefaultCommand(driveFieldOrientedAnglularVelocity);
+      drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
     }
 
     if (Robot.isSimulation()) {
@@ -183,7 +206,7 @@ public class RobotContainer {
       driverXbox.leftBumper().whileTrue(new YAGSLPitCheck(drivebase));
       driverXbox.rightBumper().onTrue(Commands.runOnce(misalignCorrection::execute));
     } else {
-      driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyro)));
+      driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
       driverXbox.start().whileTrue(Commands.none());
       driverXbox.back().whileTrue(Commands.none());
