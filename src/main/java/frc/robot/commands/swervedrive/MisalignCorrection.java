@@ -25,7 +25,7 @@ public class MisalignCorrection extends Command {
     // SwerveModule[] modules = swerveDrive.getModules();
     double[] beforeAngles = new double[4];
 
-    //DataLogManager.log("--- SWERVE CALIBRATION LEARN START ---");
+    // DataLogManager.log("--- SWERVE CALIBRATION LEARN START ---");
 
     for (SwerveModule module : swerveDrive.getModules()) {
       // get module number for logging
