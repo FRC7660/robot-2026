@@ -269,13 +269,13 @@ public class SwerveSubsystem extends SubsystemBase {
    */
   public Command trackDetectedObject(Cameras camera, double durationSeconds) {
     // Tunable gains and thresholds; adjust on robot for best behaviour
-    final double kYawDegToRadPerSec = -10.0; // scale yaw (deg) -> deg/s then convert to rad/s
+    final double kYawDegToRadPerSec = -1.0; // scale yaw (deg) -> deg/s then convert to rad/s
     final double maxAngularRadPerSec = Math.toRadians(180.0); // clamp rotation speed
     final double yawToleranceDeg = 10.0; // degrees within which we consider we are aimed
 
     final double targetArea = 60.0; // example area value considered "close" (tune)
     final double kAreaForward = 1.0; // meters/sec per area-difference (scaled below)
-    final double maxForward = 0.25;//swerveDrive.getMaximumChassisVelocity() * 0.5;
+    final double maxForward = 0.15;//swerveDrive.getMaximumChassisVelocity() * 0.5;
 
     return run(() -> {
       Optional<PhotonPipelineResult> resultO = Optional.ofNullable(camera.camera.getLatestResult());
