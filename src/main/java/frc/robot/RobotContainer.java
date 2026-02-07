@@ -22,7 +22,6 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OperatorConstants;
-import frc.robot.commands.swervedrive.MisalignCorrection;
 import frc.robot.commands.swervedrive.YAGSLPitCheck;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
@@ -42,8 +41,6 @@ public class RobotContainer {
   private final String chassisDirectory = "swerve/7660-chassis0";
   private final SwerveSubsystem drivebase =
       new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), chassisDirectory));
-  private final MisalignCorrection misalignCorrection =
-      new MisalignCorrection(drivebase, chassisDirectory);
 
   // Establish a Sendable Chooser that will be able to be sent to the SmartDashboard, allowing
   // selection of desired auto
@@ -181,7 +178,7 @@ public class RobotContainer {
       // drivebase).andThen(pitCheck::execute, drivebase));
       // This starts the command when you press LB, and stops it immediately when you let go.
       driverXbox.leftBumper().whileTrue(new YAGSLPitCheck(drivebase));
-      driverXbox.rightBumper().onTrue(Commands.runOnce(misalignCorrection::execute));
+      driverXbox.rightBumper().whileTrue(Commands.none());
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyro)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
