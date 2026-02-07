@@ -1,14 +1,8 @@
 package frc.robot.commands.swervedrive;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import edu.wpi.first.wpilibj.Filesystem;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj2.command.Command;
-import frc.robot.Constants.PitCheckConstants;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
-import java.io.File;
 import swervelib.SwerveDrive;
 import swervelib.SwerveModule;
 
@@ -28,42 +22,35 @@ public class MisalignCorrection extends Command {
 
   @Override
   public void execute() {
-    SwerveModule[] modules = drivebase.getSwerveDrive().getModules();
+    // SwerveModule[] modules = swerveDrive.getModules();
+    double[] beforeAngles = new double[4];
 
-    for (SwerveModule module : modules) {
-      JsonNode node = null;
-      double pitCheckReading = Math.abs(90 - module.getAbsolutePosition() % 180);
-      if (pitCheckReading > PitCheckConstants.ANGLE_ENCODER_TOLERANCE) {
-        int moduleNumber = module.moduleNumber;
-        String name = "ModuleNum" + moduleNumber;
-        String SDpath = "Diag/" + name + "/";
-        String[] posPaths = {"frontleft", "frontright", "backleft", "backright"};
-        String posPath = posPaths[moduleNumber];
-        ObjectMapper mapper = new ObjectMapper();
-        String filePath =
-            Filesystem.getDeployDirectory().toString()
-                + File.separator
-                + chassisDir
-                + File.separator
-                + "modules"
-                + File.separator
-                + posPath
-                + ".json";
-        try {
-          node = mapper.readTree(new File(filePath));
-        } catch (Exception e) {
-          System.err.println("Failed to read JSON file: " + filePath);
-          e.printStackTrace();
-        }
-        // extract the offset value from the JSON node and apply correction
-        double offset = node.get("absoluteEncoderOffset").asDouble();
-        double replacementOffset = (offset + module.getAbsolutePosition() + 90) % 360;
-        ObjectNode newNode = (ObjectNode) node;
-        newNode.put("absoluteEncoderOffset", replacementOffset);
-        SmartDashboard.putNumber(
-            SDpath + "JSON encoder value", newNode.get("absoluteEncoderOffset").asDouble());
-      }
+    //DataLogManager.log("--- SWERVE CALIBRATION LEARN START ---");
+
+    for (SwerveModule module : swerveDrive.getModules()) {
+      // get module number for logging
+      int i = module.moduleNumber;
+      // 1. Capture current raw absolute position (what the encoder says right now)
+      double currentPos = module.getAbsoluteEncoder().getAbsolutePosition();
+      beforeAngles[i] = currentPos;
+
+      // 2. Calculate the NEW offset.
+      // We want the current physical position to represent '0' in the JSON.
+      // If the wheel is straight but reading 10 degrees, the new offset should be 10.
+      currentPos = module.getAbsolutePosition();
+
+      // 3. Update the internal encoder wrapper's offset
+      // This makes the change immediate in the software
+      module.getAbsoluteEncoder().setAbsoluteEncoderOffset(currentPos);
     }
+
+    // 4. Log the 'Before' state to AdvantageScope
+    DataLogManager.log("Captured Offsets (Degrees): " + java.util.Arrays.toString(beforeAngles));
+    DataLogManager.log(
+        "Software offsets updated. REMINDER: You must still manually update JSONs later!");
+
+    // 5. Re-sync the internal motor encoders to these new absolute zeros
+    swerveDrive.synchronizeModuleEncoders();
   }
 
   @Override
