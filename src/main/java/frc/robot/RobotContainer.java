@@ -24,6 +24,8 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OperatorConstants;
 import frc.robot.commands.RunLowerIntakeCommand;
 import frc.robot.commands.RunUpperShooterCommand;
+import frc.robot.commands.swervedrive.MisalignCorrection;
+import frc.robot.commands.swervedrive.YAGSLPitCheck;
 import frc.robot.subsystems.LowerShooterSubsystem;
 import frc.robot.subsystems.UpperShooterSubsystem;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
@@ -41,8 +43,11 @@ public class RobotContainer {
   // Replace with CommandPS4Controller or CommandJoystick if needed
   final CommandXboxController driverXbox = new CommandXboxController(0);
   // The robot's subsystems and commands are defined here...
+  private final String chassisDirectory = "swerve/7660-jv0";
   private final SwerveSubsystem drivebase =
-      new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-jv0"));
+      new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), chassisDirectory));
+  private final MisalignCorrection misalignCorrection =
+      new MisalignCorrection(drivebase, chassisDirectory);
 
   private final UpperShooterSubsystem UpperShooter = new UpperShooterSubsystem();
   private final LowerShooterSubsystem LowerShooter = new LowerShooterSubsystem();
@@ -194,8 +199,11 @@ public class RobotContainer {
       driverXbox.x().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
       driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
       driverXbox.back().whileTrue(drivebase.centerModulesCommand());
-      driverXbox.leftBumper().onTrue(Commands.none());
-      driverXbox.rightBumper().onTrue(Commands.none());
+      // driverXbox.leftBumper().onTrue(Commands.runOnce(pitCheck::start,
+      // drivebase).andThen(pitCheck::execute, drivebase));
+      // This starts the command when you press LB, and stops it immediately when you let go.
+      driverXbox.leftBumper().whileTrue(new YAGSLPitCheck(drivebase));
+      driverXbox.rightBumper().onTrue(Commands.runOnce(misalignCorrection::execute));
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
