@@ -49,6 +49,17 @@ public final class Constants {
     public static final double TURN_CONSTANT = 6;
   }
 
+  public static class PitCheckConstants {
+    public static final double ANGLE_ENCODER_TOLERANCE = 4;
+    public static final double STEER_GEAR_RATIO = 12.1; // Example for Mk4i
+    public static final double MOTOR_TEST_VOLTAGE =
+        2.0; // Voltage to apply during motor tests (10% of 12V)
+    public static final double STATOR_AMPS_THRESHOLD =
+        2.0; // Threshold for stator current to detect motor issues
+    public static final double ALIGNMENT_ANGLE_TOLERANCE =
+        0.05; // Degrees of tolerance for wheel alignment checks
+  }
+
   // Index Constants
   public static final class Index {
     public static final int INDEX_MOTOR_ID = 16;
