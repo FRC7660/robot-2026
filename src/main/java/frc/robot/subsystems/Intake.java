@@ -58,7 +58,9 @@ public class Intake extends SubsystemBase {
               50, 0, 0, DegreesPerSecond.of(90), DegreesPerSecondPerSecond.of(45))
           // Feedforward Constants
           .withFeedforward(new ArmFeedforward(0, 0, 0))
-          .withSimFeedforward(new ArmFeedforward(0, 0, 0))
+          // Sim feedforward: kS for static friction, kG for gravity, kV for velocity
+          // Values tuned for 3ft, 1lb arm with 12:1 gearing
+          .withSimFeedforward(new ArmFeedforward(0.1, 0.8, 1.5))
           // Telemetry name and verbosity level
           .withTelemetry("LiftMotor", TelemetryVerbosity.HIGH)
           // Gearing from the motor rotor to final shaft.
@@ -81,7 +83,7 @@ public class Intake extends SubsystemBase {
   private ArmConfig liftCfg =
       new ArmConfig(liftSmartMotorController)
           // Soft limit is applied to the SmartMotorControllers PID
-          .withSoftLimits(Degrees.of(-20), Degrees.of(10))
+          .withSoftLimits(Degrees.of(-20), Degrees.of(40))
           // Hard limit is applied to the simulation.
           .withHardLimit(Degrees.of(-30), Degrees.of(40))
           // Starting position is where your arm starts
@@ -97,6 +99,18 @@ public class Intake extends SubsystemBase {
 
   public Intake() {
     configureRollerMotor();
+  }
+
+  @Override
+  public void periodic() {
+    // Update telemetry for the arm mechanism
+    lift.updateTelemetry();
+  }
+
+  @Override
+  public void simulationPeriodic() {
+    // Update simulation physics and visualization
+    lift.simIterate();
   }
 
   public Command setAngle(Double angle) {
