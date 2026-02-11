@@ -22,6 +22,9 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OperatorConstants;
+import frc.robot.commands.RunLowerIntakeCommand;
+import frc.robot.commands.RunUpperShooterCommand;
+import frc.robot.subsystems.IntakeShooterSubsystem;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
 import swervelib.SwerveInputStream;
@@ -39,6 +42,8 @@ public class RobotContainer {
   // The robot's subsystems and commands are defined here...
   private final SwerveSubsystem drivebase =
       new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-jv0"));
+
+  private final IntakeShooterSubsystem intakeShooter = new IntakeShooterSubsystem();
 
   // Establish a Sendable Chooser that will be able to be sent to the SmartDashboard, allowing
   // selection of desired auto
@@ -196,6 +201,23 @@ public class RobotContainer {
       driverXbox.back().whileTrue(Commands.none());
       driverXbox.leftBumper().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
       driverXbox.rightBumper().onTrue(Commands.none());
+
+      // Intake/Shooter Commands
+      // Lower intake: right trigger ≥ 0.9 → CCW at 75%, right bumper → CW at 75%, else brake
+      driverXbox
+          .rightTrigger(0.9)
+          .or(driverXbox.rightBumper())
+          .whileTrue(
+              new RunLowerIntakeCommand(
+                  intakeShooter, driverXbox::getRightTriggerAxis, driverXbox.rightBumper()));
+
+      // Upper shooter: left trigger ≥ 0.9 → CCW at 50%, left bumper → CW at 50%, else brake
+      driverXbox
+          .leftTrigger(0.9)
+          .or(driverXbox.leftBumper())
+          .whileTrue(
+              new RunUpperShooterCommand(
+                  intakeShooter, driverXbox::getLeftTriggerAxis, driverXbox.leftBumper()));
 
       driverXbox
           .b()
