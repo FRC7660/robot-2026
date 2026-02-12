@@ -2,7 +2,7 @@ package frc.robot.commands;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
-import frc.robot.subsystems.IntakeShooterSubsystem;
+import frc.robot.subsystems.LowerShooterSubsystem;
 import java.util.function.DoubleSupplier;
 
 /**
@@ -19,7 +19,7 @@ import java.util.function.DoubleSupplier;
  */
 public class RunLowerIntakeCommand extends Command {
 
-  private final IntakeShooterSubsystem intakeShooter;
+  private final LowerShooterSubsystem intakeShooter;
   private final DoubleSupplier rightTriggerSupplier; // Right trigger axis (0.0 to 1.0)
   private final Trigger rightBumperTrigger; // Right bumper
 
@@ -31,7 +31,7 @@ public class RunLowerIntakeCommand extends Command {
    * @param rightBumperTrigger the right bumper Trigger
    */
   public RunLowerIntakeCommand(
-      IntakeShooterSubsystem intakeShooter,
+      LowerShooterSubsystem intakeShooter,
       DoubleSupplier rightTriggerSupplier,
       Trigger rightBumperTrigger) {
     this.intakeShooter = intakeShooter;
