@@ -1,25 +1,43 @@
 package frc.robot.subsystems; 
 
+import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.Degrees;
+import static edu.wpi.first.units.Units.DegreesPerSecond;
+import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
+import static edu.wpi.first.units.Units.Feet;
+import static edu.wpi.first.units.Units.Pounds;
+import static edu.wpi.first.units.Units.Seconds;
+import static edu.wpi.first.units.Units.Volts;
+import static edu.wpi.first.units.Units.Inches;
+import static edu.wpi.first.units.Units.RPM;
+
 import com.revrobotics.PersistMode;
 import com.revrobotics.ResetMode;
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkFlexConfig;
+
+import edu.wpi.first.math.controller.SimpleMotorFeedforward;
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
-import yams.mechanisms.config.ArmConfig;
-import yams.mechanisms.positional.Arm;
+import yams.mechanisms.config.FlyWheelConfig;
+import yams.mechanisms.velocity.FlyWheel;
 import yams.motorcontrollers.SmartMotorController;
 import yams.motorcontrollers.SmartMotorControllerConfig;
 import yams.motorcontrollers.SmartMotorControllerConfig.ControlMode;
 import yams.motorcontrollers.SmartMotorControllerConfig.MotorMode;
 import yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity;
-import yams.motorcontrollers.remote.TalonFXWrapper;
+import yams.motorcontrollers.local.SparkWrapper;
 
-public class Launch {
+
+public class Launch extends SubsystemBase{
   private final SparkFlex motor1 =
       new SparkFlex(Constants.Launch.MOTOR1_ID, SparkLowLevel.MotorType.kBrushless);
 
@@ -47,12 +65,12 @@ public class Launch {
   .withOpenLoopRampRate(Seconds.of(0.25));
 
 // Vendor motor controller object
-SparkMax spark = new SparkMax(4, MotorType.kBrushless);
-
+// SparkMax motor1 = new SparkMax(31, MotorType.kBrushless);
+// SparkMax motor2 = new SparkMax(37, MotorType.kBrushless);
 // Create our SmartMotorController from our Spark and config with the NEO.
-SmartMotorController sparkSmartMotorController = new SparkWrapper(spark, DCMotor.getNEO(1), smcConfig);
-
-FlyWheelConfig shooterConfig = new FlyWheelConfig(motor)
+SmartMotorController sparkSmartMotorController1 = new SparkWrapper(motor1, DCMotor.getNEO(1), smcConfig);
+SmartMotorController sparkSmartMotorController2 = new SparkWrapper(motor2, DCMotor.getNEO(1), smcConfig);
+FlyWheelConfig shooterConfig = new FlyWheelConfig()
   // Diameter of the flywheel.
   .withDiameter(Inches.of(4))
   // Mass of the flywheel.
