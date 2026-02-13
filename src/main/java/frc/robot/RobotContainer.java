@@ -135,6 +135,7 @@ public class RobotContainer {
     // Add a simple auto option to have the robot drive forward for 1 second then
     // stop
     autoChooser.addOption("Drive Forward", drivebase.driveForward().withTimeout(1));
+    autoChooser.addOption("AprilTag Ball Shuttle x5", drivebase.aprilTagBallShuttleAuto(5));
 
     // Put the autoChooser on the SmartDashboard
     SmartDashboard.putData("Auto Chooser", autoChooser);

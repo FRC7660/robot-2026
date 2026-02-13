@@ -18,6 +18,7 @@ import com.pathplanner.lib.util.DriveFeedforwards;
 import com.pathplanner.lib.util.swerve.SwerveSetpoint;
 import com.pathplanner.lib.util.swerve.SwerveSetpointGenerator;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -35,10 +36,15 @@ import frc.robot.Constants;
 import frc.robot.subsystems.swervedrive.Vision.Cameras;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
+import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import org.json.simple.parser.ParseException;
 import org.photonvision.targeting.PhotonPipelineResult;
@@ -54,6 +60,10 @@ import swervelib.telemetry.SwerveDriveTelemetry;
 import swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity;
 
 public class SwerveSubsystem extends SubsystemBase {
+  private static final double TAG_APPROACH_DISTANCE_METERS = 1.0;
+  private static final double TAG_SEARCH_MAX_RADIANS = 6.0 * Math.PI; // 1080 deg
+  private static final double SEARCH_ROTATION_RAD_PER_SEC = Math.toRadians(45.0);
+
   /** Swerve drive object. */
   private final SwerveDrive swerveDrive;
 
@@ -378,6 +388,170 @@ public class SwerveSubsystem extends SubsystemBase {
         constraints,
         edu.wpi.first.units.Units.MetersPerSecond.of(0) // Goal end velocity in meters/sec
     );
+  }
+
+  private Optional<PhotonTrackedTarget> getClosestDetectedObject() {
+    var latest = Cameras.CAMERA0.camera.getLatestResult();
+    if (!latest.hasTargets()) {
+      return Optional.empty();
+    }
+
+    PhotonTrackedTarget closest = null;
+    double largestArea = Double.NEGATIVE_INFINITY;
+    for (PhotonTrackedTarget target : latest.getTargets()) {
+      if (target.getArea() > largestArea) {
+        largestArea = target.getArea();
+        closest = target;
+      }
+    }
+    return Optional.ofNullable(closest);
+  }
+
+  private Optional<PhotonTrackedTarget> getClosestVisibleAprilTag(int excludedTagId) {
+    PhotonTrackedTarget closest = null;
+    double largestArea = Double.NEGATIVE_INFINITY;
+    Cameras[] tagCameras = {Cameras.CENTER_CAM, Cameras.BACK_CAM, Cameras.CAMERA0};
+
+    for (Cameras camera : tagCameras) {
+      var latest = camera.camera.getLatestResult();
+      if (!latest.hasTargets()) {
+        continue;
+      }
+      for (PhotonTrackedTarget target : latest.getTargets()) {
+        int fiducialId = target.getFiducialId();
+        if (fiducialId <= 0 || fiducialId == excludedTagId) {
+          continue;
+        }
+        if (target.getArea() > largestArea) {
+          largestArea = target.getArea();
+          closest = target;
+        }
+      }
+    }
+    return Optional.ofNullable(closest);
+  }
+
+  private double distanceToTagMeters(int tagId) {
+    Optional<Pose2d> tagPose = Vision.fieldLayout.getTagPose(tagId).map(p -> p.toPose2d());
+    if (tagPose.isEmpty()) {
+      return Double.POSITIVE_INFINITY;
+    }
+    return getPose().getTranslation().getDistance(tagPose.get().getTranslation());
+  }
+
+  private Command spinUntilCondition(BooleanSupplier condition) {
+    return run(
+        () -> swerveDrive.drive(new Translation2d(0, 0), SEARCH_ROTATION_RAD_PER_SEC, false, false))
+            .until(condition)
+            .finallyDo(
+                () -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false));
+  }
+
+  private Command spinUntilConditionOrMaxRotation(
+      BooleanSupplier condition, double maxRotationRadians) {
+    AtomicReference<Double> lastHeadingRad = new AtomicReference<>(0.0);
+    AtomicReference<Double> rotatedRad = new AtomicReference<>(0.0);
+
+    return startRun(
+        () -> {
+          lastHeadingRad.set(getHeading().getRadians());
+          rotatedRad.set(0.0);
+        },
+        () -> {
+          double currentHeading = getHeading().getRadians();
+          double delta = MathUtil.angleModulus(currentHeading - lastHeadingRad.get());
+          rotatedRad.set(rotatedRad.get() + Math.abs(delta));
+          lastHeadingRad.set(currentHeading);
+          swerveDrive.drive(new Translation2d(0, 0), SEARCH_ROTATION_RAD_PER_SEC, false, false);
+        })
+            .until(() -> condition.getAsBoolean() || rotatedRad.get() >= maxRotationRadians)
+            .finallyDo(
+                () -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false));
+  }
+
+  private Command driveToKnownTagWithinDistance(AtomicInteger tagIdRef, double distanceMeters) {
+    return Commands.defer(
+        () -> {
+          int tagId = tagIdRef.get();
+          if (tagId <= 0) {
+            return Commands.none();
+          }
+          Optional<Pose2d> tagPose = Vision.fieldLayout.getTagPose(tagId).map(p -> p.toPose2d());
+          if (tagPose.isEmpty()) {
+            return Commands.none();
+          }
+          return driveToPose(tagPose.get())
+              .until(() -> distanceToTagMeters(tagId) <= distanceMeters)
+              .withTimeout(12.0);
+        },
+        Set.of(this));
+  }
+
+  private Command updateTagIdFromVisibleTarget(AtomicInteger tagToUpdate, IntSupplier excludedTagId) {
+    return Commands.runOnce(
+        () -> getClosestVisibleAprilTag(excludedTagId.getAsInt())
+            .ifPresent(target -> tagToUpdate.set(target.getFiducialId())));
+  }
+
+  private Command scanForTagWith1080Limit(AtomicInteger targetTagId, IntSupplier excludedTagId) {
+    return Commands.sequence(
+        updateTagIdFromVisibleTarget(targetTagId, excludedTagId),
+        Commands.either(
+            Commands.none(),
+            spinUntilConditionOrMaxRotation(
+                () -> {
+                  Optional<PhotonTrackedTarget> candidate =
+                      getClosestVisibleAprilTag(excludedTagId.getAsInt());
+                  candidate.ifPresent(target -> targetTagId.set(target.getFiducialId()));
+                  return targetTagId.get() > 0 && targetTagId.get() != excludedTagId.getAsInt();
+                },
+                TAG_SEARCH_MAX_RADIANS),
+            () -> targetTagId.get() > 0 && targetTagId.get() != excludedTagId.getAsInt()));
+  }
+
+  private Command executeTagRoutine(AtomicInteger activeTagId, AtomicInteger otherTagId) {
+    return Commands.either(
+        Commands.sequence(
+            driveToKnownTagWithinDistance(activeTagId, TAG_APPROACH_DISTANCE_METERS),
+            spinUntilCondition(() -> getClosestDetectedObject().isPresent()),
+            scanForTagWith1080Limit(otherTagId, activeTagId::get)),
+        Commands.none(),
+        () -> activeTagId.get() > 0);
+  }
+
+  private Command buildShuttleCycle(AtomicInteger firstTagId, AtomicInteger secondTagId) {
+    Command firstTagRoutine = executeTagRoutine(firstTagId, secondTagId);
+    Command secondTagWork = Commands.sequence(
+        driveToKnownTagWithinDistance(secondTagId, TAG_APPROACH_DISTANCE_METERS),
+        executeTagRoutine(secondTagId, firstTagId));
+    Command fallbackRepeatFirst = executeTagRoutine(firstTagId, secondTagId);
+
+    return Commands.sequence(
+        firstTagRoutine,
+        Commands.either(secondTagWork, fallbackRepeatFirst, () -> secondTagId.get() > 0),
+        driveToKnownTagWithinDistance(firstTagId, TAG_APPROACH_DISTANCE_METERS));
+  }
+
+  public Command aprilTagBallShuttleAuto(int repetitionCount) {
+    int cycles = Math.max(1, repetitionCount);
+    AtomicInteger firstTagId = new AtomicInteger(-1);
+    AtomicInteger secondTagId = new AtomicInteger(-1);
+
+    Command discoverAndApproachFirstTag = Commands.sequence(
+        scanForTagWith1080Limit(firstTagId, () -> -1),
+        driveToKnownTagWithinDistance(firstTagId, TAG_APPROACH_DISTANCE_METERS));
+
+    ArrayList<Command> loopCommands = new ArrayList<>();
+    for (int i = 0; i < cycles; i++) {
+      loopCommands.add(buildShuttleCycle(firstTagId, secondTagId));
+    }
+
+    return Commands.sequence(
+        discoverAndApproachFirstTag,
+        Commands.either(
+            Commands.sequence(loopCommands.toArray(new Command[0])),
+            Commands.none(),
+            () -> firstTagId.get() > 0));
   }
 
   /**
