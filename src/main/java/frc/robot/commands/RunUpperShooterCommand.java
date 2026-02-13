@@ -66,12 +66,12 @@ public class RunUpperShooterCommand extends Command {
     //   // Negative output = clockwise rotation
     //   intakeShooter.setUpperMotor(-SHOOTER_SPEED);
     // } else
-    if (leftTrigger >= 0.9) {
+    if (leftTrigger >= 0.1) {
       // Left trigger is fully pressed (≥ 0.9) → run CCW (positive output)
       // Positive output = counter-clockwise rotation
-      intakeShooter.setUpperMotor(-SHOOTER_SPEED);
-    } else if (leftTrigger >= 0.6) {
-      intakeShooter.setUpperMotor(SHOOTER_SPEED);
+      intakeShooter.setUpperMotor(-leftTrigger);
+      // } else if (leftTrigger >= 0.6) {
+      //   intakeShooter.setUpperMotor(SHOOTER_SPEED);
     } else {
       // Neither input is active → stop motor and apply brakes
       // Setting output to 0.0 activates brakes due to NeutralMode.Brake configuration

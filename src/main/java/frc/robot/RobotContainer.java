@@ -215,7 +215,7 @@ public class RobotContainer {
 
       // Upper shooter: left trigger ≥ 0.9 → CCW at 50%, left bumper → CW at 50%, else brake
       driverXbox
-          .leftTrigger(0.9)
+          .leftTrigger(0.1)
           .or(driverXbox.leftBumper())
           .whileTrue(
               new RunUpperShooterCommand(
