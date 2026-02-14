@@ -82,6 +82,9 @@ public class SwerveSubsystem extends SubsystemBase {
   private static final double FUEL_APPROACH_MIN_FORWARD_MPS = 0.10;
   private static final double FUEL_APPROACH_MAX_FORWARD_MPS = 0.35;
   private static final double FUEL_APPROACH_TIMEOUT_SEC = 10.0;
+  private static final double DETECTION_CHIRP_TRANSLATION_MPS = 0.22;
+  private static final double DETECTION_CHIRP_TIME_SEC = 0.06;
+  private static final double DETECTION_CHIRP_GAP_SEC = 0.04;
 
   /** Swerve drive object. */
   private final SwerveDrive swerveDrive;
@@ -534,6 +537,34 @@ public class SwerveSubsystem extends SubsystemBase {
       return true;
     }
     return false;
+  }
+
+  private Command playMotorChirp(int chirpCount, String label) {
+    ArrayList<Command> sequence = new ArrayList<>();
+    sequence.add(Commands.runOnce(() -> debugAuto("SOUND " + label + " START")));
+    for (int i = 0; i < chirpCount; i++) {
+      sequence.add(
+          startRun(
+                  () -> {},
+                  () ->
+                      swerveDrive.drive(
+                          new Translation2d(DETECTION_CHIRP_TRANSLATION_MPS, 0), 0, false, false))
+              .withTimeout(DETECTION_CHIRP_TIME_SEC));
+      sequence.add(Commands.runOnce(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false)));
+      if (i < chirpCount - 1) {
+        sequence.add(Commands.waitSeconds(DETECTION_CHIRP_GAP_SEC));
+      }
+    }
+    sequence.add(Commands.runOnce(() -> debugAuto("SOUND " + label + " END")));
+    return Commands.sequence(sequence.toArray(new Command[0]));
+  }
+
+  private Command playAprilTagFoundSound() {
+    return playMotorChirp(1, "APRILTAG");
+  }
+
+  private Command playFuelFoundSound() {
+    return playMotorChirp(2, "FUEL");
   }
 
   private Optional<PhotonTrackedTarget> getClosestDetectedObject() {
@@ -1000,7 +1031,8 @@ public class SwerveSubsystem extends SubsystemBase {
                               targetTagId.get(), Math.toDegrees(rotatedRad.get())));
                       swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
                     }),
-            () -> targetTagId.get() > 0 && targetTagId.get() != excludedTagId.getAsInt()));
+            () -> targetTagId.get() > 0 && targetTagId.get() != excludedTagId.getAsInt()),
+        Commands.either(playAprilTagFoundSound(), Commands.none(), () -> targetTagId.get() > 0));
   }
 
   private Command rotateRelativeDegrees(double degrees) {
@@ -1180,6 +1212,7 @@ public class SwerveSubsystem extends SubsystemBase {
             () -> debugAuto(String.format("FUEL ROUTINE START tagId=%d", activeTagId.get()))),
         centerOnKnownTag(activeTagId),
         findAndApproachFuelWithAnyCamera(fuelFound),
+        Commands.either(playFuelFoundSound(), Commands.none(), fuelFound::get),
         Commands.runOnce(
             () -> {
               if (!fuelFound.get()) {
