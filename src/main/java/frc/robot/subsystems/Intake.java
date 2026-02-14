@@ -4,7 +4,7 @@ import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.DegreesPerSecond;
 import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
-import static edu.wpi.first.units.Units.Feet;
+import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Pounds;
 import static edu.wpi.first.units.Units.Seconds;
 import static edu.wpi.first.units.Units.Volts;
@@ -37,7 +37,7 @@ public class Intake extends SubsystemBase {
   private final TalonFX liftMotor = new TalonFX(Constants.Intake.LIFT_MOTOR_ID);
   private final TalonFX rollerMotor = new TalonFX(Constants.Intake.ROLLER_MOTOR_ID);
 
-  // Roller Motor Config
+// Roller Motor Config
   public void configureRollerMotor() {
     TalonFXConfiguration rollerConfig = new TalonFXConfiguration();
     rollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
@@ -89,8 +89,8 @@ public class Intake extends SubsystemBase {
           // Starting position is where your arm starts
           .withStartingPosition(Degrees.of(-5))
           // Length and mass of your arm for sim.
-          .withLength(Feet.of(3))
-          .withMass(Pounds.of(1))
+          .withLength(Inches.of(13))
+          .withMass(Pounds.of(8))
           // Telemetry name and verbosity for the arm.
           .withTelemetry("Arm", TelemetryVerbosity.HIGH);
 
