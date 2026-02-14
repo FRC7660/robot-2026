@@ -15,7 +15,6 @@ public class IntakeArm extends Command {
   @Override
   public void initialize() {
     System.out.println("Intake Arm Command Initialized");
-    intake.runArm();
   }
 
   @Override
@@ -24,7 +23,6 @@ public class IntakeArm extends Command {
   @Override
   public void end(boolean interrupted) {
     System.out.println("arm in position");
-    intake.stopArm();
   }
 
   @Override

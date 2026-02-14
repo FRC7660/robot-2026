@@ -25,6 +25,7 @@ import frc.robot.Constants.OperatorConstants;
 import frc.robot.commands.swervedrive.MisalignCorrection;
 import frc.robot.commands.swervedrive.YAGSLPitCheck;
 import frc.robot.commands.turret.DefaultCommand;
+import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
@@ -40,6 +41,7 @@ public class RobotContainer {
 
   // Replace with CommandPS4Controller or CommandJoystick if needed
   final CommandXboxController driverXbox = new CommandXboxController(0);
+  private final Intake intakeSystem = new Intake();
   // The robot's subsystems and commands are defined here...
   private final String chassisDirectory = "swerve/7660-chassis0";
   private final SwerveSubsystem drivebase =
@@ -192,6 +194,9 @@ public class RobotContainer {
           .whileTrue(
               drivebase.driveToPose(
                   new Pose2d(new Translation2d(14, 3), Rotation2d.fromDegrees(180))));
+      // Use setAngle() instead of setAngleAndStop() with whileTrue() to avoid restart loop
+      driverXbox.rightBumper().whileTrue(intakeSystem.setAngle(30.0));
+      driverXbox.leftBumper().whileTrue(intakeSystem.setAngle(-10.0));
     }
     if (DriverStation.isTest()) {
       drivebase.setDefaultCommand(
