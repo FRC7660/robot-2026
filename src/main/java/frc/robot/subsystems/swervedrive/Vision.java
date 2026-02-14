@@ -287,9 +287,9 @@ public class Vision {
 
   /** Camera Enum to select each camera */
   enum Cameras {
-    /** Back Camera */
-    BACK_CAM(
-        "camA",
+    /** Back Camera (camera1) */
+    CAMERA1(
+        "camera1",
         new Rotation3d(0, Math.toRadians(5), Math.toRadians(180)),
         new Translation3d(
             Units.inchesToMeters(-12), Units.inchesToMeters(0), Units.inchesToMeters(0)),

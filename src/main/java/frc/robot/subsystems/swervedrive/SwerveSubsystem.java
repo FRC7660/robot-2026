@@ -39,6 +39,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
@@ -76,6 +77,14 @@ public class SwerveSubsystem extends SubsystemBase {
   private static final double LOST_TAG_RECOVERY_ROTATION_RAD_PER_SEC = Math.toRadians(16.0);
   private static final double SECOND_TAG_SEEK_FORWARD_MPS = 0.35;
   private static final double SECOND_TAG_SEEK_TIMEOUT_SEC = 4.0;
+  private static final double FUEL_SPIRAL_TIMEOUT_SEC = 6.0;
+  private static final double FUEL_SPIRAL_BASE_FORWARD_MPS = 0.20;
+  private static final double FUEL_SPIRAL_MAX_FORWARD_MPS = 0.35;
+  private static final double FUEL_SPIRAL_FORWARD_RAMP_MPS_PER_SEC = 0.04;
+  private static final double FUEL_SPIRAL_LATERAL_MPS = 0.18;
+  private static final double FUEL_SPIRAL_LATERAL_FREQ_HZ = 0.45;
+  private static final double FUEL_SPIRAL_SPIN_PERIOD_SEC = 1.2;
+  private static final double FUEL_SPIRAL_SPIN_WINDOW_SEC = 0.35;
 
   /** Swerve drive object. */
   private final SwerveDrive swerveDrive;
@@ -88,6 +97,8 @@ public class SwerveSubsystem extends SubsystemBase {
 
   /** Printer that logs photonvision object-detection once per second. */
   private PhotonObjectPrinter photonObjectPrinter;
+  private double lastFrontVisionLogTimestamp = -1.0;
+  private double lastBackVisionLogTimestamp = -1.0;
 
   /**
    * Initialize {@link SwerveDrive} with the directory provided.
@@ -168,6 +179,7 @@ public class SwerveSubsystem extends SubsystemBase {
 
   @Override
   public void periodic() {
+    logFrontBackVisionDetections();
     if (photonObjectPrinter != null) {
       photonObjectPrinter.periodic();
     }
@@ -175,6 +187,48 @@ public class SwerveSubsystem extends SubsystemBase {
     if (visionDriveTest) {
       swerveDrive.updateOdometry();
       vision.updatePoseEstimation(swerveDrive);
+    }
+  }
+
+  private void logFrontBackVisionDetections() {
+    logVisionDetectionsForCamera(Cameras.CAMERA0, true);
+    logVisionDetectionsForCamera(Cameras.CAMERA1, false);
+  }
+
+  private void logVisionDetectionsForCamera(Cameras camera, boolean isFront) {
+    var latest = camera.camera.getLatestResult();
+    if (!latest.hasTargets()) {
+      return;
+    }
+    double ts = latest.getTimestampSeconds();
+    if (isFront) {
+      if (ts <= lastFrontVisionLogTimestamp) {
+        return;
+      }
+      lastFrontVisionLogTimestamp = ts;
+    } else {
+      if (ts <= lastBackVisionLogTimestamp) {
+        return;
+      }
+      lastBackVisionLogTimestamp = ts;
+    }
+
+    String cameraName = isFront ? "front(camera0)" : "back(camera1)";
+    for (PhotonTrackedTarget target : latest.getTargets()) {
+      if (target.getFiducialId() > 0) {
+        System.out.printf(
+            "[VisionDetect][%s] AprilTag id=%d yaw=%.2f area=%.3f%n",
+            cameraName,
+            target.getFiducialId(),
+            target.getYaw(),
+            target.getArea());
+      } else {
+        System.out.printf(
+            "[VisionDetect][%s] Fuel yaw=%.2f area=%.3f%n",
+            cameraName,
+            target.getYaw(),
+            target.getArea());
+      }
     }
   }
 
@@ -351,7 +405,7 @@ public class SwerveSubsystem extends SubsystemBase {
    * outside the package that cannot reference the package-private {@code Vision.Cameras} type.
    *
    * @param cameraEnumName the enum constant name from {@code Vision.Cameras}, e.g. "CENTER_CAM" or
-   *     "BACK_CAM"
+   *     "CAMERA1"
    * @param durationSeconds timeout for the tracking command
    * @return the tracking {@link Command} or {@link Commands#none()} if the name is invalid
    */
@@ -425,9 +479,34 @@ public class SwerveSubsystem extends SubsystemBase {
     PhotonTrackedTarget closest = null;
     double largestArea = Double.NEGATIVE_INFINITY;
     for (PhotonTrackedTarget target : latest.getTargets()) {
+      if (target.getFiducialId() > 0) {
+        continue;
+      }
       if (target.getArea() > largestArea) {
         largestArea = target.getArea();
         closest = target;
+      }
+    }
+    return Optional.ofNullable(closest);
+  }
+
+  private Optional<PhotonTrackedTarget> getClosestDetectedObjectAnyCamera() {
+    PhotonTrackedTarget closest = null;
+    double largestArea = Double.NEGATIVE_INFINITY;
+    Cameras[] fuelCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
+    for (Cameras camera : fuelCameras) {
+      var latest = camera.camera.getLatestResult();
+      if (!latest.hasTargets()) {
+        continue;
+      }
+      for (PhotonTrackedTarget target : latest.getTargets()) {
+        if (target.getFiducialId() > 0) {
+          continue;
+        }
+        if (target.getArea() > largestArea) {
+          largestArea = target.getArea();
+          closest = target;
+        }
       }
     }
     return Optional.ofNullable(closest);
@@ -442,7 +521,7 @@ public class SwerveSubsystem extends SubsystemBase {
   private Optional<TargetObservation> getClosestVisibleAprilTagObservation(int excludedTagId) {
     TargetObservation closest = null;
     double closestDistance = Double.POSITIVE_INFINITY;
-    Cameras[] tagCameras = {Cameras.CENTER_CAM, Cameras.BACK_CAM, Cameras.CAMERA0};
+    Cameras[] tagCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
 
     for (Cameras camera : tagCameras) {
       var latest = camera.camera.getLatestResult();
@@ -470,7 +549,7 @@ public class SwerveSubsystem extends SubsystemBase {
     }
     TargetObservation closest = null;
     double closestDistance = Double.POSITIVE_INFINITY;
-    Cameras[] tagCameras = {Cameras.CENTER_CAM, Cameras.BACK_CAM, Cameras.CAMERA0};
+    Cameras[] tagCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
 
     for (Cameras camera : tagCameras) {
       var latest = camera.camera.getLatestResult();
@@ -517,7 +596,7 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   private String buildTagVisibilitySummary(int excludedTagId) {
-    Cameras[] cameras = {Cameras.CENTER_CAM, Cameras.BACK_CAM, Cameras.CAMERA0};
+    Cameras[] cameras = {Cameras.CAMERA0, Cameras.CAMERA1};
     StringBuilder sb = new StringBuilder();
     for (Cameras cam : cameras) {
       var latest = cam.camera.getLatestResult();
@@ -947,94 +1026,223 @@ public class SwerveSubsystem extends SubsystemBase {
             () -> debugAuto(String.format("CENTER TAG END tagId=%d", tagIdRef.get()))));
   }
 
-  private Command findAndCenterBallWithRotationLimit() {
+  private Command spinSearchFuelFrontWith1080Limit(AtomicBoolean fuelFound) {
+    AtomicReference<Double> lastHeadingRad = new AtomicReference<>(0.0);
+    AtomicReference<Double> rotatedRad = new AtomicReference<>(0.0);
+    AtomicReference<Double> lastLogTimeSec = new AtomicReference<>(Double.NEGATIVE_INFINITY);
+
+    return startRun(
+            () -> {
+              fuelFound.set(false);
+              lastHeadingRad.set(getHeading().getRadians());
+              rotatedRad.set(0.0);
+              lastLogTimeSec.set(Double.NEGATIVE_INFINITY);
+              debugAuto(
+                  String.format(
+                      "FUEL SPIN SEARCH START fuelSeenAny=%s fuelSeenFront=%s max=1080deg",
+                      getClosestDetectedObjectAnyCamera().isPresent(),
+                      getClosestDetectedObject().isPresent()));
+            },
+            () -> {
+              double currentHeading = getHeading().getRadians();
+              double delta = MathUtil.angleModulus(currentHeading - lastHeadingRad.get());
+              rotatedRad.set(rotatedRad.get() + Math.abs(delta));
+              lastHeadingRad.set(currentHeading);
+
+              Optional<PhotonTrackedTarget> fuelFront = getClosestDetectedObject();
+              if (fuelFront.isPresent()) {
+                double yawDeg = fuelFront.get().getYaw();
+                double rotation = calculateRotationFromYawDeg(yawDeg);
+                swerveDrive.drive(new Translation2d(0, 0), rotation, false, false);
+                if (Math.abs(yawDeg) <= BALL_CENTER_TOLERANCE_DEG) {
+                  fuelFound.set(true);
+                }
+                if (shouldDebugLog(lastLogTimeSec, DEBUG_LOG_PERIOD_SEC)) {
+                  debugAuto(
+                      String.format(
+                          "FUEL SPIN SEARCH front fuel yaw=%.2fdeg area=%.3f centered=%s rotated=%.1fdeg",
+                          yawDeg,
+                          fuelFront.get().getArea(),
+                          fuelFound.get(),
+                          Math.toDegrees(rotatedRad.get())));
+                }
+              } else {
+                swerveDrive.drive(
+                    new Translation2d(0, 0), SEARCH_ROTATION_RAD_PER_SEC, false, false);
+                if (shouldDebugLog(lastLogTimeSec, DEBUG_LOG_PERIOD_SEC)) {
+                  debugAuto(
+                      String.format(
+                          "FUEL SPIN SEARCH no front fuel rotated=%.1fdeg fuelSeenAny=%s",
+                          Math.toDegrees(rotatedRad.get()),
+                          getClosestDetectedObjectAnyCamera().isPresent()));
+                }
+              }
+            })
+        .until(() -> fuelFound.get() || rotatedRad.get() >= TAG_SEARCH_MAX_RADIANS)
+        .finallyDo(
+            () -> {
+              debugAuto(
+                  String.format(
+                      "FUEL SPIN SEARCH END fuelFound=%s rotated=%.1fdeg",
+                      fuelFound.get(), Math.toDegrees(rotatedRad.get())));
+              swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
+            });
+  }
+
+  private Command spiralSearchFuelNearTag(AtomicInteger currentTagId, AtomicBoolean fuelFound) {
+    AtomicReference<Double> startTimeSec = new AtomicReference<>(0.0);
+    AtomicReference<Double> lastLogTimeSec = new AtomicReference<>(Double.NEGATIVE_INFINITY);
+
+    return startRun(
+            () -> {
+              startTimeSec.set(Timer.getFPGATimestamp());
+              lastLogTimeSec.set(Double.NEGATIVE_INFINITY);
+              debugAuto(
+                  String.format(
+                      "FUEL SPIRAL START tagId=%d timeout=%.1fs",
+                      currentTagId.get(), FUEL_SPIRAL_TIMEOUT_SEC));
+            },
+            () -> {
+              double elapsed = Timer.getFPGATimestamp() - startTimeSec.get();
+
+              Optional<PhotonTrackedTarget> fuelFront = getClosestDetectedObject();
+              if (fuelFront.isPresent()) {
+                double yawDeg = fuelFront.get().getYaw();
+                double rotation = calculateRotationFromYawDeg(yawDeg);
+                swerveDrive.drive(new Translation2d(0, 0), rotation, false, false);
+                if (Math.abs(yawDeg) <= BALL_CENTER_TOLERANCE_DEG) {
+                  fuelFound.set(true);
+                }
+                if (shouldDebugLog(lastLogTimeSec, DEBUG_LOG_PERIOD_SEC)) {
+                  debugAuto(
+                      String.format(
+                          "FUEL SPIRAL front fuel yaw=%.2fdeg area=%.3f centered=%s",
+                          yawDeg, fuelFront.get().getArea(), fuelFound.get()));
+                }
+                return;
+              }
+
+              double forward =
+                  Math.min(
+                      FUEL_SPIRAL_MAX_FORWARD_MPS,
+                      FUEL_SPIRAL_BASE_FORWARD_MPS
+                          + elapsed * FUEL_SPIRAL_FORWARD_RAMP_MPS_PER_SEC);
+              double lateral =
+                  FUEL_SPIRAL_LATERAL_MPS
+                      * Math.sin(2.0 * Math.PI * FUEL_SPIRAL_LATERAL_FREQ_HZ * elapsed);
+              boolean spinWindow =
+                  (elapsed % FUEL_SPIRAL_SPIN_PERIOD_SEC) <= FUEL_SPIRAL_SPIN_WINDOW_SEC;
+              double rotation = spinWindow ? SEARCH_ROTATION_RAD_PER_SEC : 0.0;
+
+              Optional<TargetObservation> tagObservation = getVisibleAprilTagById(currentTagId.get());
+              if (tagObservation.isPresent() && !spinWindow) {
+                rotation = calculateRotationFromYawDeg(tagObservation.get().target().getYaw());
+              }
+
+              swerveDrive.drive(new Translation2d(forward, lateral), rotation, false, false);
+              if (shouldDebugLog(lastLogTimeSec, DEBUG_LOG_PERIOD_SEC)) {
+                debugAuto(
+                    String.format(
+                        "FUEL SPIRAL drive fwd=%.2f lat=%.2f rot=%.2f elapsed=%.2f fuelSeenAny=%s tagSeen=%s",
+                        forward,
+                        lateral,
+                        rotation,
+                        elapsed,
+                        getClosestDetectedObjectAnyCamera().isPresent(),
+                        tagObservation.isPresent()));
+              }
+            })
+        .until(
+            () ->
+                fuelFound.get()
+                    || (Timer.getFPGATimestamp() - startTimeSec.get()) >= FUEL_SPIRAL_TIMEOUT_SEC)
+        .finallyDo(
+            () -> {
+              debugAuto(
+                  String.format(
+                      "FUEL SPIRAL END fuelFound=%s elapsed=%.2fs",
+                      fuelFound.get(), Timer.getFPGATimestamp() - startTimeSec.get()));
+              swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
+            });
+  }
+
+  private Command findFuelForKnownTag(AtomicInteger activeTagId, AtomicBoolean fuelFound) {
     return Commands.sequence(
-        Commands.runOnce(() -> debugAuto("BALL CENTER START")),
-        alignToTargetWithRotationLimit(
-            this::getClosestDetectedObject, BALL_CENTER_TOLERANCE_DEG, TAG_SEARCH_MAX_RADIANS),
-        Commands.runOnce(() -> debugAuto("BALL CENTER END")));
-  }
-
-  private Command executeTagRoutine(AtomicInteger activeTagId, AtomicInteger otherTagId) {
-    return Commands.either(
-        Commands.sequence(
-            Commands.runOnce(
-                () ->
-                    debugAuto(
-                        String.format(
-                            "TAG ROUTINE START active=%d other=%d",
-                            activeTagId.get(), otherTagId.get()))),
-            approachKnownTagByVision(activeTagId, TAG_APPROACH_DISTANCE_METERS),
-            findAndCenterBallWithRotationLimit(),
-            findSecondTagFromCurrentTag(activeTagId, otherTagId),
-            Commands.runOnce(
-                () ->
-                    debugAuto(
-                        String.format(
-                            "TAG ROUTINE END active=%d other=%d",
-                            activeTagId.get(), otherTagId.get())))),
-        Commands.none(),
-        () -> activeTagId.get() > 0);
-  }
-
-  private Command buildShuttleCycle(AtomicInteger firstTagId, AtomicInteger secondTagId) {
-    Command firstTagRoutine = executeTagRoutine(firstTagId, secondTagId);
-    Command secondTagWork =
-        Commands.sequence(
-            centerOnKnownTag(secondTagId),
-            approachKnownTagByVision(secondTagId, TAG_APPROACH_DISTANCE_METERS),
-            executeTagRoutine(secondTagId, firstTagId));
-    Command fallbackNoSecondTag =
+        Commands.runOnce(
+            () -> debugAuto(String.format("FUEL ROUTINE START tagId=%d", activeTagId.get()))),
+        centerOnKnownTag(activeTagId),
+        spinSearchFuelFrontWith1080Limit(fuelFound),
+        Commands.either(
+            Commands.none(),
+            spiralSearchFuelNearTag(activeTagId, fuelFound),
+            fuelFound::get),
         Commands.runOnce(
             () ->
                 debugAuto(
                     String.format(
-                        "SECOND TAG NOT FOUND; skipping second-tag work this cycle (first=%d second=%d)",
-                        firstTagId.get(), secondTagId.get())));
-
-    return Commands.sequence(
-        firstTagRoutine,
-        Commands.either(secondTagWork, fallbackNoSecondTag, () -> secondTagId.get() > 0),
-        centerOnKnownTag(firstTagId),
-        approachKnownTagByVision(firstTagId, TAG_APPROACH_DISTANCE_METERS));
+                        "FUEL ROUTINE END tagId=%d fuelFound=%s",
+                        activeTagId.get(), fuelFound.get()))));
   }
 
   public Command aprilTagBallShuttleAuto(int repetitionCount) {
     int cycles = Math.max(1, repetitionCount);
-    AtomicInteger firstTagId = new AtomicInteger(-1);
-    AtomicInteger secondTagId = new AtomicInteger(-1);
-
-    Command discoverAndApproachFirstTag =
-        Commands.sequence(
-            scanForTagWith1080Limit(firstTagId, () -> -1),
-            centerOnKnownTag(firstTagId),
-            approachKnownTagByVision(firstTagId, TAG_APPROACH_DISTANCE_METERS));
+    AtomicInteger currentTagId = new AtomicInteger(-1);
+    AtomicInteger nextTagId = new AtomicInteger(-1);
+    AtomicBoolean keepRunning = new AtomicBoolean(true);
+    AtomicBoolean fuelFoundAtCurrentTag = new AtomicBoolean(false);
 
     ArrayList<Command> loopCommands = new ArrayList<>();
     for (int i = 0; i < cycles; i++) {
       final int cycleIndex = i + 1;
       loopCommands.add(
-          Commands.sequence(
-              Commands.runOnce(
-                  () -> debugAuto(String.format("CYCLE %d/%d START", cycleIndex, cycles))),
-              buildShuttleCycle(firstTagId, secondTagId),
-              Commands.runOnce(
-                  () -> debugAuto(String.format("CYCLE %d/%d END", cycleIndex, cycles)))));
+          Commands.either(
+              Commands.sequence(
+                  Commands.runOnce(
+                      () -> debugAuto(String.format("CYCLE %d/%d START", cycleIndex, cycles))),
+                  centerOnKnownTag(currentTagId),
+                  approachKnownTagByVision(currentTagId, TAG_APPROACH_DISTANCE_METERS),
+                  findFuelForKnownTag(currentTagId, fuelFoundAtCurrentTag),
+                  findSecondTagFromCurrentTag(currentTagId, nextTagId),
+                  Commands.runOnce(
+                      () -> {
+                        if (nextTagId.get() > 0) {
+                          debugAuto(
+                              String.format(
+                                  "NEXT TAG FOUND cycle=%d id=%d (fuelFound=%s)",
+                                  cycleIndex, nextTagId.get(), fuelFoundAtCurrentTag.get()));
+                          currentTagId.set(nextTagId.get());
+                        } else {
+                          debugAuto(
+                              String.format(
+                                  "NEXT TAG NOT FOUND cycle=%d; stopping cycle (fuelFound=%s)",
+                                  cycleIndex, fuelFoundAtCurrentTag.get()));
+                          keepRunning.set(false);
+                        }
+                      }),
+                  Commands.runOnce(
+                      () -> debugAuto(String.format("CYCLE %d/%d END", cycleIndex, cycles)))),
+              Commands.none(),
+              keepRunning::get));
     }
 
     return Commands.sequence(
         Commands.runOnce(() -> debugAuto(String.format("AUTO START cycles=%d", cycles))),
-        discoverAndApproachFirstTag,
+        scanForTagWith1080Limit(currentTagId, () -> -1),
         Commands.either(
-            Commands.sequence(loopCommands.toArray(new Command[0])),
             Commands.none(),
-            () -> firstTagId.get() > 0),
+            Commands.runOnce(
+                () -> {
+                  keepRunning.set(false);
+                  debugAuto("INITIAL TAG NOT FOUND after 1080deg; ending auto");
+                }),
+            () -> currentTagId.get() > 0),
+        Commands.sequence(loopCommands.toArray(new Command[0])),
         Commands.runOnce(
             () ->
                 debugAuto(
                     String.format(
-                        "AUTO END firstTag=%d secondTag=%d",
-                        firstTagId.get(), secondTagId.get()))));
+                        "AUTO END currentTag=%d keepRunning=%s",
+                        currentTagId.get(), keepRunning.get()))));
   }
 
   /**
