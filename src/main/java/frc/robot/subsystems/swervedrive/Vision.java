@@ -357,6 +357,9 @@ public class Vision {
     /** Last read from the camera timestamp to prevent lag due to slow data fetches. */
     private double lastReadTimestamp = Microseconds.of(NetworkTablesJNI.now()).in(Seconds);
 
+    /** Disable high-rate object print spam by default to protect robot loop timing. */
+    private static final boolean ENABLE_OBJECT_DETECTION_DEBUG_PRINTS = false;
+
     /**
      * Construct a Photon Camera class with help. Standard deviations are fake values, experiment
      * and determine estimation noise on an actual robot.
@@ -486,13 +489,7 @@ public class Vision {
           (PhotonPipelineResult a, PhotonPipelineResult b) -> {
             return a.getTimestampSeconds() >= b.getTimestampSeconds() ? 1 : -1;
           });
-      // --- Object detection extraction: map Photon detected objects to quick console
-      // output ---
-      // Use the latest result (index 0 after sorting) to print detected object class
-      // IDs,
-      // confidences, and angular offsets. This is a lightweight, safe-to-run debug
-      // output.
-      if (!resultsList.isEmpty()) {
+      if (ENABLE_OBJECT_DETECTION_DEBUG_PRINTS && !resultsList.isEmpty()) {
         PhotonPipelineResult latestResult = resultsList.get(0);
         if (latestResult.hasTargets()) {
           for (PhotonTrackedTarget t : latestResult.getTargets()) {
@@ -501,14 +498,11 @@ public class Vision {
               double conf = t.getDetectedObjectConfidence();
               double yaw = t.getYaw();
               double pitch = t.getPitch();
-              // Print a compact one-line summary per detected object. Use camera.getName()
-              // to indicate which camera produced the reading.
               System.out.printf(
-                  "%s detected: classId=%d conf=%.3f yaw=%.3f pitch=%.3f\n",
+                  "%s detected: classId=%d conf=%.3f yaw=%.3f pitch=%.3f%n",
                   camera.getName(), classId, conf, yaw, pitch);
             } catch (NoSuchMethodError | UnsupportedOperationException e) {
-              // Some pipelines (e.g., AprilTag) or older Photon versions may not provide
-              // object-detection fields. Ignore and continue.
+              // Ignore unsupported object-detection fields on non-object pipelines.
             }
           }
         }

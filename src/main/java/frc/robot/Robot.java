@@ -24,6 +24,7 @@ public class Robot extends TimedRobot {
   private RobotContainer m_robotContainer;
 
   private Timer disabledTimer;
+  private double lastAutoPeriodicLogSec = Double.NEGATIVE_INFINITY;
 
   public Robot() {
     instance = this;
@@ -39,6 +40,7 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
+    System.out.println("[RobotDebug] robotInit start");
     // Instantiate our RobotContainer. This will perform all our button bindings,
     // and put our
     // autonomous chooser on the dashboard.
@@ -53,6 +55,26 @@ public class Robot extends TimedRobot {
     if (isSimulation()) {
       DriverStation.silenceJoystickConnectionWarning(true);
     }
+
+    CommandScheduler.getInstance().onCommandInitialize(
+        command -> System.out.printf(
+            "[CmdInit][%.2f][%s] %s%n",
+            Timer.getFPGATimestamp(),
+            DriverStation.isAutonomousEnabled() ? "AUTO" : "NONAUTO",
+            command.getName()));
+    CommandScheduler.getInstance().onCommandFinish(
+        command -> System.out.printf(
+            "[CmdFinish][%.2f][%s] %s%n",
+            Timer.getFPGATimestamp(),
+            DriverStation.isAutonomousEnabled() ? "AUTO" : "NONAUTO",
+            command.getName()));
+    CommandScheduler.getInstance().onCommandInterrupt(
+        command -> System.out.printf(
+            "[CmdInterrupt][%.2f][%s] %s%n",
+            Timer.getFPGATimestamp(),
+            DriverStation.isAutonomousEnabled() ? "AUTO" : "NONAUTO",
+            command.getName()));
+    System.out.println("[RobotDebug] robotInit complete");
   }
 
   /**
@@ -77,6 +99,7 @@ public class Robot extends TimedRobot {
   /** This function is called once each time the robot enters Disabled mode. */
   @Override
   public void disabledInit() {
+    System.out.printf("[RobotDebug][%.2f] disabledInit%n", Timer.getFPGATimestamp());
     m_robotContainer.setMotorBrake(true);
     disabledTimer.reset();
     disabledTimer.start();
@@ -94,6 +117,7 @@ public class Robot extends TimedRobot {
   /** This autonomous runs the autonomous command selected by your {@link RobotContainer} class. */
   @Override
   public void autonomousInit() {
+    System.out.printf("[RobotDebug][%.2f] autonomousInit%n", Timer.getFPGATimestamp());
     m_robotContainer.setMotorBrake(true);
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
 
@@ -112,10 +136,23 @@ public class Robot extends TimedRobot {
 
   /** This function is called periodically during autonomous. */
   @Override
-  public void autonomousPeriodic() {}
+  public void autonomousPeriodic() {
+    double now = Timer.getFPGATimestamp();
+    if (now - lastAutoPeriodicLogSec >= 1.0) {
+      lastAutoPeriodicLogSec = now;
+      String autoName = m_autonomousCommand == null ? "null" : m_autonomousCommand.getName();
+      boolean scheduled = m_autonomousCommand != null && m_autonomousCommand.isScheduled();
+      System.out.printf(
+          "[RobotDebug][%.2f] autonomousPeriodic auto=%s scheduled=%s%n",
+          now,
+          autoName,
+          scheduled);
+    }
+  }
 
   @Override
   public void teleopInit() {
+    System.out.printf("[RobotDebug][%.2f] teleopInit%n", Timer.getFPGATimestamp());
     // This makes sure that the autonomous stops running when
     // teleop starts running. If you want the autonomous to
     // continue until interrupted by another command, remove
@@ -133,6 +170,7 @@ public class Robot extends TimedRobot {
 
   @Override
   public void testInit() {
+    System.out.printf("[RobotDebug][%.2f] testInit%n", Timer.getFPGATimestamp());
     // Cancels all running commands at the start of test mode.
     CommandScheduler.getInstance().cancelAll();
   }
