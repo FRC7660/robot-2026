@@ -94,8 +94,6 @@ public class SwerveSubsystem extends SubsystemBase {
 
   /** Printer that logs photonvision object-detection once per second. */
   private PhotonObjectPrinter photonObjectPrinter;
-  private double lastFrontVisionLogTimestamp = -1.0;
-  private double lastBackVisionLogTimestamp = -1.0;
   private int currentAutoRunId = -1;
 
   /**
@@ -177,7 +175,6 @@ public class SwerveSubsystem extends SubsystemBase {
 
   @Override
   public void periodic() {
-    logFrontBackVisionDetections();
     if (photonObjectPrinter != null) {
       photonObjectPrinter.periodic();
     }
@@ -185,48 +182,6 @@ public class SwerveSubsystem extends SubsystemBase {
     if (visionDriveTest) {
       swerveDrive.updateOdometry();
       vision.updatePoseEstimation(swerveDrive);
-    }
-  }
-
-  private void logFrontBackVisionDetections() {
-    logVisionDetectionsForCamera(Cameras.CAMERA0, true);
-    logVisionDetectionsForCamera(Cameras.CAMERA1, false);
-  }
-
-  private void logVisionDetectionsForCamera(Cameras camera, boolean isFront) {
-    var latest = camera.camera.getLatestResult();
-    if (!latest.hasTargets()) {
-      return;
-    }
-    double ts = latest.getTimestampSeconds();
-    if (isFront) {
-      if (ts <= lastFrontVisionLogTimestamp) {
-        return;
-      }
-      lastFrontVisionLogTimestamp = ts;
-    } else {
-      if (ts <= lastBackVisionLogTimestamp) {
-        return;
-      }
-      lastBackVisionLogTimestamp = ts;
-    }
-
-    String cameraName = isFront ? "front(camera0)" : "back(camera1)";
-    for (PhotonTrackedTarget target : latest.getTargets()) {
-      if (target.getFiducialId() > 0) {
-        System.out.printf(
-            "[VisionDetect][%s] AprilTag id=%d yaw=%.2f area=%.3f%n",
-            cameraName,
-            target.getFiducialId(),
-            target.getYaw(),
-            target.getArea());
-      } else {
-        System.out.printf(
-            "[VisionDetect][%s] Fuel yaw=%.2f area=%.3f%n",
-            cameraName,
-            target.getYaw(),
-            target.getArea());
-      }
     }
   }
 

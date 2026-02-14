@@ -49,13 +49,8 @@ public class PhotonObjectPrinter {
       return;
     }
 
-    if (result == null) {
-      System.out.printf("[%s] no result (null)\n", camera.getName());
-      return;
-    }
-
-    if (!result.hasTargets()) {
-      System.out.printf("[%s] no targets\n", camera.getName());
+    if (result == null || !result.hasTargets()) {
+      // Keep idle/no-target cycles quiet to avoid log spam.
       return;
     }
 
