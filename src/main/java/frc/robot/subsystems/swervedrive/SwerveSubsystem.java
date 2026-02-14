@@ -542,17 +542,25 @@ public class SwerveSubsystem extends SubsystemBase {
       return Optional.empty();
     }
 
+    PhotonTrackedTarget mostCentered = null;
+    double minAbsYaw = Double.POSITIVE_INFINITY;
     for (PhotonTrackedTarget target : latest.getTargets()) {
       if (target.getFiducialId() > 0) {
         continue;
       }
-      return Optional.of(target);
+      double absYaw = Math.abs(target.getYaw());
+      if (absYaw < minAbsYaw) {
+        minAbsYaw = absYaw;
+        mostCentered = target;
+      }
     }
-    return Optional.empty();
+    return Optional.ofNullable(mostCentered);
   }
 
   private Optional<PhotonTrackedTarget> getClosestDetectedObjectAnyCamera() {
     Cameras[] fuelCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
+    PhotonTrackedTarget mostCentered = null;
+    double minAbsYaw = Double.POSITIVE_INFINITY;
     for (Cameras camera : fuelCameras) {
       var latest = camera.camera.getLatestResult();
       if (!latest.hasTargets()) {
@@ -562,14 +570,20 @@ public class SwerveSubsystem extends SubsystemBase {
         if (target.getFiducialId() > 0) {
           continue;
         }
-        return Optional.of(target);
+        double absYaw = Math.abs(target.getYaw());
+        if (absYaw < minAbsYaw) {
+          minAbsYaw = absYaw;
+          mostCentered = target;
+        }
       }
     }
-    return Optional.empty();
+    return Optional.ofNullable(mostCentered);
   }
 
   private Optional<TargetObservation> getClosestDetectedObjectObservationAnyCamera() {
     Cameras[] fuelCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
+    TargetObservation mostCentered = null;
+    double minAbsYaw = Double.POSITIVE_INFINITY;
     for (Cameras camera : fuelCameras) {
       var latest = camera.camera.getLatestResult();
       if (!latest.hasTargets()) {
@@ -579,10 +593,14 @@ public class SwerveSubsystem extends SubsystemBase {
         if (target.getFiducialId() > 0) {
           continue;
         }
-        return Optional.of(new TargetObservation(camera, target));
+        double absYaw = Math.abs(target.getYaw());
+        if (absYaw < minAbsYaw) {
+          minAbsYaw = absYaw;
+          mostCentered = new TargetObservation(camera, target);
+        }
       }
     }
-    return Optional.empty();
+    return Optional.ofNullable(mostCentered);
   }
 
   private double getTargetPlanarDistanceMeters(PhotonTrackedTarget target) {
