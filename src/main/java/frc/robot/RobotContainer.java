@@ -57,6 +57,9 @@ public class RobotContainer {
   private final SendableChooser<Command> autoChooser;
 
   private double getRightXCorrected() {
+    if (RobotBase.isSimulation()) {
+      return driverXbox.getRawAxis(3) * -1;
+    }
     double base = driverXbox.getRightX();
     if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
       base *= -1;
@@ -65,6 +68,9 @@ public class RobotContainer {
   }
 
   private double getRightYCorrected() {
+    if (RobotBase.isSimulation()) {
+      return driverXbox.getRawAxis(4) * -1;
+    }
     double base = driverXbox.getRightY();
     if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
       base *= -1;
@@ -164,7 +170,7 @@ public class RobotContainer {
         drivebase.driveWithSetpointGeneratorFieldRelative(driveDirectAngleKeyboard);
 
     if (RobotBase.isSimulation()) {
-      drivebase.setDefaultCommand(driveFieldOrientedDirectAngleKeyboard);
+      drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
     } else {
       drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
     }
