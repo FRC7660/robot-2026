@@ -57,7 +57,7 @@ public class SwerveSubsystem extends SubsystemBase {
   private final SwerveDrive swerveDrive;
 
   /** Enable vision odometry updates while driving. */
-  private final boolean visionDriveTest = false;
+  private final boolean visionDriveTest = true;
 
   /** PhotonVision class to keep an accurate odometry. */
   private Vision vision;
@@ -68,18 +68,24 @@ public class SwerveSubsystem extends SubsystemBase {
    * @param directory Directory of swerve drive config files.
    */
   public SwerveSubsystem(File directory) {
-    boolean blueAlliance = false;
+    // We default to Blue Alliance (0) to match the default behavior of the
+    // DriverStation and SwerveInputStream.
+    // The correct pose will be set by Autonomous or zeroGyroWithAlliance at
+    // runtime.
+    boolean blueAlliance = true;
     Pose2d startingPose =
         blueAlliance
             ? new Pose2d(new Translation2d(Meter.of(1), Meter.of(4)), Rotation2d.fromDegrees(0))
             : new Pose2d(new Translation2d(Meter.of(16), Meter.of(4)), Rotation2d.fromDegrees(180));
-    // Configure the Telemetry before creating the SwerveDrive to avoid unnecessary objects being
+    // Configure the Telemetry before creating the SwerveDrive to avoid unnecessary
+    // objects being
     // created.
     SwerveDriveTelemetry.verbosity = TelemetryVerbosity.HIGH;
     try {
       swerveDrive =
           new SwerveParser(directory).createSwerveDrive(Constants.MAX_SPEED, startingPose);
-      // Alternative method if you don't want to supply the conversion factor via JSON files.
+      // Alternative method if you don't want to supply the conversion factor via JSON
+      // files.
       // swerveDrive = new SwerveParser(directory).createSwerveDrive(maximumSpeed,
       // angleConversionFactor, driveConversionFactor);
     } catch (Exception e) {
@@ -97,11 +103,13 @@ public class SwerveSubsystem extends SubsystemBase {
     swerveDrive.setModuleEncoderAutoSynchronize(
         false, 1); // Enable if you want to resynchronize your absolute encoders and motor encoders
     // periodically when they are not moving.
-    // swerveDrive.pushOffsetsToEncoders(); // Set the absolute encoder to be used over the internal
+    // swerveDrive.pushOffsetsToEncoders(); // Set the absolute encoder to be used
+    // over the internal
     // encoder and push the offsets onto it. Throws warning if not possible
     if (visionDriveTest) {
       setupPhotonVision();
-      // Stop the odometry thread if we are using vision that way we can synchronize updates better.
+      // Stop the odometry thread if we are using vision that way we can synchronize
+      // updates better.
       swerveDrive.stopOdometryThread();
     }
     setupPathPlanner();
@@ -167,10 +175,12 @@ public class SwerveSubsystem extends SubsystemBase {
               swerveDrive.setChassisSpeeds(speedsRobotRelative);
             }
           },
-          // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds. Also optionally
+          // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds. Also
+          // optionally
           // outputs individual module feedforwards
           new PPHolonomicDriveController(
-              // PPHolonomicController is the built in path following controller for holonomic drive
+              // PPHolonomicController is the built in path following controller for holonomic
+              // drive
               // trains
               new PIDConstants(5.0, 0.0, 0.0),
               // Translation PID constants
@@ -180,7 +190,8 @@ public class SwerveSubsystem extends SubsystemBase {
           config,
           // The robot configuration
           () -> {
-            // Boolean supplier that controls when the path will be mirrored for the red alliance
+            // Boolean supplier that controls when the path will be mirrored for the red
+            // alliance
             // This will flip the path being followed to the red side of the field.
             // THE ORIGIN WILL REMAIN ON THE BLUE SIDE
 
@@ -238,7 +249,8 @@ public class SwerveSubsystem extends SubsystemBase {
    * @return {@link AutoBuilder#followPath(PathPlannerPath)} path command.
    */
   public Command getAutonomousCommand(String pathName) {
-    // Create a path following command using AutoBuilder. This will also trigger event markers.
+    // Create a path following command using AutoBuilder. This will also trigger
+    // event markers.
     return new PathPlannerAuto(pathName);
   }
 
@@ -253,7 +265,7 @@ public class SwerveSubsystem extends SubsystemBase {
     PathConstraints constraints =
         new PathConstraints(
             swerveDrive.getMaximumChassisVelocity(),
-            4.0,
+            0.2, // 4.0
             swerveDrive.getMaximumChassisAngularVelocity(),
             Units.degreesToRadians(720));
 
@@ -418,7 +430,8 @@ public class SwerveSubsystem extends SubsystemBase {
       DoubleSupplier translationY,
       DoubleSupplier headingX,
       DoubleSupplier headingY) {
-    // swerveDrive.setHeadingCorrection(true); // Normally you would want heading correction for
+    // swerveDrive.setHeadingCorrection(true); // Normally you would want heading
+    // correction for
     // this kind of control.
     return run(
         () -> {
@@ -603,6 +616,7 @@ public class SwerveSubsystem extends SubsystemBase {
   public ChassisSpeeds getTargetSpeeds(
       double xInput, double yInput, double headingX, double headingY) {
     Translation2d scaledInputs = SwerveMath.cubeTranslation(new Translation2d(xInput, yInput));
+
     return swerveDrive.swerveController.getTargetSpeeds(
         scaledInputs.getX(),
         scaledInputs.getY(),

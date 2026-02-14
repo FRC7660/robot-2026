@@ -4,6 +4,7 @@
 
 package frc.robot;
 
+import com.revrobotics.spark.*;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 import swervelib.math.Matter;
@@ -42,9 +43,50 @@ public final class Constants {
   public static class OperatorConstants {
 
     // Joystick Deadband
-    public static final double DEADBAND = 0.1;
+    public static final double DEADBAND = 0.15;
     public static final double LEFT_Y_DEADBAND = 0.1;
     public static final double RIGHT_X_DEADBAND = 0.1;
     public static final double TURN_CONSTANT = 6;
+  }
+
+  public static class PitCheckConstants {
+    public static final double ANGLE_ENCODER_TOLERANCE = 4;
+    public static final double STEER_GEAR_RATIO = 12.1; // Example for Mk4i
+    public static final double MOTOR_TEST_VOLTAGE =
+        2.0; // Voltage to apply during motor tests (10% of 12V)
+    public static final double STATOR_AMPS_THRESHOLD =
+        2.0; // Threshold for stator current to detect motor issues
+    public static final double ALIGNMENT_ANGLE_TOLERANCE =
+        0.05; // Degrees of tolerance for wheel alignment checks
+  }
+
+  // Index Constants
+  public static final class Index {
+    public static final int INDEX_MOTOR_ID = 16;
+    public static final double INDEX_SPEED = 0.5;
+    public static final int FUNNEL_MOTOR_ID = 19;
+    public static final double FUNNEL_SPEED = 0.5;
+  }
+
+  // Intake Constants
+  public static final class Intake {
+    public static final int LIFT_MOTOR_ID = 15;
+    public static final double LIFT_SPEED = 0.5;
+    public static final int LIFT_CURRENT_LIMIT = 30; // amps
+    public static final int ROLLER_MOTOR_ID = 17;
+    public static final double ROLLER_SPEED = 0.5;
+    public static final int ROLLER_CURRENT_LIMIT = 25; // amps
+  }
+
+  // Launch Constants
+  public static final class Launch {
+    public static final int MOTOR1_ID = 31;
+    public static final int MOTOR2_ID = 37;
+  }
+
+  // Turret Constants
+  public static final class Turret {
+    public static final int MOTOR_ID = 18;
+    public static final double TURRET_SPEED = 0.5;
   }
 }
