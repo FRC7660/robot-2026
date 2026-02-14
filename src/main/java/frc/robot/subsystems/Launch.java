@@ -10,8 +10,11 @@ import static edu.wpi.first.units.Units.Seconds;
 
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
+import edu.wpi.first.math.Pair;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import yams.gearing.GearBox;
@@ -45,36 +48,83 @@ public class Launch extends SubsystemBase {
           .withSimFeedforward(new SimpleMotorFeedforward(0, 0, 0))
           // Telemetry name and verbosity level
           .withTelemetry("ShooterMotor", TelemetryVerbosity.HIGH)
-          // Gearing from the motor rotor to final shaft.
-          // In this example gearbox(3,4) is the same as gearbox("3:1","4:1") which corresponds to
-          // the gearbox attached to your motor.
-          .withGearing(new MechanismGearing(GearBox.fromReductionStages(3, 4)))
+          // Launch motors are 1:1 with fly wheel
+          .withGearing(new MechanismGearing(GearBox.fromReductionStages(1)))
           // Motor properties to prevent over currenting.
           .withMotorInverted(false)
           .withIdleMode(MotorMode.COAST)
           .withStatorCurrentLimit(Amps.of(40))
           .withClosedLoopRampRate(Seconds.of(0.25))
-          .withOpenLoopRampRate(Seconds.of(0.25));
+          .withOpenLoopRampRate(Seconds.of(0.25))
+          .withFollowers(Pair.of(motor2, true));
 
   // Vendor motor controller object
   // SparkMax motor1 = new SparkMax(31, MotorType.kBrushless);
   // SparkMax motor2 = new SparkMax(37, MotorType.kBrushless);
   // Create our SmartMotorController from our Spark and config with the NEO.
-  SmartMotorController sparkSmartMotorController1 =
-      new SparkWrapper(motor1, DCMotor.getNEO(1), smcConfig);
-  SmartMotorController sparkSmartMotorController2 =
-      new SparkWrapper(motor2, DCMotor.getNEO(1), smcConfig);
+  SmartMotorController launchSMC = new SparkWrapper(motor1, DCMotor.getNEO(1), smcConfig);
+
   FlyWheelConfig shooterConfig =
-      new FlyWheelConfig()
+      new FlyWheelConfig(launchSMC)
           // Diameter of the flywheel.
           .withDiameter(Inches.of(4))
           // Mass of the flywheel.
           .withMass(Pounds.of(1))
           // Maximum speed of the shooter.
-          .withUpperSoftLimit(RPM.of(1000))
+          .withUpperSoftLimit(RPM.of(6000))
           // Telemetry name and verbosity for the arm.
           .withTelemetry("Shooter", TelemetryVerbosity.HIGH);
 
   // Shooter Mechanism
   private FlyWheel shooter = new FlyWheel(shooterConfig);
+
+  /**
+   * Gets the current velocity of the shooter.
+   *
+   * @return Shooter velocity.
+   */
+  public AngularVelocity getVelocity() {
+    return shooter.getSpeed();
+  }
+
+  /**
+   * Set the shooter velocity setpoint.
+   *
+   * @param speed Speed to set
+   */
+  public void setVelocitySetpoint(AngularVelocity speed) {
+    shooter.setMechanismVelocitySetpoint(speed);
+  }
+
+  /**
+   * Set the shooter velocity.
+   *
+   * @param speed Speed to set.
+   * @return {@link edu.wpi.first.wpilibj2.command.RunCommand}
+   */
+  public Command setVelocity(AngularVelocity speed) {
+    return shooter.run(speed);
+  }
+
+  /**
+   * Set the dutycycle of the shooter.
+   *
+   * @param dutyCycle DutyCycle to set.
+   * @return {@link edu.wpi.first.wpilibj2.command.RunCommand}
+   */
+  public Command set(double dutyCycle) {
+    return shooter.set(dutyCycle);
+  }
+
+  @Override
+  public void periodic() {
+    // This method will be called once per scheduler run
+    shooter.updateTelemetry();
+  }
+
+  @Override
+  public void simulationPeriodic() {
+    // This method will be called once per scheduler run during simulation
+    shooter.simIterate();
+  }
 }
