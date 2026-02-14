@@ -103,6 +103,10 @@ public class Robot extends TimedRobot {
     // schedule the autonomous command selected in the autoChooser
     if (m_autonomousCommand != null) {
       m_autonomousCommand.schedule();
+      System.out.println(
+          "Auto schedule requested. isScheduled=" + m_autonomousCommand.isScheduled());
+    } else {
+      System.out.println("Auto schedule skipped because selected command was null.");
     }
   }
 

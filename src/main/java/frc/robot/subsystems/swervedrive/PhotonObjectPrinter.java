@@ -7,10 +7,8 @@ import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 
 /**
- * Small helper class that reads object-detection results from a PhotonVision
- * camera and prints a
- * compact summary to stdout once per second. Designed to be called from the
- * robot main loop.
+ * Small helper class that reads object-detection results from a PhotonVision camera and prints a
+ * compact summary to stdout once per second. Designed to be called from the robot main loop.
  */
 public class PhotonObjectPrinter {
   private final PhotonCamera camera;
@@ -33,10 +31,7 @@ public class PhotonObjectPrinter {
     lastPrintTime = Timer.getFPGATimestamp() - periodSeconds;
   }
 
-  /**
-   * Call from the robot main loop (e.g. periodic()). Prints at most once per
-   * second.
-   */
+  /** Call from the robot main loop (e.g. periodic()). Prints at most once per second. */
   public void periodic() {
     double now = Timer.getFPGATimestamp();
     if (now - lastPrintTime < periodSeconds) {

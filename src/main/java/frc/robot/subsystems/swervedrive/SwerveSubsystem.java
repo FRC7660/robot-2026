@@ -17,8 +17,8 @@ import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.util.DriveFeedforwards;
 import com.pathplanner.lib.util.swerve.SwerveSetpoint;
 import com.pathplanner.lib.util.swerve.SwerveSetpointGenerator;
-import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -41,7 +41,6 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
@@ -66,6 +65,7 @@ public class SwerveSubsystem extends SubsystemBase {
   private static final double BALL_CENTER_TOLERANCE_DEG = 4.0;
   private static final double APPROACH_MAX_FORWARD_MPS = 0.8;
   private static final double ANGULAR_TRACKING_GAIN = 2.0;
+  private static final double DEBUG_LOG_PERIOD_SEC = 0.25;
 
   /** Swerve drive object. */
   private final SwerveDrive swerveDrive;
@@ -90,15 +90,17 @@ public class SwerveSubsystem extends SubsystemBase {
     // The correct pose will be set by Autonomous or zeroGyroWithAlliance at
     // runtime.
     boolean blueAlliance = true;
-    Pose2d startingPose = blueAlliance
-        ? new Pose2d(new Translation2d(Meter.of(1), Meter.of(4)), Rotation2d.fromDegrees(0))
-        : new Pose2d(new Translation2d(Meter.of(16), Meter.of(4)), Rotation2d.fromDegrees(180));
+    Pose2d startingPose =
+        blueAlliance
+            ? new Pose2d(new Translation2d(Meter.of(1), Meter.of(4)), Rotation2d.fromDegrees(0))
+            : new Pose2d(new Translation2d(Meter.of(16), Meter.of(4)), Rotation2d.fromDegrees(180));
     // Configure the Telemetry before creating the SwerveDrive to avoid unnecessary
     // objects being
     // created.
     SwerveDriveTelemetry.verbosity = TelemetryVerbosity.HIGH;
     try {
-      swerveDrive = new SwerveParser(directory).createSwerveDrive(Constants.MAX_SPEED, startingPose);
+      swerveDrive =
+          new SwerveParser(directory).createSwerveDrive(Constants.MAX_SPEED, startingPose);
       // Alternative method if you don't want to supply the conversion factor via JSON
       // files.
       // swerveDrive = new SwerveParser(directory).createSwerveDrive(maximumSpeed,
@@ -133,16 +135,17 @@ public class SwerveSubsystem extends SubsystemBase {
   /**
    * Construct the swerve drive.
    *
-   * @param driveCfg      SwerveDriveConfiguration for the swerve.
+   * @param driveCfg SwerveDriveConfiguration for the swerve.
    * @param controllerCfg Swerve Controller.
    */
   public SwerveSubsystem(
       SwerveDriveConfiguration driveCfg, SwerveControllerConfiguration controllerCfg) {
-    swerveDrive = new SwerveDrive(
-        driveCfg,
-        controllerCfg,
-        Constants.MAX_SPEED,
-        new Pose2d(new Translation2d(Meter.of(2), Meter.of(0)), Rotation2d.fromDegrees(0)));
+    swerveDrive =
+        new SwerveDrive(
+            driveCfg,
+            controllerCfg,
+            Constants.MAX_SPEED,
+            new Pose2d(new Translation2d(Meter.of(2), Meter.of(0)), Rotation2d.fromDegrees(0)));
   }
 
   /** Setup the photon vision class. */
@@ -166,8 +169,7 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   @Override
-  public void simulationPeriodic() {
-  }
+  public void simulationPeriodic() {}
 
   /** Setup AutoBuilder for PathPlanner. */
   public void setupPathPlanner() {
@@ -206,8 +208,8 @@ public class SwerveSubsystem extends SubsystemBase {
               new PIDConstants(5.0, 0.0, 0.0),
               // Translation PID constants
               new PIDConstants(5.0, 0.0, 0.0)
-          // Rotation PID constants
-          ),
+              // Rotation PID constants
+              ),
           config,
           // The robot configuration
           () -> {
@@ -223,8 +225,8 @@ public class SwerveSubsystem extends SubsystemBase {
             return false;
           },
           this
-      // Reference to this subsystem to set requirements
-      );
+          // Reference to this subsystem to set requirements
+          );
 
     } catch (Exception e) {
       // Handle exception as needed
@@ -264,19 +266,14 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
-   * Track a detected object (e.g. a ball) using PhotonVision object-detection.
-   * The command will run
-   * for {@code durationSeconds} seconds and continuously rotate the robot toward
-   * the object's yaw
+   * Track a detected object (e.g. a ball) using PhotonVision object-detection. The command will run
+   * for {@code durationSeconds} seconds and continuously rotate the robot toward the object's yaw
    * and drive forward based on the detected area (a proxy for distance).
    *
-   * <p>
-   * This is a simple proportional controller and intended as a low-risk helper
-   * that can be bound
-   * to a button: e.g. schedule the returned command when a joystick button is
-   * pressed.
+   * <p>This is a simple proportional controller and intended as a low-risk helper that can be bound
+   * to a button: e.g. schedule the returned command when a joystick button is pressed.
    *
-   * @param camera          the camera to read results from (use {@link Cameras})
+   * @param camera the camera to read results from (use {@link Cameras})
    * @param durationSeconds how long to run the tracking for
    * @return a {@link Command} that performs the timed tracking
    */
@@ -288,65 +285,65 @@ public class SwerveSubsystem extends SubsystemBase {
 
     final double targetArea = 60.0; // example area value considered "close" (tune)
     final double kAreaForward = 1.0; // meters/sec per area-difference (scaled below)
-    final double maxForward = 0.15;//swerveDrive.getMaximumChassisVelocity() * 0.5;
+    final double maxForward = 0.15; // swerveDrive.getMaximumChassisVelocity() * 0.5;
 
     return run(() -> {
-      Optional<PhotonPipelineResult> resultO = Optional.ofNullable(camera.camera.getLatestResult());
-      double rotationRadPerSec = 0.0;
-      double forwardMps = 0.0;
-      System.out.println("RUN");
-      if (resultO.isPresent()) {
-        PhotonPipelineResult res = resultO.get();
-        if (res.hasTargets()) {
-          PhotonTrackedTarget t = res.getBestTarget();
-          double yawDeg = t.getYaw();
-          double area = t.getArea();
+          Optional<PhotonPipelineResult> resultO =
+              Optional.ofNullable(camera.camera.getLatestResult());
+          double rotationRadPerSec = 0.0;
+          double forwardMps = 0.0;
+          System.out.println("RUN");
+          if (resultO.isPresent()) {
+            PhotonPipelineResult res = resultO.get();
+            if (res.hasTargets()) {
+              PhotonTrackedTarget t = res.getBestTarget();
+              double yawDeg = t.getYaw();
+              double area = t.getArea();
 
-          // Rotation: proportional on yaw (deg -> deg/s), then convert to rad/s
-          if (Math.abs(yawDeg) > yawToleranceDeg) {
-            double rotDegPerSec = kYawDegToRadPerSec * yawDeg;
-            rotationRadPerSec = Math.toRadians(rotDegPerSec);
-            rotationRadPerSec = Math.max(
-                -maxAngularRadPerSec, Math.min(maxAngularRadPerSec, rotationRadPerSec));
-          } else {
-            rotationRadPerSec = 0.0;
+              // Rotation: proportional on yaw (deg -> deg/s), then convert to rad/s
+              if (Math.abs(yawDeg) > yawToleranceDeg) {
+                double rotDegPerSec = kYawDegToRadPerSec * yawDeg;
+                rotationRadPerSec = Math.toRadians(rotDegPerSec);
+                rotationRadPerSec =
+                    Math.max(
+                        -maxAngularRadPerSec, Math.min(maxAngularRadPerSec, rotationRadPerSec));
+              } else {
+                rotationRadPerSec = 0.0;
+              }
+
+              // Forward drive: if area smaller than target, drive forward proportional
+              if (area < targetArea) {
+                double areaError = targetArea - area;
+                forwardMps = Math.min(maxForward, kAreaForward * areaError * maxForward);
+              } else {
+                forwardMps = 0.0;
+              }
+            }
           }
 
-          // Forward drive: if area smaller than target, drive forward proportional
-          if (area < targetArea) {
-            double areaError = targetArea - area;
-            forwardMps = Math.min(maxForward, kAreaForward * areaError * maxForward);
-          } else {
-            forwardMps = 0.0;
-          }
-        }
-      }
-
-      // Drive: field-relative forward (x) while rotating to aim. Open-loop false
-      System.out.println(forwardMps + ": " + rotationRadPerSec);
-      swerveDrive.drive(
-          new edu.wpi.first.math.geometry.Translation2d(forwardMps, 0.0),
-          rotationRadPerSec,
-          false,
-          false);
-    })  .withTimeout(durationSeconds)
+          // Drive: field-relative forward (x) while rotating to aim. Open-loop false
+          System.out.println(forwardMps + ": " + rotationRadPerSec);
+          swerveDrive.drive(
+              new edu.wpi.first.math.geometry.Translation2d(forwardMps, 0.0),
+              rotationRadPerSec,
+              false,
+              false);
+        })
+        .withTimeout(durationSeconds)
         .finallyDo(
-           () -> swerveDrive.drive(
-               new edu.wpi.first.math.geometry.Translation2d(0, 0), 0, true, false));
+            () ->
+                swerveDrive.drive(
+                    new edu.wpi.first.math.geometry.Translation2d(0, 0), 0, true, false));
   }
 
   /**
-   * Helper overload that accepts the camera enum name as a string. This is
-   * convenient for callers
-   * outside the package that cannot reference the package-private
-   * {@code Vision.Cameras} type.
+   * Helper overload that accepts the camera enum name as a string. This is convenient for callers
+   * outside the package that cannot reference the package-private {@code Vision.Cameras} type.
    *
-   * @param cameraEnumName  the enum constant name from {@code Vision.Cameras},
-   *                        e.g. "CENTER_CAM" or
-   *                        "BACK_CAM"
+   * @param cameraEnumName the enum constant name from {@code Vision.Cameras}, e.g. "CENTER_CAM" or
+   *     "BACK_CAM"
    * @param durationSeconds timeout for the tracking command
-   * @return the tracking {@link Command} or {@link Commands#none()} if the name
-   *         is invalid
+   * @return the tracking {@link Command} or {@link Commands#none()} if the name is invalid
    */
   public Command trackDetectedObjectByCameraName(String cameraEnumName, double durationSeconds) {
     System.out.println("  trackDetectedObjectByCameraName ");
@@ -379,21 +376,34 @@ public class SwerveSubsystem extends SubsystemBase {
    */
   public Command driveToPose(Pose2d pose) {
     // Create the constraints to use while pathfinding
-    PathConstraints constraints = new PathConstraints(
-        swerveDrive.getMaximumChassisVelocity(),
-        0.2, // 4.0
-        swerveDrive.getMaximumChassisAngularVelocity(),
-        Units.degreesToRadians(720));
+    PathConstraints constraints =
+        new PathConstraints(
+            swerveDrive.getMaximumChassisVelocity(),
+            0.2, // 4.0
+            swerveDrive.getMaximumChassisAngularVelocity(),
+            Units.degreesToRadians(720));
 
     // Since AutoBuilder is configured, we can use it to build pathfinding commands
     return AutoBuilder.pathfindToPose(
         pose,
         constraints,
         edu.wpi.first.units.Units.MetersPerSecond.of(0) // Goal end velocity in meters/sec
-    );
+        );
   }
 
-  private record TargetObservation(Cameras camera, PhotonTrackedTarget target) {
+  private record TargetObservation(Cameras camera, PhotonTrackedTarget target) {}
+
+  private void debugAuto(String message) {
+    System.out.printf("[AutoShuttle][%.2f] %s%n", Timer.getFPGATimestamp(), message);
+  }
+
+  private boolean shouldDebugLog(AtomicReference<Double> lastLogTimeSec, double periodSec) {
+    double now = Timer.getFPGATimestamp();
+    if (now - lastLogTimeSec.get() >= periodSec) {
+      lastLogTimeSec.set(now);
+      return true;
+    }
+    return false;
   }
 
   private Optional<PhotonTrackedTarget> getClosestDetectedObject() {
@@ -484,145 +494,260 @@ public class SwerveSubsystem extends SubsystemBase {
     AtomicReference<Double> lastHeadingRad = new AtomicReference<>(0.0);
     AtomicReference<Double> rotatedRad = new AtomicReference<>(0.0);
     AtomicReference<Boolean> centered = new AtomicReference<>(false);
+    AtomicReference<Double> lastLogTimeSec = new AtomicReference<>(Double.NEGATIVE_INFINITY);
 
     return startRun(
-        () -> {
-          lastHeadingRad.set(getHeading().getRadians());
-          rotatedRad.set(0.0);
-          centered.set(false);
-        },
-        () -> {
-          double currentHeading = getHeading().getRadians();
-          double delta = MathUtil.angleModulus(currentHeading - lastHeadingRad.get());
-          rotatedRad.set(rotatedRad.get() + Math.abs(delta));
-          lastHeadingRad.set(currentHeading);
+            () -> {
+              lastHeadingRad.set(getHeading().getRadians());
+              rotatedRad.set(0.0);
+              centered.set(false);
+              lastLogTimeSec.set(Double.NEGATIVE_INFINITY);
+              debugAuto(
+                  String.format(
+                      "ALIGN START tol=%.1fdeg maxRot=%.1fdeg",
+                      centeredToleranceDeg, Math.toDegrees(maxRotationRadians)));
+            },
+            () -> {
+              double currentHeading = getHeading().getRadians();
+              double delta = MathUtil.angleModulus(currentHeading - lastHeadingRad.get());
+              rotatedRad.set(rotatedRad.get() + Math.abs(delta));
+              lastHeadingRad.set(currentHeading);
 
-          Optional<PhotonTrackedTarget> target = targetSupplier.get();
-          if (target.isPresent()) {
-            double yawDeg = target.get().getYaw();
-            centered.set(Math.abs(yawDeg) <= centeredToleranceDeg);
-            swerveDrive.drive(
-                new Translation2d(0, 0), calculateRotationFromYawDeg(yawDeg), false, false);
-          } else {
-            swerveDrive.drive(new Translation2d(0, 0), SEARCH_ROTATION_RAD_PER_SEC, false, false);
-          }
-        })
-            .until(() -> centered.get() || rotatedRad.get() >= maxRotationRadians)
-            .finallyDo(
-                () -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false));
+              Optional<PhotonTrackedTarget> target = targetSupplier.get();
+              if (target.isPresent()) {
+                double yawDeg = target.get().getYaw();
+                centered.set(Math.abs(yawDeg) <= centeredToleranceDeg);
+                if (shouldDebugLog(lastLogTimeSec, DEBUG_LOG_PERIOD_SEC)) {
+                  debugAuto(
+                      String.format(
+                          "ALIGN tracking yaw=%.2fdeg centered=%s rotated=%.1fdeg",
+                          yawDeg, centered.get(), Math.toDegrees(rotatedRad.get())));
+                }
+                swerveDrive.drive(
+                    new Translation2d(0, 0), calculateRotationFromYawDeg(yawDeg), false, false);
+              } else {
+                if (shouldDebugLog(lastLogTimeSec, DEBUG_LOG_PERIOD_SEC)) {
+                  debugAuto(
+                      String.format(
+                          "ALIGN no target, spinning rotated=%.1fdeg",
+                          Math.toDegrees(rotatedRad.get())));
+                }
+                swerveDrive.drive(
+                    new Translation2d(0, 0), SEARCH_ROTATION_RAD_PER_SEC, false, false);
+              }
+            })
+        .until(() -> centered.get() || rotatedRad.get() >= maxRotationRadians)
+        .finallyDo(
+            () -> {
+              debugAuto(
+                  String.format(
+                      "ALIGN END centered=%s rotated=%.1fdeg",
+                      centered.get(), Math.toDegrees(rotatedRad.get())));
+              swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
+            });
   }
 
   private Command approachKnownTagByVision(AtomicInteger tagIdRef, double distanceMeters) {
     AtomicReference<Double> lastHeadingRad = new AtomicReference<>(0.0);
     AtomicReference<Double> rotatedRad = new AtomicReference<>(0.0);
     AtomicReference<Boolean> reached = new AtomicReference<>(false);
+    AtomicReference<Double> lastLogTimeSec = new AtomicReference<>(Double.NEGATIVE_INFINITY);
 
     return startRun(
-        () -> {
-          lastHeadingRad.set(getHeading().getRadians());
-          rotatedRad.set(0.0);
-          reached.set(false);
-        },
-        () -> {
-          double currentHeading = getHeading().getRadians();
-          double delta = MathUtil.angleModulus(currentHeading - lastHeadingRad.get());
-          rotatedRad.set(rotatedRad.get() + Math.abs(delta));
-          lastHeadingRad.set(currentHeading);
+            () -> {
+              lastHeadingRad.set(getHeading().getRadians());
+              rotatedRad.set(0.0);
+              reached.set(false);
+              lastLogTimeSec.set(Double.NEGATIVE_INFINITY);
+              debugAuto(
+                  String.format(
+                      "APPROACH START tagId=%d distanceGoal=%.2fm",
+                      tagIdRef.get(), distanceMeters));
+            },
+            () -> {
+              double currentHeading = getHeading().getRadians();
+              double delta = MathUtil.angleModulus(currentHeading - lastHeadingRad.get());
+              rotatedRad.set(rotatedRad.get() + Math.abs(delta));
+              lastHeadingRad.set(currentHeading);
 
-          Optional<TargetObservation> observation = getVisibleAprilTagById(tagIdRef.get());
-          if (observation.isEmpty()) {
-            swerveDrive.drive(new Translation2d(0, 0), SEARCH_ROTATION_RAD_PER_SEC, false, false);
-            return;
-          }
+              Optional<TargetObservation> observation = getVisibleAprilTagById(tagIdRef.get());
+              if (observation.isEmpty()) {
+                if (shouldDebugLog(lastLogTimeSec, DEBUG_LOG_PERIOD_SEC)) {
+                  debugAuto(
+                      String.format(
+                          "APPROACH tagId=%d not visible, spinning rotated=%.1fdeg",
+                          tagIdRef.get(), Math.toDegrees(rotatedRad.get())));
+                }
+                swerveDrive.drive(
+                    new Translation2d(0, 0), SEARCH_ROTATION_RAD_PER_SEC, false, false);
+                return;
+              }
 
-          PhotonTrackedTarget target = observation.get().target();
-          double distance = getTargetPlanarDistanceMeters(target);
-          double yawDeg = target.getYaw();
-          double rotation = calculateRotationFromYawDeg(yawDeg);
-          double forwardSpeed = distance > distanceMeters
-              ? MathUtil.clamp((distance - distanceMeters) * 0.9, 0, APPROACH_MAX_FORWARD_MPS)
-              : 0.0;
-          swerveDrive.drive(new Translation2d(forwardSpeed, 0), rotation, false, false);
-          reached.set(distance <= distanceMeters && Math.abs(yawDeg) <= TAG_CENTER_TOLERANCE_DEG);
-        })
-            .until(() -> reached.get() || rotatedRad.get() >= TAG_SEARCH_MAX_RADIANS)
-            .finallyDo(
-                () -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false));
+              PhotonTrackedTarget target = observation.get().target();
+              double distance = getTargetPlanarDistanceMeters(target);
+              double yawDeg = target.getYaw();
+              double rotation = calculateRotationFromYawDeg(yawDeg);
+              double forwardSpeed =
+                  distance > distanceMeters
+                      ? MathUtil.clamp(
+                          (distance - distanceMeters) * 0.9, 0, APPROACH_MAX_FORWARD_MPS)
+                      : 0.0;
+              swerveDrive.drive(new Translation2d(forwardSpeed, 0), rotation, false, false);
+              reached.set(
+                  distance <= distanceMeters && Math.abs(yawDeg) <= TAG_CENTER_TOLERANCE_DEG);
+              if (shouldDebugLog(lastLogTimeSec, DEBUG_LOG_PERIOD_SEC)) {
+                debugAuto(
+                    String.format(
+                        "APPROACH tagId=%d camera=%s dist=%.2fm yaw=%.2fdeg fwd=%.2f rot=%.2f reached=%s",
+                        tagIdRef.get(),
+                        observation.get().camera().name(),
+                        distance,
+                        yawDeg,
+                        forwardSpeed,
+                        rotation,
+                        reached.get()));
+              }
+            })
+        .until(() -> reached.get() || rotatedRad.get() >= TAG_SEARCH_MAX_RADIANS)
+        .finallyDo(
+            () -> {
+              debugAuto(
+                  String.format(
+                      "APPROACH END tagId=%d reached=%s rotated=%.1fdeg",
+                      tagIdRef.get(), reached.get(), Math.toDegrees(rotatedRad.get())));
+              swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
+            });
   }
 
-  private Command updateTagIdFromVisibleTarget(AtomicInteger tagToUpdate, IntSupplier excludedTagId) {
+  private Command updateTagIdFromVisibleTarget(
+      AtomicInteger tagToUpdate, IntSupplier excludedTagId) {
     return Commands.runOnce(
-        () -> getClosestVisibleAprilTagObservation(excludedTagId.getAsInt())
-            .ifPresent(observation -> tagToUpdate.set(observation.target().getFiducialId())));
+        () -> {
+          getClosestVisibleAprilTagObservation(excludedTagId.getAsInt())
+              .ifPresent(observation -> tagToUpdate.set(observation.target().getFiducialId()));
+          debugAuto(
+              String.format(
+                  "TAG CANDIDATE scan exclude=%d selected=%d",
+                  excludedTagId.getAsInt(), tagToUpdate.get()));
+        });
   }
 
   private Command scanForTagWith1080Limit(AtomicInteger targetTagId, IntSupplier excludedTagId) {
     AtomicReference<Double> lastHeadingRad = new AtomicReference<>(0.0);
     AtomicReference<Double> rotatedRad = new AtomicReference<>(0.0);
+    AtomicReference<Double> lastLogTimeSec = new AtomicReference<>(Double.NEGATIVE_INFINITY);
 
     return Commands.sequence(
-        Commands.runOnce(() -> targetTagId.set(-1)),
+        Commands.runOnce(
+            () -> {
+              targetTagId.set(-1);
+              debugAuto(
+                  String.format(
+                      "TAG SEARCH START exclude=%d max=1080deg", excludedTagId.getAsInt()));
+            }),
         updateTagIdFromVisibleTarget(targetTagId, excludedTagId),
         Commands.either(
             Commands.none(),
             startRun(
-                () -> {
-                  lastHeadingRad.set(getHeading().getRadians());
-                  rotatedRad.set(0.0);
-                },
-                () -> {
-                  double currentHeading = getHeading().getRadians();
-                  double delta = MathUtil.angleModulus(currentHeading - lastHeadingRad.get());
-                  rotatedRad.set(rotatedRad.get() + Math.abs(delta));
-                  lastHeadingRad.set(currentHeading);
-                  swerveDrive.drive(
-                      new Translation2d(0, 0), SEARCH_ROTATION_RAD_PER_SEC, false, false);
-                  Optional<TargetObservation> candidate =
-                      getClosestVisibleAprilTagObservation(excludedTagId.getAsInt());
-                  candidate.ifPresent(
-                      observation -> targetTagId.set(observation.target().getFiducialId()));
-                })
-                    .until(
-                        () -> targetTagId.get() > 0
-                            || rotatedRad.get() >= TAG_SEARCH_MAX_RADIANS)
-                    .finallyDo(
-                        () -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false)),
+                    () -> {
+                      lastHeadingRad.set(getHeading().getRadians());
+                      rotatedRad.set(0.0);
+                      lastLogTimeSec.set(Double.NEGATIVE_INFINITY);
+                    },
+                    () -> {
+                      double currentHeading = getHeading().getRadians();
+                      double delta = MathUtil.angleModulus(currentHeading - lastHeadingRad.get());
+                      rotatedRad.set(rotatedRad.get() + Math.abs(delta));
+                      lastHeadingRad.set(currentHeading);
+                      swerveDrive.drive(
+                          new Translation2d(0, 0), SEARCH_ROTATION_RAD_PER_SEC, false, false);
+                      Optional<TargetObservation> candidate =
+                          getClosestVisibleAprilTagObservation(excludedTagId.getAsInt());
+                      candidate.ifPresent(
+                          observation -> targetTagId.set(observation.target().getFiducialId()));
+                      if (shouldDebugLog(lastLogTimeSec, DEBUG_LOG_PERIOD_SEC)) {
+                        if (candidate.isPresent()) {
+                          PhotonTrackedTarget t = candidate.get().target();
+                          debugAuto(
+                              String.format(
+                                  "TAG SEARCH tracking id=%d camera=%s yaw=%.2fdeg dist=%.2fm rotated=%.1fdeg",
+                                  t.getFiducialId(),
+                                  candidate.get().camera().name(),
+                                  t.getYaw(),
+                                  getTargetPlanarDistanceMeters(t),
+                                  Math.toDegrees(rotatedRad.get())));
+                        } else {
+                          debugAuto(
+                              String.format(
+                                  "TAG SEARCH no tag rotated=%.1fdeg",
+                                  Math.toDegrees(rotatedRad.get())));
+                        }
+                      }
+                    })
+                .until(() -> targetTagId.get() > 0 || rotatedRad.get() >= TAG_SEARCH_MAX_RADIANS)
+                .finallyDo(
+                    () -> {
+                      debugAuto(
+                          String.format(
+                              "TAG SEARCH END selected=%d rotated=%.1fdeg",
+                              targetTagId.get(), Math.toDegrees(rotatedRad.get())));
+                      swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
+                    }),
             () -> targetTagId.get() > 0 && targetTagId.get() != excludedTagId.getAsInt()));
   }
 
   private Command centerOnKnownTag(AtomicInteger tagIdRef) {
-    return Commands.either(
-        alignToTargetWithRotationLimit(
-            () -> getVisibleAprilTagById(tagIdRef.get()).map(TargetObservation::target),
-            TAG_CENTER_TOLERANCE_DEG,
-            TAG_SEARCH_MAX_RADIANS),
-        Commands.none(),
-        () -> tagIdRef.get() > 0);
+    return Commands.sequence(
+        Commands.runOnce(
+            () -> debugAuto(String.format("CENTER TAG START tagId=%d", tagIdRef.get()))),
+        Commands.either(
+            alignToTargetWithRotationLimit(
+                () -> getVisibleAprilTagById(tagIdRef.get()).map(TargetObservation::target),
+                TAG_CENTER_TOLERANCE_DEG,
+                TAG_SEARCH_MAX_RADIANS),
+            Commands.none(),
+            () -> tagIdRef.get() > 0),
+        Commands.runOnce(
+            () -> debugAuto(String.format("CENTER TAG END tagId=%d", tagIdRef.get()))));
   }
 
   private Command findAndCenterBallWithRotationLimit() {
-    return alignToTargetWithRotationLimit(
-        this::getClosestDetectedObject,
-        BALL_CENTER_TOLERANCE_DEG,
-        TAG_SEARCH_MAX_RADIANS);
+    return Commands.sequence(
+        Commands.runOnce(() -> debugAuto("BALL CENTER START")),
+        alignToTargetWithRotationLimit(
+            this::getClosestDetectedObject, BALL_CENTER_TOLERANCE_DEG, TAG_SEARCH_MAX_RADIANS),
+        Commands.runOnce(() -> debugAuto("BALL CENTER END")));
   }
 
   private Command executeTagRoutine(AtomicInteger activeTagId, AtomicInteger otherTagId) {
     return Commands.either(
         Commands.sequence(
+            Commands.runOnce(
+                () ->
+                    debugAuto(
+                        String.format(
+                            "TAG ROUTINE START active=%d other=%d",
+                            activeTagId.get(), otherTagId.get()))),
             approachKnownTagByVision(activeTagId, TAG_APPROACH_DISTANCE_METERS),
             findAndCenterBallWithRotationLimit(),
-            scanForTagWith1080Limit(otherTagId, activeTagId::get)),
+            scanForTagWith1080Limit(otherTagId, activeTagId::get),
+            Commands.runOnce(
+                () ->
+                    debugAuto(
+                        String.format(
+                            "TAG ROUTINE END active=%d other=%d",
+                            activeTagId.get(), otherTagId.get())))),
         Commands.none(),
         () -> activeTagId.get() > 0);
   }
 
   private Command buildShuttleCycle(AtomicInteger firstTagId, AtomicInteger secondTagId) {
     Command firstTagRoutine = executeTagRoutine(firstTagId, secondTagId);
-    Command secondTagWork = Commands.sequence(
-        centerOnKnownTag(secondTagId),
-        approachKnownTagByVision(secondTagId, TAG_APPROACH_DISTANCE_METERS),
-        executeTagRoutine(secondTagId, firstTagId));
+    Command secondTagWork =
+        Commands.sequence(
+            centerOnKnownTag(secondTagId),
+            approachKnownTagByVision(secondTagId, TAG_APPROACH_DISTANCE_METERS),
+            executeTagRoutine(secondTagId, firstTagId));
     Command fallbackRepeatFirst = executeTagRoutine(firstTagId, secondTagId);
 
     return Commands.sequence(
@@ -637,53 +762,69 @@ public class SwerveSubsystem extends SubsystemBase {
     AtomicInteger firstTagId = new AtomicInteger(-1);
     AtomicInteger secondTagId = new AtomicInteger(-1);
 
-    Command discoverAndApproachFirstTag = Commands.sequence(
-        scanForTagWith1080Limit(firstTagId, () -> -1),
-        centerOnKnownTag(firstTagId),
-        approachKnownTagByVision(firstTagId, TAG_APPROACH_DISTANCE_METERS));
+    Command discoverAndApproachFirstTag =
+        Commands.sequence(
+            scanForTagWith1080Limit(firstTagId, () -> -1),
+            centerOnKnownTag(firstTagId),
+            approachKnownTagByVision(firstTagId, TAG_APPROACH_DISTANCE_METERS));
 
     ArrayList<Command> loopCommands = new ArrayList<>();
     for (int i = 0; i < cycles; i++) {
-      loopCommands.add(buildShuttleCycle(firstTagId, secondTagId));
+      final int cycleIndex = i + 1;
+      loopCommands.add(
+          Commands.sequence(
+              Commands.runOnce(
+                  () -> debugAuto(String.format("CYCLE %d/%d START", cycleIndex, cycles))),
+              buildShuttleCycle(firstTagId, secondTagId),
+              Commands.runOnce(
+                  () -> debugAuto(String.format("CYCLE %d/%d END", cycleIndex, cycles)))));
     }
 
     return Commands.sequence(
+        Commands.runOnce(() -> debugAuto(String.format("AUTO START cycles=%d", cycles))),
         discoverAndApproachFirstTag,
         Commands.either(
             Commands.sequence(loopCommands.toArray(new Command[0])),
             Commands.none(),
-            () -> firstTagId.get() > 0));
+            () -> firstTagId.get() > 0),
+        Commands.runOnce(
+            () ->
+                debugAuto(
+                    String.format(
+                        "AUTO END firstTag=%d secondTag=%d",
+                        firstTagId.get(), secondTagId.get()))));
   }
 
   /**
-   * Drive with {@link SwerveSetpointGenerator} from 254, implemented by
-   * PathPlanner.
+   * Drive with {@link SwerveSetpointGenerator} from 254, implemented by PathPlanner.
    *
-   * @param robotRelativeChassisSpeed Robot relative {@link ChassisSpeeds} to
-   *                                  achieve.
+   * @param robotRelativeChassisSpeed Robot relative {@link ChassisSpeeds} to achieve.
    * @return {@link Command} to run.
-   * @throws IOException    If the PathPlanner GUI settings is invalid
+   * @throws IOException If the PathPlanner GUI settings is invalid
    * @throws ParseException If PathPlanner GUI settings is nonexistent.
    */
   private Command driveWithSetpointGenerator(Supplier<ChassisSpeeds> robotRelativeChassisSpeed)
       throws IOException, ParseException {
-    SwerveSetpointGenerator setpointGenerator = new SwerveSetpointGenerator(
-        RobotConfig.fromGUISettings(), swerveDrive.getMaximumChassisAngularVelocity());
-    AtomicReference<SwerveSetpoint> prevSetpoint = new AtomicReference<>(
-        new SwerveSetpoint(
-            swerveDrive.getRobotVelocity(),
-            swerveDrive.getStates(),
-            DriveFeedforwards.zeros(swerveDrive.getModules().length)));
+    SwerveSetpointGenerator setpointGenerator =
+        new SwerveSetpointGenerator(
+            RobotConfig.fromGUISettings(), swerveDrive.getMaximumChassisAngularVelocity());
+    AtomicReference<SwerveSetpoint> prevSetpoint =
+        new AtomicReference<>(
+            new SwerveSetpoint(
+                swerveDrive.getRobotVelocity(),
+                swerveDrive.getStates(),
+                DriveFeedforwards.zeros(swerveDrive.getModules().length)));
     AtomicReference<Double> previousTime = new AtomicReference<>();
 
     return startRun(
         () -> previousTime.set(Timer.getFPGATimestamp()),
         () -> {
           double newTime = Timer.getFPGATimestamp();
-          SwerveSetpoint newSetpoint = setpointGenerator.generateSetpoint(
-              prevSetpoint.get(),
-              robotRelativeChassisSpeed.get(),
-              newTime - previousTime.get());
+          SwerveSetpoint newSetpoint =
+              setpointGenerator.generateSetpoint(
+                  prevSetpoint.get(),
+                  robotRelativeChassisSpeed.get(),
+                  newTime - previousTime.get());
           swerveDrive.drive(
               newSetpoint.robotRelativeSpeeds(),
               newSetpoint.moduleStates(),
@@ -745,22 +886,19 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
-   * Returns a Command that tells the robot to drive forward until the command
-   * ends.
+   * Returns a Command that tells the robot to drive forward until the command ends.
    *
-   * @return a Command that tells the robot to drive forward until the command
-   *         ends
+   * @return a Command that tells the robot to drive forward until the command ends
    */
   public Command driveForward() {
     return run(() -> {
-      swerveDrive.drive(new Translation2d(1, 0), 0, false, false);
-    })
+          swerveDrive.drive(new Translation2d(1, 0), 0, false, false);
+        })
         .finallyDo(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false));
   }
 
   /**
-   * Replaces the swerve module feedforward with a new SimpleMotorFeedforward
-   * object.
+   * Replaces the swerve module feedforward with a new SimpleMotorFeedforward object.
    *
    * @param kS the static gain of the feedforward
    * @param kV the velocity gain of the feedforward
@@ -771,15 +909,11 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
-   * Command to drive the robot using translative values and heading as angular
-   * velocity.
+   * Command to drive the robot using translative values and heading as angular velocity.
    *
-   * @param translationX     Translation in the X direction. Cubed for smoother
-   *                         controls.
-   * @param translationY     Translation in the Y direction. Cubed for smoother
-   *                         controls.
-   * @param angularRotationX Angular velocity of the robot to set. Cubed for
-   *                         smoother controls.
+   * @param translationX Translation in the X direction. Cubed for smoother controls.
+   * @param translationY Translation in the Y direction. Cubed for smoother controls.
+   * @param angularRotationX Angular velocity of the robot to set. Cubed for smoother controls.
    * @return Drive command.
    */
   public Command driveCommand(
@@ -801,15 +935,12 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
-   * Command to drive the robot using translative values and heading as a
-   * setpoint.
+   * Command to drive the robot using translative values and heading as a setpoint.
    *
-   * @param translationX Translation in the X direction. Cubed for smoother
-   *                     controls.
-   * @param translationY Translation in the Y direction. Cubed for smoother
-   *                     controls.
-   * @param headingX     Heading X to calculate angle of the joystick.
-   * @param headingY     Heading Y to calculate angle of the joystick.
+   * @param translationX Translation in the X direction. Cubed for smoother controls.
+   * @param translationY Translation in the Y direction. Cubed for smoother controls.
+   * @param headingX Heading X to calculate angle of the joystick.
+   * @param headingY Heading Y to calculate angle of the joystick.
    * @return Drive command.
    */
   public Command driveCommand(
@@ -822,8 +953,9 @@ public class SwerveSubsystem extends SubsystemBase {
     // this kind of control.
     return run(
         () -> {
-          Translation2d scaledInputs = SwerveMath.scaleTranslation(
-              new Translation2d(translationX.getAsDouble(), translationY.getAsDouble()), 0.8);
+          Translation2d scaledInputs =
+              SwerveMath.scaleTranslation(
+                  new Translation2d(translationX.getAsDouble(), translationY.getAsDouble()), 0.8);
 
           // Make the robot move
           driveFieldOriented(
@@ -838,28 +970,19 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
-   * The primary method for controlling the drivebase. Takes a
-   * {@link Translation2d} and a rotation
-   * rate, and calculates and commands module states accordingly. Can use either
-   * open-loop or
-   * closed-loop velocity control for the wheel velocities. Also has field- and
-   * robot-relative
+   * The primary method for controlling the drivebase. Takes a {@link Translation2d} and a rotation
+   * rate, and calculates and commands module states accordingly. Can use either open-loop or
+   * closed-loop velocity control for the wheel velocities. Also has field- and robot-relative
    * modes, which affect how the translation vector is used.
    *
-   * @param translation   {@link Translation2d} that is the commanded linear
-   *                      velocity of the robot, in
-   *                      meters per second. In robot-relative mode, positive x is
-   *                      torwards the bow (front) and
-   *                      positive y is torwards port (left). In field-relative
-   *                      mode, positive x is away from the
-   *                      alliance wall (field North) and positive y is torwards
-   *                      the left wall when looking through
-   *                      the driver station glass (field West).
-   * @param rotation      Robot angular rate, in radians per second. CCW positive.
-   *                      Unaffected by
-   *                      field/robot relativity.
-   * @param fieldRelative Drive mode. True for field-relative, false for
-   *                      robot-relative.
+   * @param translation {@link Translation2d} that is the commanded linear velocity of the robot, in
+   *     meters per second. In robot-relative mode, positive x is torwards the bow (front) and
+   *     positive y is torwards port (left). In field-relative mode, positive x is away from the
+   *     alliance wall (field North) and positive y is torwards the left wall when looking through
+   *     the driver station glass (field West).
+   * @param rotation Robot angular rate, in radians per second. CCW positive. Unaffected by
+   *     field/robot relativity.
+   * @param fieldRelative Drive mode. True for field-relative, false for robot-relative.
    */
   public void drive(Translation2d translation, double rotation, boolean fieldRelative) {
     swerveDrive.drive(
@@ -909,10 +1032,8 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
-   * Resets odometry to the given pose. Gyro angle and module positions do not
-   * need to be reset when
-   * calling this method. However, if either gyro angle or module position is
-   * reset, this must be
+   * Resets odometry to the given pose. Gyro angle and module positions do not need to be reset when
+   * calling this method. However, if either gyro angle or module position is reset, this must be
    * called in order for odometry to keep working.
    *
    * @param initialHolonomicPose The pose to set the odometry to
@@ -922,8 +1043,7 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
-   * Gets the current pose (position and rotation) of the robot, as reported by
-   * odometry.
+   * Gets the current pose (position and rotation) of the robot, as reported by odometry.
    *
    * @return The robot's pose
    */
@@ -950,8 +1070,7 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
-   * Resets the gyro angle to zero and resets odometry to the same position, but
-   * facing toward 0.
+   * Resets the gyro angle to zero and resets odometry to the same position, but facing toward 0.
    */
   public void zeroGyro() {
     swerveDrive.zeroGyro();
@@ -960,8 +1079,7 @@ public class SwerveSubsystem extends SubsystemBase {
   /**
    * Checks if the alliance is red, defaults to false if alliance isn't available.
    *
-   * @return true if the red alliance, false if blue. Defaults to false if none is
-   *         available.
+   * @return true if the red alliance, false if blue. Defaults to false if none is available.
    */
   private boolean isRedAlliance() {
     var alliance = DriverStation.getAlliance();
@@ -969,11 +1087,9 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
-   * This will zero (calibrate) the robot to assume the current position is facing
-   * forward
+   * This will zero (calibrate) the robot to assume the current position is facing forward
    *
-   * <p>
-   * If red alliance rotate the robot 180 after the drviebase zero command
+   * <p>If red alliance rotate the robot 180 after the drviebase zero command
    */
   public void zeroGyroWithAlliance() {
     if (isRedAlliance()) {
@@ -995,10 +1111,8 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
-   * Gets the current yaw angle of the robot, as reported by the swerve pose
-   * estimator in the
-   * underlying drivebase. Note, this is not the raw gyro reading, this may be
-   * corrected from calls
+   * Gets the current yaw angle of the robot, as reported by the swerve pose estimator in the
+   * underlying drivebase. Note, this is not the raw gyro reading, this may be corrected from calls
    * to resetOdometry().
    *
    * @return The yaw angle
@@ -1008,12 +1122,11 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
-   * Get the chassis speeds based on controller input of 2 joysticks. One for
-   * speeds in which
+   * Get the chassis speeds based on controller input of 2 joysticks. One for speeds in which
    * direction. The other for the angle of the robot.
    *
-   * @param xInput   X joystick input for the robot to move in the X direction.
-   * @param yInput   Y joystick input for the robot to move in the Y direction.
+   * @param xInput X joystick input for the robot to move in the X direction.
+   * @param yInput Y joystick input for the robot to move in the Y direction.
    * @param headingX X joystick which controls the angle of the robot.
    * @param headingY Y joystick which controls the angle of the robot.
    * @return {@link ChassisSpeeds} which can be sent to the Swerve Drive.
@@ -1032,13 +1145,12 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
-   * Get the chassis speeds based on controller input of 1 joystick and one angle.
-   * Control the robot
+   * Get the chassis speeds based on controller input of 1 joystick and one angle. Control the robot
    * at an offset of 90deg.
    *
    * @param xInput X joystick input for the robot to move in the X direction.
    * @param yInput Y joystick input for the robot to move in the Y direction.
-   * @param angle  The angle in as a {@link Rotation2d}.
+   * @param angle The angle in as a {@link Rotation2d}.
    * @return {@link ChassisSpeeds} which can be sent to the Swerve Drive.
    */
   public ChassisSpeeds getTargetSpeeds(double xInput, double yInput, Rotation2d angle) {
