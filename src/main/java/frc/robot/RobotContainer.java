@@ -217,9 +217,7 @@ public class RobotContainer {
 
       driverXbox
           .b()
-          .whileTrue(
-              drivebase.driveToPose(
-                  new Pose2d(new Translation2d(14, 4), Rotation2d.fromDegrees(0))));
+          .whileTrue(drivebase.logDetectedObjectAreaByCameraName("CAMERA0"));
 
       driverXbox.y().whileTrue(drivebase.sysIdDriveMotorCommand());
     }
