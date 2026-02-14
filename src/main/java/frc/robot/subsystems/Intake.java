@@ -37,7 +37,7 @@ public class Intake extends SubsystemBase {
   private final TalonFX liftMotor = new TalonFX(Constants.Intake.LIFT_MOTOR_ID);
   private final TalonFX rollerMotor = new TalonFX(Constants.Intake.ROLLER_MOTOR_ID);
 
-// Roller Motor Config
+  // Roller Motor Config
   public void configureRollerMotor() {
     TalonFXConfiguration rollerConfig = new TalonFXConfiguration();
     rollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;

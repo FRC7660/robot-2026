@@ -77,5 +77,4 @@ public class Launch extends SubsystemBase {
 
   // Shooter Mechanism
   private FlyWheel shooter = new FlyWheel(shooterConfig);
-  
 }
