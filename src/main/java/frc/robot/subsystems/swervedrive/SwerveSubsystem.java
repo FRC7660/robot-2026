@@ -68,7 +68,7 @@ public class SwerveSubsystem extends SubsystemBase {
   private static final double TAG_CENTER_TOLERANCE_DEG = 3.0;
   private static final double TAG_CENTER_NEAR_TOLERANCE_EXTRA_DEG = 1.0;
   private static final double TAG_CENTER_NEAR_HOLD_SEC = 0.7;
-  private static final double BALL_CENTER_TOLERANCE_DEG = 4.0;
+  private static final double BALL_CENTER_TOLERANCE_DEG = 8.0;
   private static final double APPROACH_MAX_FORWARD_MPS = 0.35;
   private static final double APPROACH_MIN_FORWARD_MPS = 0.35;
   private static final double APPROACH_DISTANCE_TOLERANCE_METERS = 0.20;
@@ -78,10 +78,10 @@ public class SwerveSubsystem extends SubsystemBase {
   private static final double DEBUG_LOG_PERIOD_SEC = 0.25;
   private static final double LOST_TAG_HOLD_SEC = 0.4;
   private static final double LOST_TAG_RECOVERY_ROTATION_RAD_PER_SEC = Math.toRadians(16.0);
-  private static final double FUEL_APPROACH_STOP_AREA = 6.0;
+  private static final double FUEL_APPROACH_STOP_AREA = 4.5;
   private static final double FUEL_APPROACH_MIN_FORWARD_MPS = 0.10;
   private static final double FUEL_APPROACH_MAX_FORWARD_MPS = 0.35;
-  private static final double FUEL_APPROACH_TIMEOUT_SEC = 8.0;
+  private static final double FUEL_APPROACH_TIMEOUT_SEC = 10.0;
 
   /** Swerve drive object. */
   private final SwerveDrive swerveDrive;
@@ -542,23 +542,16 @@ public class SwerveSubsystem extends SubsystemBase {
       return Optional.empty();
     }
 
-    PhotonTrackedTarget closest = null;
-    double largestArea = Double.NEGATIVE_INFINITY;
     for (PhotonTrackedTarget target : latest.getTargets()) {
       if (target.getFiducialId() > 0) {
         continue;
       }
-      if (target.getArea() > largestArea) {
-        largestArea = target.getArea();
-        closest = target;
-      }
+      return Optional.of(target);
     }
-    return Optional.ofNullable(closest);
+    return Optional.empty();
   }
 
   private Optional<PhotonTrackedTarget> getClosestDetectedObjectAnyCamera() {
-    PhotonTrackedTarget closest = null;
-    double largestArea = Double.NEGATIVE_INFINITY;
     Cameras[] fuelCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
     for (Cameras camera : fuelCameras) {
       var latest = camera.camera.getLatestResult();
@@ -569,18 +562,13 @@ public class SwerveSubsystem extends SubsystemBase {
         if (target.getFiducialId() > 0) {
           continue;
         }
-        if (target.getArea() > largestArea) {
-          largestArea = target.getArea();
-          closest = target;
-        }
+        return Optional.of(target);
       }
     }
-    return Optional.ofNullable(closest);
+    return Optional.empty();
   }
 
   private Optional<TargetObservation> getClosestDetectedObjectObservationAnyCamera() {
-    TargetObservation closest = null;
-    double largestArea = Double.NEGATIVE_INFINITY;
     Cameras[] fuelCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
     for (Cameras camera : fuelCameras) {
       var latest = camera.camera.getLatestResult();
@@ -591,13 +579,10 @@ public class SwerveSubsystem extends SubsystemBase {
         if (target.getFiducialId() > 0) {
           continue;
         }
-        if (target.getArea() > largestArea) {
-          largestArea = target.getArea();
-          closest = new TargetObservation(camera, target);
-        }
+        return Optional.of(new TargetObservation(camera, target));
       }
     }
-    return Optional.ofNullable(closest);
+    return Optional.empty();
   }
 
   private double getTargetPlanarDistanceMeters(PhotonTrackedTarget target) {
@@ -1114,17 +1099,15 @@ public class SwerveSubsystem extends SubsystemBase {
                 double rotation = calculateRotationFromYawDeg(yawDeg);
                 double area = fuelFront.get().getArea();
                 double forward = 0.0;
-                if (Math.abs(yawDeg) <= BALL_CENTER_TOLERANCE_DEG) {
-                  if (area >= FUEL_APPROACH_STOP_AREA) {
-                    fuelFound.set(true);
-                  } else {
-                    double areaError = FUEL_APPROACH_STOP_AREA - area;
-                    forward =
-                        MathUtil.clamp(
-                            areaError * 0.08,
-                            FUEL_APPROACH_MIN_FORWARD_MPS,
-                            FUEL_APPROACH_MAX_FORWARD_MPS);
-                  }
+                if (area >= FUEL_APPROACH_STOP_AREA) {
+                  fuelFound.set(true);
+                } else {
+                  double areaError = FUEL_APPROACH_STOP_AREA - area;
+                  forward =
+                      MathUtil.clamp(
+                          areaError * 0.08,
+                          FUEL_APPROACH_MIN_FORWARD_MPS,
+                          FUEL_APPROACH_MAX_FORWARD_MPS);
                 }
                 swerveDrive.drive(new Translation2d(forward, 0), rotation, false, false);
                 if (forward > 0.0 && shouldDebugLog(lastLogTimeSec, DEBUG_LOG_PERIOD_SEC)) {
@@ -1140,7 +1123,7 @@ public class SwerveSubsystem extends SubsystemBase {
                           yawDeg,
                           area,
                           forward,
-                          Math.abs(yawDeg) <= BALL_CENTER_TOLERANCE_DEG,
+                          true,
                           fuelFound.get(),
                           Math.toDegrees(rotatedRad.get())));
                 }
@@ -1239,6 +1222,13 @@ public class SwerveSubsystem extends SubsystemBase {
 
     return Commands.sequence(
         Commands.runOnce(() -> currentAutoRunId = AUTO_RUN_COUNTER.incrementAndGet()),
+        Commands.runOnce(
+            () -> {
+              currentTagId.set(-1);
+              nextTagId.set(-1);
+              keepRunning.set(true);
+              fuelFoundAtCurrentTag.set(false);
+            }),
         Commands.runOnce(() -> debugAuto(String.format("AUTO START cycles=%d", cycles))),
         scanForTagWith1080Limit(currentTagId, () -> -1),
         Commands.either(
