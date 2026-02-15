@@ -488,6 +488,47 @@ public class SwerveSubsystem extends SubsystemBase {
     }
   }
 
+  /** Lightweight object-detection observation suitable for autonomous logic outside this package. */
+  public record DetectedObjectObservation(String cameraName, double yawDeg, double area) {}
+
+  /**
+   * Get the most centered non-fiducial object across camera0 and camera1.
+   *
+   * @return optional observation with camera name, yaw, and area
+   */
+  public Optional<DetectedObjectObservation> getBestDetectedObjectAnyCamera() {
+    Cameras[] fuelCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
+    PhotonTrackedTarget mostCentered = null;
+    Cameras sourceCamera = null;
+    double minAbsYaw = Double.POSITIVE_INFINITY;
+
+    for (Cameras camera : fuelCameras) {
+      var latest = camera.camera.getLatestResult();
+      if (!latest.hasTargets()) {
+        continue;
+      }
+      for (PhotonTrackedTarget target : latest.getTargets()) {
+        if (target.getFiducialId() > 0) {
+          continue;
+        }
+        double absYaw = Math.abs(target.getYaw());
+        if (absYaw < minAbsYaw) {
+          minAbsYaw = absYaw;
+          mostCentered = target;
+          sourceCamera = camera;
+        }
+      }
+    }
+
+    if (mostCentered == null || sourceCamera == null) {
+      return Optional.empty();
+    }
+
+    return Optional.of(
+        new DetectedObjectObservation(
+            sourceCamera.name(), mostCentered.getYaw(), mostCentered.getArea()));
+  }
+
   /**
    * Get the path follower with events.
    *
@@ -1231,75 +1272,7 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   public Command aprilTagBallShuttleAuto(int repetitionCount) {
-    int cycles = Math.max(1, repetitionCount);
-    AtomicInteger currentTagId = new AtomicInteger(-1);
-    AtomicInteger nextTagId = new AtomicInteger(-1);
-    AtomicBoolean keepRunning = new AtomicBoolean(true);
-    AtomicBoolean fuelFoundAtCurrentTag = new AtomicBoolean(false);
-
-    ArrayList<Command> loopCommands = new ArrayList<>();
-    for (int i = 0; i < cycles; i++) {
-      final int cycleIndex = i + 1;
-      loopCommands.add(
-          Commands.either(
-              Commands.sequence(
-                  Commands.runOnce(
-                      () -> debugAuto(String.format("CYCLE %d/%d START", cycleIndex, cycles))),
-                  centerOnKnownTag(currentTagId),
-                  approachKnownTagByVision(currentTagId, TAG_APPROACH_DISTANCE_METERS),
-                  findFuelForKnownTag(currentTagId, fuelFoundAtCurrentTag),
-                  findSecondTagFromCurrentTag(currentTagId, nextTagId),
-                  Commands.runOnce(
-                      () -> {
-                        if (nextTagId.get() > 0) {
-                          debugAuto(
-                              String.format(
-                                  "NEXT TAG FOUND cycle=%d id=%d (fuelFound=%s)",
-                                  cycleIndex, nextTagId.get(), fuelFoundAtCurrentTag.get()));
-                          currentTagId.set(nextTagId.get());
-                        } else {
-                          debugAuto(
-                              String.format(
-                                  "NEXT TAG NOT FOUND cycle=%d; stopping cycle (fuelFound=%s)",
-                                  cycleIndex, fuelFoundAtCurrentTag.get()));
-                          keepRunning.set(false);
-                        }
-                      }),
-                  Commands.runOnce(
-                      () -> debugAuto(String.format("CYCLE %d/%d END", cycleIndex, cycles)))),
-              Commands.none(),
-              keepRunning::get));
-    }
-
-    return Commands.sequence(
-        Commands.runOnce(() -> currentAutoRunId = AUTO_RUN_COUNTER.incrementAndGet()),
-        Commands.runOnce(
-            () -> {
-              currentTagId.set(-1);
-              nextTagId.set(-1);
-              keepRunning.set(true);
-              fuelFoundAtCurrentTag.set(false);
-            }),
-        Commands.runOnce(() -> debugAuto(String.format("AUTO START cycles=%d", cycles))),
-        scanForTagWith1080Limit(currentTagId, () -> -1),
-        Commands.either(
-            Commands.none(),
-            Commands.runOnce(
-                () -> {
-                  keepRunning.set(false);
-                  debugAuto(
-                      String.format(
-                          "INITIAL TAG NOT FOUND after %.1fdeg; ending auto",
-                          Math.toDegrees(TAG_SEARCH_MAX_RADIANS)));
-                }),
-            () -> currentTagId.get() > 0),
-        Commands.sequence(loopCommands.toArray(new Command[0])),
-        Commands.runOnce(
-            () ->
-                debugAuto(
-                    String.format(
-                        "AUTO END currentTag=%d keepRunning=%s",
-                        currentTagId.get(), keepRunning.get()))));
+    return new AprilTagBallShuttleAuto(this).build(repetitionCount);
   }
 
   /**

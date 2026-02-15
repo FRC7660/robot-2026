@@ -4,7 +4,6 @@
 
 package frc.robot;
 
-import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -15,14 +14,12 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OperatorConstants;
+import frc.robot.autonomous.AutonomousManager;
 import frc.robot.commands.turret.DefaultCommand;
 import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
@@ -46,10 +43,7 @@ public class RobotContainer {
   // Turret subsystem, constructed with a supplier that returns the current odometry pose
   private final Turret turret = new Turret(drivebase::getPose);
 
-  // Establish a Sendable Chooser that will be able to be sent to the SmartDashboard, allowing
-  // selection of desired auto
-  private final SendableChooser<Command> autoChooser;
-  private final Command shuttleAuto;
+  private final AutonomousManager autonomousManager;
 
   private double getRightXCorrected() {
     double base = driverXbox.getRightX();
@@ -118,24 +112,10 @@ public class RobotContainer {
     configureBindings();
     DriverStation.silenceJoystickConnectionWarning(true);
 
-    shuttleAuto = drivebase.aprilTagBallShuttleAuto(5);
-
     // Create the NamedCommands that will be used in PathPlanner
     NamedCommands.registerCommand("test", Commands.print("I EXIST"));
 
-    // Have the autoChooser pull in all PathPlanner autos as options
-    autoChooser = AutoBuilder.buildAutoChooser();
-
-    // Use shuttle as the default so auto mode always runs the requested behavior.
-    autoChooser.setDefaultOption("AprilTag Ball Shuttle x5", shuttleAuto);
-    autoChooser.addOption("Do Nothing", Commands.none());
-
-    // Add a simple auto option to have the robot drive forward for 1 second then
-    // stop
-    autoChooser.addOption("Drive Forward", drivebase.driveForward().withTimeout(1));
-
-    // Put the autoChooser on the SmartDashboard
-    SmartDashboard.putData("Auto Chooser", autoChooser);
+    autonomousManager = new AutonomousManager(drivebase);
 
     // Set the turret default command to compute targets from odometry
     turret.setDefaultCommand(new DefaultCommand(turret));
@@ -229,17 +209,7 @@ public class RobotContainer {
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
-    // Pass in the selected auto from the SmartDashboard as our desired autnomous
-    // commmand
-    Command selected = autoChooser.getSelected();
-    System.out.println("[AutoChooser] Selected command: " + selected);
-
-    // Defensive fallback: if chooser resolves to a do-nothing InstantCommand, run shuttle.
-    if (selected == null || selected instanceof InstantCommand) {
-      System.out.println("[AutoChooser] Fallback to AprilTag Ball Shuttle x5");
-      return shuttleAuto;
-    }
-    return selected;
+    return autonomousManager.getAutonomousCommand();
   }
 
   public void setMotorBrake(boolean brake) {
