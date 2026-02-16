@@ -75,7 +75,13 @@ public final class Constants {
 
   // Turret Constants
   public static final class Turret {
-    public static final int MOTOR_ID = 18;
-    public static final double TURRET_SPEED = 0.5;
+    public static final int MOTOR_ID = 30;
+    public static final double TURRET_SPEED = 0.05;
+    // Turret gearing: motor rotations -> turret rotations
+    public static final double TURRET_GEAR_RATIO = 40.0;
+    // PID for turret position (motor rotations)
+    public static final double TURRET_P = 0.2;
+    public static final double TURRET_I = 0.0;
+    public static final double TURRET_D = 0.0;
   }
 }
