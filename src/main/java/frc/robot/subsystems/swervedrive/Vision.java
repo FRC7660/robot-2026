@@ -49,7 +49,7 @@ public class Vision {
 
   /** April Tag Field Layout of the year. */
   public static final AprilTagFieldLayout fieldLayout =
-      AprilTagFieldLayout.loadField(AprilTagFields.k2025ReefscapeAndyMark);
+      AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded);
 
   /** Ambiguity defined as a value between (0,1). Used in {@link Vision#filterPose}. */
   private final double maximumAmbiguity = 0.25;
@@ -291,35 +291,34 @@ public class Vision {
 
   /** Camera Enum to select each camera */
   enum Cameras {
-    /** Left Camera */
-    LEFT_CAM(
-        "USB_Camera",
-        new Rotation3d(0, Math.toRadians(-24.094), Math.toRadians(30)),
+    /** Back Camera */
+    BACK_CAM(
+        "camA",
+        new Rotation3d(0, Math.toRadians(5), Math.toRadians(180)),
         new Translation3d(
-            Units.inchesToMeters(12.056), Units.inchesToMeters(10.981), Units.inchesToMeters(8.44)),
+            Units.inchesToMeters(-12), Units.inchesToMeters(0), Units.inchesToMeters(0)),
         VecBuilder.fill(4, 4, 8),
         VecBuilder.fill(0.5, 0.5, 1)),
-  // /** Right Camera */
-  // RIGHT_CAM(
-  //     "right",
-  //     new Rotation3d(0, Math.toRadians(-24.094), Math.toRadians(-30)),
-  //     new Translation3d(
-  //         Units.inchesToMeters(12.056),
-  //         Units.inchesToMeters(-10.981),
-  //         Units.inchesToMeters(8.44)),
-  //     VecBuilder.fill(4, 4, 8),
-  //     VecBuilder.fill(0.5, 0.5, 1)),
-  // /** Center Camera */
-  // CENTER_CAM(
-  //     "center",
-  //     new Rotation3d(0, Units.degreesToRadians(18), 0),
-  //     new Translation3d(
-  //         Units.inchesToMeters(-4.628),
-  //         Units.inchesToMeters(-10.687),
-  //         Units.inchesToMeters(16.129)),
-  //     VecBuilder.fill(4, 4, 8),
-  //     VecBuilder.fill(0.5, 0.5, 1))
-  ;
+    /** Right Camera */
+    // RIGHT_CAM(
+    //     "right",
+    //     new Rotation3d(0, Math.toRadians(-24.094), Math.toRadians(-30)),
+    //     new Translation3d(
+    //         Units.inchesToMeters(12.056),
+    //         Units.inchesToMeters(-10.981),
+    //         Units.inchesToMeters(8.44)),
+    //     VecBuilder.fill(4, 4, 8),
+    //     VecBuilder.fill(0.5, 0.5, 1)),
+    /** Center Camera */
+    CENTER_CAM(
+        "camB",
+        new Rotation3d(0, Units.degreesToRadians(18), 0),
+        new Translation3d(
+            Units.inchesToMeters(-4.628),
+            Units.inchesToMeters(-10.687),
+            Units.inchesToMeters(16.129)),
+        VecBuilder.fill(4, 4, 8),
+        VecBuilder.fill(0.5, 0.5, 1));
 
     /** Latency alert to use when high latency is detected. */
     public final Alert latencyAlert;
