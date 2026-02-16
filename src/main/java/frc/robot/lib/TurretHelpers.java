@@ -23,9 +23,9 @@ public final class TurretHelpers {
   // suitable for computing angles; replace with precise coordinates if available.
   // Provide distinct hub centers for Red and Blue teams so callers can differentiate.
   public static final Translation2d HUB_CENTER_RED =
-      new Translation2d(RED_THRESHOLD_X + (MAX_X - RED_THRESHOLD_X) / 2.0, THRESHOLD_Y);
+      new Translation2d(11.9, 4.0);
   public static final Translation2d HUB_CENTER_BLUE =
-      new Translation2d(BLUE_THRESHOLD_X / 2.0, THRESHOLD_Y);
+      new Translation2d(4.6, 4.0);
   public static final Translation2d GOAL_R1_CENTER = new Translation2d(MAX_X, GOAL_Y_LOW);
   public static final Translation2d GOAL_R2_CENTER = new Translation2d(MAX_X, GOAL_Y_HIGH);
   public static final Translation2d GOAL_B1_CENTER = new Translation2d(0.0, GOAL_Y_LOW);
