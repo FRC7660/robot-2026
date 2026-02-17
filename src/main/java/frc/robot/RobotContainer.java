@@ -43,7 +43,7 @@ public class RobotContainer {
   final CommandXboxController driverXbox = new CommandXboxController(0);
   private final Intake intakeSystem = new Intake();
   // The robot's subsystems and commands are defined here...
-  private final String chassisDirectory = "swerve/7660-chassis0";
+  private final String chassisDirectory = "swerve/7660-chassis1";
   private final SwerveSubsystem drivebase =
       new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), chassisDirectory));
   private final MisalignCorrection misalignCorrection =
