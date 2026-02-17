@@ -51,25 +51,15 @@ public class Intake extends SubsystemBase {
   private SmartMotorControllerConfig liftConfig =
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
-          // Feedback Constants (PID Constants)
           .withClosedLoopController(
-              50, 0, 0, DegreesPerSecond.of(90), DegreesPerSecondPerSecond.of(45))
+              3.0, 0, 1.0, DegreesPerSecond.of(180), DegreesPerSecondPerSecond.of(90))
+          .withFeedforward(new ArmFeedforward(0, 0.837, 1.0))
+          // sim
           .withSimClosedLoopController(
-              50, 0, 0, DegreesPerSecond.of(90), DegreesPerSecondPerSecond.of(45))
-          // Feedforward Constants
-          .withFeedforward(new ArmFeedforward(0, 0, 0))
-          // Sim feedforward: kS for static friction, kG for gravity, kV for velocity
-          // Values tuned for 3ft, 1lb arm with 12:1 gearing
-          .withSimFeedforward(new ArmFeedforward(0.1, 0.8, 1.5))
-          // Telemetry name and verbosity level
+              3.0, 0, 1.0, DegreesPerSecond.of(180), DegreesPerSecondPerSecond.of(90))
+          .withSimFeedforward(new ArmFeedforward(0.0, 0.837, 1.0))
           .withTelemetry("LiftMotor", TelemetryVerbosity.HIGH)
-          // Gearing from the motor rotor to final shaft.
-          // In this example GearBox.fromReductionStages(3,4) is the same as
-          // GearBox.fromStages("3:1","4:1") which corresponds to the gearbox attached to your
-          // motor.
-          // You could also use .withGearing(12) which does the same thing.
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(3, 4)))
-          // Motor properties to prevent over currenting.
           .withMotorInverted(false)
           .withIdleMode(MotorMode.BRAKE)
           .withStatorCurrentLimit(Amps.of(40))
@@ -82,17 +72,13 @@ public class Intake extends SubsystemBase {
 
   private ArmConfig liftCfg =
       new ArmConfig(liftSmartMotorController)
-          // Soft limit is applied to the SmartMotorControllers PID
-          .withSoftLimits(Degrees.of(-20), Degrees.of(40))
-          // Hard limit is applied to the simulation.
-          .withHardLimit(Degrees.of(-30), Degrees.of(40))
-          // Starting position is where your arm starts
-          .withStartingPosition(Degrees.of(-5))
-          // Length and mass of your arm for sim.
+          .withSoftLimits(Degrees.of(-20), Degrees.of(90))
+          .withHardLimit(Degrees.of(-30), Degrees.of(100))
+          .withStartingPosition(Degrees.of(-20))
           .withLength(Inches.of(13))
           .withMass(Pounds.of(8))
-          // Telemetry name and verbosity for the arm.
-          .withTelemetry("Arm", TelemetryVerbosity.HIGH);
+          .withTelemetry("Arm", TelemetryVerbosity.HIGH)
+          .withHorizontalZero(Degrees.of(0.0));
 
   // Arm Mechanism
   private Arm lift = new Arm(liftCfg);
