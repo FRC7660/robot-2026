@@ -67,7 +67,7 @@ public class Index extends SubsystemBase {
       new SparkWrapper(indexMotor, DCMotor.getNEO(1), indexConfig);
 
   FlyWheelConfig indexingConfig =
-      new FlyWheelConfig()
+      new FlyWheelConfig(sparkSmartMotorController1)
           // Diameter of the flywheel.
           .withDiameter(Inches.of(4))
           // Mass of the flywheel.
@@ -165,7 +165,7 @@ public class Index extends SubsystemBase {
       new SparkWrapper(funnelMotor, DCMotor.getNEO(1), funnelConfig);
 
   FlyWheelConfig funnelingConfig =
-      new FlyWheelConfig()
+      new FlyWheelConfig(sparkSmartMotorController2)
           // Diameter of the flywheel.
           .withDiameter(Inches.of(4))
           // Mass of the flywheel.
