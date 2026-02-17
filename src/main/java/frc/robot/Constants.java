@@ -62,9 +62,9 @@ public final class Constants {
 
   // Index Constants
   public static final class Index {
-    public static final int INDEX_MOTOR_ID = 16;
+    public static final int INDEX_MOTOR_ID = 40;
     public static final double INDEX_SPEED = 0.5;
-    public static final int FUNNEL_MOTOR_ID = 19;
+    public static final int FUNNEL_MOTOR_ID = 41;
     public static final double FUNNEL_SPEED = 0.5;
   }
 
@@ -80,13 +80,19 @@ public final class Constants {
 
   // Launch Constants
   public static final class Launch {
-    public static final int MOTOR1_ID = 31;
-    public static final int MOTOR2_ID = 37;
+    public static final int MOTOR1_ID = 51;
+    public static final int MOTOR2_ID = 52;
   }
 
   // Turret Constants
   public static final class Turret {
-    public static final int MOTOR_ID = 18;
-    public static final double TURRET_SPEED = 0.5;
+    public static final int MOTOR_ID = 30;
+    public static final double TURRET_SPEED = 0.05;
+    // Turret gearing: motor rotations -> turret rotations
+    public static final double TURRET_GEAR_RATIO = 40.0;
+    // PID for turret position (motor rotations)
+    public static final double TURRET_P = 0.2;
+    public static final double TURRET_I = 0.0;
+    public static final double TURRET_D = 0.0;
   }
 }

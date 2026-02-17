@@ -122,4 +122,42 @@ class TurretTest {
             0.0,
             TurretHelpers.GOAL_Y_HIGH));
   }
+
+  @ParameterizedTest
+  @MethodSource("zeroPointProvider")
+  void turretZeroPoint_tableDriven(double currentDeg, double idealDeg, double expectedFinalDeg) {
+    TurretZeroPoint z = new TurretZeroPoint(); // not latched initially per test spec
+    double delta = z.updateAndCompute(idealDeg, currentDeg);
+
+    // compute final absolute angle and normalize to [0,360)
+    double finalDeg = (currentDeg + delta) % 360.0;
+    if (finalDeg < 0) {
+      finalDeg += 360.0;
+    }
+
+    assertEquals(expectedFinalDeg, finalDeg, 1e-3);
+  }
+
+  static Stream<Arguments> zeroPointProvider() {
+    return Stream.of(
+        // Target within sticky band AND zero lies on shortest path -> command to zero.
+        Arguments.of(350.0, 15.0, 0.0),
+        Arguments.of(340.0, 10.0, 0.0),
+        Arguments.of(355.0, 20.0, 0.0),
+
+        // Target within sticky band BUT zero not on shortest path -> command toward target.
+        Arguments.of(30.0, 20.0, 20.0),
+        Arguments.of(59.0, 12.0, 12.0),
+        Arguments.of(88.0, 19.0, 19.0),
+
+        // Long Route Test Cases
+        Arguments.of(340.0, 30.0, 30.0),
+        Arguments.of(340.0, 21.0, 21.0),
+        Arguments.of(350.0, 40.0, 40.0),
+
+        // Short Route Test Cases
+        Arguments.of(230.0, 200.0, 200.0),
+        Arguments.of(214.0, 235.0, 235.0),
+        Arguments.of(318.0, 355.0, 355.0));
+  }
 }
