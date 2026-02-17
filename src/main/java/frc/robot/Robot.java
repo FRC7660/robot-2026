@@ -45,6 +45,7 @@ public class Robot extends TimedRobot {
     // and put our
     // autonomous chooser on the dashboard.
     m_robotContainer = new RobotContainer();
+    m_robotContainer.resetPoseToPath2Start();
 
     // Create a timer to disable motor brake a few seconds after disable. This will
     // let the robot

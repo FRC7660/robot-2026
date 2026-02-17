@@ -5,6 +5,8 @@
 package frc.robot;
 
 import com.pathplanner.lib.auto.NamedCommands;
+import com.pathplanner.lib.path.PathPlannerPath;
+import com.pathplanner.lib.util.FileVersionException;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -24,6 +26,8 @@ import frc.robot.commands.turret.DefaultCommand;
 import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
+import java.io.IOException;
+import org.json.simple.parser.ParseException;
 import swervelib.SwerveInputStream;
 
 /**
@@ -210,6 +214,22 @@ public class RobotContainer {
    */
   public Command getAutonomousCommand() {
     return autonomousManager.getAutonomousCommand();
+  }
+
+  public void resetPoseToPath2Start() {
+    try {
+      PathPlannerPath path = PathPlannerPath.fromPathFile("path2");
+      Pose2d startPose = path.getStartingHolonomicPose().orElse(new Pose2d());
+      drivebase.resetOdometry(startPose);
+      System.out.printf(
+          "[PoseReset] Startup pose set to path2 start (%.3f, %.3f, %.1fdeg)%n",
+          startPose.getX(),
+          startPose.getY(),
+          startPose.getRotation().getDegrees());
+    } catch (IOException | ParseException | FileVersionException e) {
+      drivebase.resetOdometry(new Pose2d());
+      System.out.println("[PoseReset] Failed to load path2 start pose. Fallback to (0,0,0).");
+    }
   }
 
   public void setMotorBrake(boolean brake) {
