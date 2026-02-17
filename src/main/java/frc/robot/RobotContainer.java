@@ -219,7 +219,7 @@ public class RobotContainer {
           .or(driverXbox.leftBumper())
           .whileTrue(
               new RunUpperShooterCommand(
-                  UpperShooter, driverXbox::getLeftTriggerAxis /*, driverXbox.leftBumper()*/));
+                  UpperShooter, driverXbox::getLeftTriggerAxis, driverXbox.leftBumper()));
 
       driverXbox
           .b()

@@ -1,6 +1,7 @@
 package frc.robot.commands;
 
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.subsystems.UpperShooterSubsystem;
 import java.util.function.DoubleSupplier;
 
@@ -22,7 +23,7 @@ public class RunUpperShooterCommand extends Command {
 
   private final UpperShooterSubsystem intakeShooter;
   private final DoubleSupplier leftTriggerSupplier; // Left trigger axis (0.0 to 1.0)
-  // private final Trigger leftBumperTrigger; // Left bumper
+  private final Trigger leftBumperTrigger; // Left bumper
 
   // Motor speed constant for the upper shooter
   // ===== SPEED OPTIONS (uncomment one, comment the others) =====
@@ -39,11 +40,12 @@ public class RunUpperShooterCommand extends Command {
    * @param leftBumperTrigger the left bumper Trigger
    */
   public RunUpperShooterCommand(
-      UpperShooterSubsystem intakeShooter, DoubleSupplier leftTriggerSupplier // ,
-      /*Trigger leftBumperTrigger*/ ) {
+      UpperShooterSubsystem intakeShooter,
+      DoubleSupplier leftTriggerSupplier,
+      Trigger leftBumperTrigger) {
     this.intakeShooter = intakeShooter;
     this.leftTriggerSupplier = leftTriggerSupplier;
-    // this.leftBumperTrigger = leftBumperTrigger;
+    this.leftBumperTrigger = leftBumperTrigger;
 
     // Declare subsystem dependency
     addRequirements(intakeShooter);
@@ -58,15 +60,14 @@ public class RunUpperShooterCommand extends Command {
   public void execute() {
     // Get current input values
     double leftTrigger = leftTriggerSupplier.getAsDouble(); // 0.0 to 1.0
-    // boolean leftBumperPressed = leftBumperTrigger.getAsBoolean(); // true or false
+    boolean leftBumperPressed = leftBumperTrigger.getAsBoolean(); // true or false
 
     // Priority logic: bumper overrides trigger
-    // if (leftBumperPressed) {
-    //   // Left bumper is pressed → run CW (negative output in FRC convention)
-    //   // Negative output = clockwise rotation
-    //   intakeShooter.setUpperMotor(-SHOOTER_SPEED);
-    // } else
-    if (leftTrigger >= 0.1) {
+    if (leftBumperPressed) {
+      // Left bumper is pressed → run CW (negative output in FRC convention)
+      //    Negative output = clockwise rotation
+      intakeShooter.setUpperMotor(SHOOTER_SPEED);
+    } else if (leftTrigger >= 0.1) {
       // Left trigger is fully pressed (≥ 0.9) → run CCW (positive output)
       // Positive output = counter-clockwise rotation
       intakeShooter.setUpperMotor(-leftTrigger);
