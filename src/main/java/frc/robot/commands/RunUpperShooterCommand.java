@@ -27,7 +27,7 @@ public class RunUpperShooterCommand extends Command {
 
   // Motor speed constant for the upper shooter
   // ===== SPEED OPTIONS (uncomment one, comment the others) =====
-  private static final double SHOOTER_SPEED = 1.00; // Default: 50%
+  private static final double SHOOTER_SPEED = 0.50; // Default: 50%
 
   // private static final double SHOOTER_SPEED = 0.65;  // Option: 65%
   // private static final double SHOOTER_SPEED = 0.80;  // Option: 80%
@@ -66,11 +66,11 @@ public class RunUpperShooterCommand extends Command {
     if (leftBumperPressed) {
       // Left bumper is pressed → run CW (negative output in FRC convention)
       //    Negative output = clockwise rotation
-      intakeShooter.setUpperMotor(SHOOTER_SPEED);
+      intakeShooter.setUpperMotor(-SHOOTER_SPEED);
     } else if (leftTrigger >= 0.1) {
       // Left trigger is fully pressed (≥ 0.9) → run CCW (positive output)
       // Positive output = counter-clockwise rotation
-      intakeShooter.setUpperMotor(-leftTrigger);
+      intakeShooter.setUpperMotor(0.85 * leftTrigger);
       // } else if (leftTrigger >= 0.6) {
       //   intakeShooter.setUpperMotor(SHOOTER_SPEED);
     } else {
