@@ -1532,6 +1532,53 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
+   * Get an initialization pose estimate from AprilTag detections (camera0/camera1).
+   *
+   * @return best available estimated robot pose from visible AprilTags
+   */
+  public Optional<Pose2d> getAprilTagEstimatedPoseForInitialization() {
+    record CameraEstimate(Cameras camera, Pose2d pose, int tagCount, double timestampSeconds) {}
+
+    CameraEstimate best = null;
+    Cameras[] initCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
+
+    for (Cameras camera : initCameras) {
+      Optional<EstimatedRobotPose> estimate = vision.getEstimatedGlobalPose(camera);
+      if (estimate.isEmpty() || estimate.get().targetsUsed.isEmpty()) {
+        continue;
+      }
+
+      CameraEstimate candidate =
+          new CameraEstimate(
+              camera,
+              estimate.get().estimatedPose.toPose2d(),
+              estimate.get().targetsUsed.size(),
+              estimate.get().timestampSeconds);
+
+      if (best == null
+          || candidate.tagCount() > best.tagCount()
+          || (candidate.tagCount() == best.tagCount()
+              && candidate.timestampSeconds() > best.timestampSeconds())) {
+        best = candidate;
+      }
+    }
+
+    if (best == null) {
+      return Optional.empty();
+    }
+
+    System.out.printf(
+        "[PoseReset] AprilTag init pose from %s tags=%d ts=%.3f pose=(%.3f, %.3f, %.1fdeg)%n",
+        best.camera().name(),
+        best.tagCount(),
+        best.timestampSeconds(),
+        best.pose().getX(),
+        best.pose().getY(),
+        best.pose().getRotation().getDegrees());
+    return Optional.of(best.pose());
+  }
+
+  /**
    * Set chassis speeds with closed-loop velocity control.
    *
    * @param chassisSpeeds Chassis Speeds to set.
