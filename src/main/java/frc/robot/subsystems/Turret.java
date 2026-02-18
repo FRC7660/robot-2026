@@ -11,6 +11,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.lib.TurretHelpers;
@@ -55,9 +56,11 @@ public class Turret extends SubsystemBase {
     SparkFlexConfig turretConfig = configureTurretMotor();
     turretMotor.configure(
         turretConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+    // turretMotor.getEncoder().setPosition(0.0);
+
     // Initialize the motor encoder so turret angle starts at 135 degrees.
     try {
-      double turretRotations = 135.0 / 360.0;
+      double turretRotations = 165.0 / 360.0;
       double motorRotations = turretRotations * Constants.Turret.TURRET_GEAR_RATIO;
       turretMotor.getEncoder().setPosition(motorRotations);
     } catch (Throwable t) {
@@ -94,8 +97,8 @@ public class Turret extends SubsystemBase {
     if (desiredAbsDeg < 0) {
       desiredAbsDeg += 360.0;
     }
-    // Enforce turret hard range of motion: [0, 270] degrees absolute
-    desiredAbsDeg = Math.max(0.0, Math.min(270.0, desiredAbsDeg));
+    // Enforce turret hard range of motion: [0, 330] degrees absolute
+    desiredAbsDeg = Math.max(0.0, Math.min(330.0, desiredAbsDeg));
     this.lastDesiredAbsDeg = desiredAbsDeg;
 
     // Read current motor rotations from encoder (REV API: getEncoder().getPosition())
@@ -162,6 +165,10 @@ public class Turret extends SubsystemBase {
     return robotRelative;
   }
 
+  public void freeze() {
+    turretMotor.set(0);
+  }
+
   /**
    * Returns the last computed target translation (field coordinates).
    *
@@ -185,5 +192,14 @@ public class Turret extends SubsystemBase {
 
   public double getLastRotationCommandDeg() {
     return lastRotationCommandDeg;
+  }
+
+  @Override
+  public void periodic() {
+    SmartDashboard.putNumber(
+        "Turret/Position",
+        (turretMotor.getEncoder().getPosition() / Constants.Turret.TURRET_GEAR_RATIO) * 360);
+    SmartDashboard.putNumber(
+        "Turret/Setpoint (Robot Relative)", getRobotRelativeAngle().getDegrees());
   }
 }

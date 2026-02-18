@@ -24,7 +24,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OperatorConstants;
 import frc.robot.commands.swervedrive.MisalignCorrection;
 import frc.robot.commands.swervedrive.YAGSLPitCheck;
-import frc.robot.commands.turret.DefaultCommand;
+import frc.robot.commands.turret.TurretAutoTurn;
 import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
@@ -145,7 +145,8 @@ public class RobotContainer {
     SmartDashboard.putData("Auto Chooser", autoChooser);
 
     // Set the turret default command to compute targets from odometry
-    turret.setDefaultCommand(new DefaultCommand(turret));
+    turret.setDefaultCommand(Commands.idle(turret));
+    driverXbox.povUp().whileTrue(new TurretAutoTurn(turret));
   }
 
   /**
