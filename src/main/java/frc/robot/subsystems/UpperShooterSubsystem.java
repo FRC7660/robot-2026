@@ -1,8 +1,13 @@
 package frc.robot.subsystems;
 
-import com.ctre.phoenix.motorcontrol.ControlMode;
-import com.ctre.phoenix.motorcontrol.NeutralMode;
-import com.ctre.phoenix.motorcontrol.can.TalonSRX;
+import com.revrobotics.spark.SparkBase.PersistMode;
+import com.revrobotics.spark.SparkBase.ResetMode;
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.SparkMax;
+// import com.revrobotics.ResetMode;
+// import com.revrobotics.PersistMode;
+import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
+import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 /**
@@ -17,21 +22,36 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
  */
 public class UpperShooterSubsystem extends SubsystemBase {
 
+  private SparkMaxConfig configShooter;
+
+  // private SparkMaxSim motorShooterSim;
+  // private double desiredSpeed;
+
+  private SparkMax upperMotor = new SparkMax(20, MotorType.kBrushless);
+
   // Talon SRX motor controllers
   // private final TalonSRX lowerMotor; // Intake motor (CAN ID 21)
-  private final TalonSRX upperMotor; // Shooter motor (CAN ID 20)
+  // private final TalonSRX upperMotor; // Shooter motor (CAN ID 20)
 
   /** Constructs the IntakeShooterSubsystem and configures brake mode at startup. */
   public UpperShooterSubsystem() {
     // Initialize the Talon SRX controllers with their CAN IDs
     // lowerMotor = new TalonSRX(21);
-    upperMotor = new TalonSRX(20);
+    // upperMotor = new TalonSRX(20);
+    SparkMaxConfig config = new SparkMaxConfig();
+    config
+        .idleMode(IdleMode.kBrake) // Set brake mode at startup
+        .inverted(true); // Invert the shooter motor direction
+    // configShooter = new SparkMaxConfig();
+    // configShooter.idleMode(IdleMode.kBrake);
+    // configShooter.inverted(true);
+    upperMotor.configure(config, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
 
     // Set BRAKE mode for both motors at startup.
     // This means when the motor output is set to 0, the motor will actively brake
     // (hold position) instead of coasting to a stop. This is done once and does not change.
     // lowerMotor.setNeutralMode(NeutralMode.Brake);
-    upperMotor.setNeutralMode(NeutralMode.Brake);
+    // upperMotor.setNeutralMode(NeutralMode.Brake);
   }
 
   /**
@@ -55,9 +75,10 @@ public class UpperShooterSubsystem extends SubsystemBase {
    */
   public void setUpperMotor(double output) {
     // Clamp output to [-1.0, 1.0] to prevent invalid values
-    output = Math.max(-1.0, Math.min(1.0, output));
+    // output = Math.max(-1.0, Math.min(1.0, output));
     // Send the output command to the motor controller in PercentOutput mode
-    upperMotor.set(ControlMode.PercentOutput, output);
+    // upperMotor.set(ControlMode.PercentOutput, output);
+    upperMotor.set(output);
   }
 
   /** Stop both motors (set to 0% output, which applies brakes due to NeutralMode.Brake). */
