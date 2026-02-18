@@ -7,6 +7,7 @@ package frc.robot;
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.util.FileVersionException;
+import com.pathplanner.lib.util.FlippingUtil;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -230,6 +231,10 @@ public class RobotContainer {
     try {
       PathPlannerPath path = PathPlannerPath.fromPathFile("path2");
       Pose2d startPose = path.getStartingHolonomicPose().orElse(new Pose2d());
+      var alliance = DriverStation.getAlliance();
+      if (alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red) {
+        startPose = FlippingUtil.flipFieldPose(startPose);
+      }
       drivebase.resetOdometry(startPose);
       System.out.printf(
           "[PoseReset] source=PATH2_FALLBACK pose=(%.3f, %.3f, %.1fdeg)%n",
