@@ -9,12 +9,12 @@ import frc.robot.subsystems.Turret;
 import java.util.Locale;
 
 /** Default command for the turret: periodically compute a target and set a turret setpoint. */
-public class DefaultCommand extends Command {
+public class TurretAutoTurn extends Command {
   private final Turret turret;
   private static final double PRINT_PERIOD_SEC = 0.5;
   private double lastPrintSec = 0.0;
 
-  public DefaultCommand(Turret turret) {
+  public TurretAutoTurn(Turret turret) {
     this.turret = turret;
     addRequirements(turret);
   }
@@ -60,5 +60,10 @@ public class DefaultCommand extends Command {
   @Override
   public boolean isFinished() {
     return false; // Default command never finishes
+  }
+
+  @Override
+  public void end(boolean isInterrupted) {
+    turret.freeze(); // stop the motor
   }
 }
