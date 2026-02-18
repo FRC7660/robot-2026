@@ -216,19 +216,29 @@ public class RobotContainer {
     return autonomousManager.getAutonomousCommand();
   }
 
-  public void resetPoseToPath2Start() {
+  public void resetPoseFromAprilTagsOrPath2Start() {
+    var aprilTagPose = drivebase.getAprilTagEstimatedPoseForInitialization();
+    if (aprilTagPose.isPresent()) {
+      Pose2d chosenPose = aprilTagPose.get();
+      drivebase.resetOdometry(chosenPose);
+      System.out.printf(
+          "[PoseReset] source=APRILTAG pose=(%.3f, %.3f, %.1fdeg)%n",
+          chosenPose.getX(), chosenPose.getY(), chosenPose.getRotation().getDegrees());
+      return;
+    }
+
     try {
       PathPlannerPath path = PathPlannerPath.fromPathFile("path2");
       Pose2d startPose = path.getStartingHolonomicPose().orElse(new Pose2d());
       drivebase.resetOdometry(startPose);
       System.out.printf(
-          "[PoseReset] Startup pose set to path2 start (%.3f, %.3f, %.1fdeg)%n",
+          "[PoseReset] source=PATH2_FALLBACK pose=(%.3f, %.3f, %.1fdeg)%n",
           startPose.getX(),
           startPose.getY(),
           startPose.getRotation().getDegrees());
     } catch (IOException | ParseException | FileVersionException e) {
       drivebase.resetOdometry(new Pose2d());
-      System.out.println("[PoseReset] Failed to load path2 start pose. Fallback to (0,0,0).");
+      System.out.println("[PoseReset] source=ZERO_FALLBACK pose=(0.000, 0.000, 0.0deg)");
     }
   }
 
