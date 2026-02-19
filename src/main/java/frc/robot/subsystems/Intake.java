@@ -52,15 +52,15 @@ public class Intake extends SubsystemBase {
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
           .withClosedLoopController(
-              3.0, 0, 1.0, DegreesPerSecond.of(180), DegreesPerSecondPerSecond.of(90))
-          .withFeedforward(new ArmFeedforward(0, 0.837, 1.0))
+              0.0, 0.0, 0.0, DegreesPerSecond.of(180), DegreesPerSecondPerSecond.of(90))
+          .withFeedforward(new ArmFeedforward(0.02, 0.005, 0.0))
           // sim
           .withSimClosedLoopController(
-              3.0, 0, 1.0, DegreesPerSecond.of(180), DegreesPerSecondPerSecond.of(90))
-          .withSimFeedforward(new ArmFeedforward(0.0, 0.837, 1.0))
+              0.0, 0, 0.0, DegreesPerSecond.of(180), DegreesPerSecondPerSecond.of(90))
+          .withSimFeedforward(new ArmFeedforward(0.02, 0.005, 0.0))
           .withTelemetry("LiftMotor", TelemetryVerbosity.HIGH)
-          .withGearing(new MechanismGearing(GearBox.fromReductionStages(3, 4)))
-          .withMotorInverted(false)
+          .withGearing(new MechanismGearing(GearBox.fromReductionStages(5, 5, 3.333)))
+          .withMotorInverted(true)
           .withIdleMode(MotorMode.BRAKE)
           .withStatorCurrentLimit(Amps.of(40))
           .withClosedLoopRampRate(Seconds.of(0.25))
@@ -72,11 +72,11 @@ public class Intake extends SubsystemBase {
 
   private ArmConfig liftCfg =
       new ArmConfig(liftSmartMotorController)
-          .withSoftLimits(Degrees.of(-20), Degrees.of(90))
-          .withHardLimit(Degrees.of(-30), Degrees.of(100))
-          .withStartingPosition(Degrees.of(-20))
-          .withLength(Inches.of(13))
-          .withMass(Pounds.of(8))
+          .withSoftLimits(Degrees.of(-1), Degrees.of(110))
+          .withHardLimit(Degrees.of(-15), Degrees.of(110))
+          .withStartingPosition(Degrees.of(110))
+          .withLength(Inches.of(8))
+          .withMass(Pounds.of(8.466))
           .withTelemetry("Arm", TelemetryVerbosity.HIGH)
           .withHorizontalZero(Degrees.of(0.0));
 
