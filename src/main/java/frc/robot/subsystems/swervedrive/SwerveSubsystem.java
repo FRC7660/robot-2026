@@ -1538,41 +1538,110 @@ public class SwerveSubsystem extends SubsystemBase {
    * @return best available estimated robot pose from visible AprilTags
    */
   public Optional<Pose2d> getAprilTagEstimatedPoseForInitialization() {
-    record CameraEstimate(Cameras camera, Pose2d pose, int tagCount, double timestampSeconds) {}
+    record CameraEstimate(
+        Cameras camera,
+        Pose2d pose,
+        int tagCount,
+        double timestampSeconds,
+        double stdX,
+        double stdY,
+        double stdTheta,
+        double translationError,
+        double score) {}
+
+    final int minTagCount = 2;
+    final double maxStdXY = 5.0;
+    final double maxStdTheta = 10.0;
+    final double maxOutlierMeters = 1.5;
+    final double maxAgeSec = 0.5;
+
+    int rejectedNoEstimate = 0;
+    int rejectedLowTags = 0;
+    int rejectedHighStd = 0;
+    int rejectedOutlier = 0;
+    int rejectedStale = 0;
 
     CameraEstimate best = null;
     Cameras[] initCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
+    Pose2d currentPose = getPose();
+    double nowSec = Timer.getFPGATimestamp();
 
     for (Cameras camera : initCameras) {
       Optional<EstimatedRobotPose> estimate = vision.getEstimatedGlobalPose(camera);
       if (estimate.isEmpty() || estimate.get().targetsUsed.isEmpty()) {
+        rejectedNoEstimate++;
         continue;
       }
 
+      int tagCount = estimate.get().targetsUsed.size();
+      if (tagCount < minTagCount) {
+        rejectedLowTags++;
+        continue;
+      }
+
+      double ageSec = nowSec - estimate.get().timestampSeconds;
+      if (ageSec > maxAgeSec) {
+        rejectedStale++;
+        continue;
+      }
+
+      if (camera.curStdDevs == null) {
+        rejectedHighStd++;
+        continue;
+      }
+      double stdX = camera.curStdDevs.get(0, 0);
+      double stdY = camera.curStdDevs.get(1, 0);
+      double stdTheta = camera.curStdDevs.get(2, 0);
+      if (stdX > maxStdXY || stdY > maxStdXY || stdTheta > maxStdTheta) {
+        rejectedHighStd++;
+        continue;
+      }
+
+      Pose2d estimatedPose = estimate.get().estimatedPose.toPose2d();
+      double translationError =
+          currentPose.getTranslation().getDistance(estimatedPose.getTranslation());
+      if (translationError > maxOutlierMeters) {
+        rejectedOutlier++;
+        continue;
+      }
+
+      double score = (stdX + stdY) + (0.5 * stdTheta) + (0.25 * translationError);
       CameraEstimate candidate =
           new CameraEstimate(
               camera,
-              estimate.get().estimatedPose.toPose2d(),
-              estimate.get().targetsUsed.size(),
-              estimate.get().timestampSeconds);
+              estimatedPose,
+              tagCount,
+              estimate.get().timestampSeconds,
+              stdX,
+              stdY,
+              stdTheta,
+              translationError,
+              score);
 
       if (best == null
-          || candidate.tagCount() > best.tagCount()
-          || (candidate.tagCount() == best.tagCount()
+          || candidate.score() < best.score()
+          || (Math.abs(candidate.score() - best.score()) < 1e-6
               && candidate.timestampSeconds() > best.timestampSeconds())) {
         best = candidate;
       }
     }
 
     if (best == null) {
+      System.out.printf(
+          "[PoseReset] AprilTag init rejected all candidates: noEstimate=%d lowTags=%d stale=%d highStd=%d outlier=%d%n",
+          rejectedNoEstimate, rejectedLowTags, rejectedStale, rejectedHighStd, rejectedOutlier);
       return Optional.empty();
     }
 
     System.out.printf(
-        "[PoseReset] AprilTag init pose from %s tags=%d ts=%.3f pose=(%.3f, %.3f, %.1fdeg)%n",
+        "[PoseReset] AprilTag init pose from %s tags=%d ts=%.3f err=%.3f std=(%.3f, %.3f, %.3f) pose=(%.3f, %.3f, %.1fdeg)%n",
         best.camera().name(),
         best.tagCount(),
         best.timestampSeconds(),
+        best.translationError(),
+        best.stdX(),
+        best.stdY(),
+        best.stdTheta(),
         best.pose().getX(),
         best.pose().getY(),
         best.pose().getRotation().getDegrees());

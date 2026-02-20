@@ -20,10 +20,13 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.NetworkTablesJNI;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import frc.robot.Robot;
 import java.awt.Desktop;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -65,6 +68,25 @@ public class Vision {
   /** Field from {@link swervelib.SwerveDrive#field} */
   private Field2d field2d;
 
+  // Vision fusion tuning/gating for autonomous odometry correction.
+  private static final double STALE_TIMESTAMP_EPSILON_SEC = 1e-4;
+  private static final int MIN_TAGS_FOR_DIRECT_ACCEPT = 2;
+  private static final double MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS = 0.8;
+  private static final double MAX_TRANSLATION_OUTLIER_METERS = 1.5;
+  private static final double MAX_STD_XY_METERS = 5.0;
+  private static final double MAX_STD_THETA_RAD = 10.0;
+  private static final double FUSION_STATUS_LOG_PERIOD_SEC = 1.0;
+
+  private final EnumMap<Cameras, Double> lastFusedTimestampSec = new EnumMap<>(Cameras.class);
+  private boolean wasAutoEnabled = false;
+  private double lastFusionStatusLogSec = Double.NEGATIVE_INFINITY;
+  private int acceptedUpdates = 0;
+  private int rejectedNoEstimate = 0;
+  private int rejectedStale = 0;
+  private int rejectedLowTagFar = 0;
+  private int rejectedHighStd = 0;
+  private int rejectedOutlier = 0;
+
   /**
    * Constructor for the Vision class.
    *
@@ -74,6 +96,10 @@ public class Vision {
   public Vision(Supplier<Pose2d> currentPose, Field2d field) {
     this.currentPose = currentPose;
     this.field2d = field;
+
+    for (Cameras camera : Cameras.values()) {
+      lastFusedTimestampSec.put(camera, Double.NEGATIVE_INFINITY);
+    }
 
     if (Robot.isSimulation()) {
       visionSim = new VisionSystemSim("Vision");
@@ -125,14 +151,144 @@ public class Vision {
        */
       visionSim.update(swerveDrive.getSimulationDriveTrainPose().get());
     }
-    // for (Cameras camera : Cameras.values()) {
-    // Optional<EstimatedRobotPose> poseEst = getEstimatedGlobalPose(camera);
-    // if (poseEst.isPresent()) {
-    // var pose = poseEst.get();
-    // swerveDrive.addVisionMeasurement(
-    // pose.estimatedPose.toPose2d(), pose.timestampSeconds, camera.curStdDevs);
-    // }
-    // }
+    boolean autoEnabled = DriverStation.isAutonomousEnabled();
+    if (!autoEnabled) {
+      if (wasAutoEnabled) {
+        System.out.printf(
+            "[YAGSLFusion][AUTO] summary accepted=%d rejected={noEstimate=%d stale=%d lowTagFar=%d highStd=%d outlier=%d}%n",
+            acceptedUpdates,
+            rejectedNoEstimate,
+            rejectedStale,
+            rejectedLowTagFar,
+            rejectedHighStd,
+            rejectedOutlier);
+      }
+      wasAutoEnabled = false;
+      return;
+    }
+
+    if (!wasAutoEnabled) {
+      wasAutoEnabled = true;
+      acceptedUpdates = 0;
+      rejectedNoEstimate = 0;
+      rejectedStale = 0;
+      rejectedLowTagFar = 0;
+      rejectedHighStd = 0;
+      rejectedOutlier = 0;
+      lastFusionStatusLogSec = Double.NEGATIVE_INFINITY;
+      for (Cameras camera : Cameras.values()) {
+        lastFusedTimestampSec.put(camera, Double.NEGATIVE_INFINITY);
+      }
+      System.out.println("[YAGSLFusion][AUTO] start");
+    }
+
+    record FusionCandidate(
+        Cameras camera,
+        Pose2d pose,
+        double timestampSec,
+        double stdX,
+        double stdY,
+        double stdTheta,
+        int tagCount,
+        double translationError,
+        boolean hasStd,
+        Matrix<N3, N1> stdDevs,
+        double score) {}
+
+    Pose2d current = swerveDrive.getPose();
+    FusionCandidate best = null;
+
+    for (Cameras camera : Cameras.values()) {
+      Optional<EstimatedRobotPose> poseEst = getEstimatedGlobalPose(camera);
+      if (poseEst.isEmpty()) {
+        rejectedNoEstimate++;
+        continue;
+      }
+      var pose = poseEst.get();
+      Pose2d pose2d = pose.estimatedPose.toPose2d();
+
+      double lastTs = lastFusedTimestampSec.getOrDefault(camera, Double.NEGATIVE_INFINITY);
+      if (pose.timestampSeconds <= lastTs + STALE_TIMESTAMP_EPSILON_SEC) {
+        rejectedStale++;
+        continue;
+      }
+
+      int tagCount = pose.targetsUsed.size();
+      double translationError =
+          current.getTranslation().getDistance(pose2d.getTranslation());
+      if (tagCount < MIN_TAGS_FOR_DIRECT_ACCEPT
+          && translationError > MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS) {
+        rejectedLowTagFar++;
+        continue;
+      }
+
+      boolean hasStd = camera.curStdDevs != null;
+      double stdX = hasStd ? camera.curStdDevs.get(0, 0) : 1.0;
+      double stdY = hasStd ? camera.curStdDevs.get(1, 0) : 1.0;
+      double stdTheta = hasStd ? camera.curStdDevs.get(2, 0) : 1.0;
+      if (hasStd && (stdX > MAX_STD_XY_METERS || stdY > MAX_STD_XY_METERS || stdTheta > MAX_STD_THETA_RAD)) {
+        rejectedHighStd++;
+        continue;
+      }
+
+      if (translationError > MAX_TRANSLATION_OUTLIER_METERS) {
+        rejectedOutlier++;
+        continue;
+      }
+
+      double score = (stdX + stdY) + (0.5 * stdTheta) + (0.25 * translationError);
+      FusionCandidate candidate =
+          new FusionCandidate(
+              camera,
+              pose2d,
+              pose.timestampSeconds,
+              stdX,
+              stdY,
+              stdTheta,
+              tagCount,
+              translationError,
+              hasStd,
+              camera.curStdDevs,
+              score);
+      if (best == null || candidate.score() < best.score()) {
+        best = candidate;
+      }
+    }
+
+    if (best != null) {
+      if (best.hasStd()) {
+        swerveDrive.addVisionMeasurement(best.pose(), best.timestampSec(), best.stdDevs());
+      } else {
+        swerveDrive.addVisionMeasurement(best.pose(), best.timestampSec());
+      }
+      lastFusedTimestampSec.put(best.camera(), best.timestampSec());
+      acceptedUpdates++;
+      System.out.printf(
+          "[YAGSLPoseUpdate][AUTO] camera=%s ts=%.3f tags=%d err=%.3f pose=(%.3f, %.3f, %.1fdeg) std=(%.3f, %.3f, %.3f)%n",
+          best.camera().name(),
+          best.timestampSec(),
+          best.tagCount(),
+          best.translationError(),
+          best.pose().getX(),
+          best.pose().getY(),
+          best.pose().getRotation().getDegrees(),
+          best.stdX(),
+          best.stdY(),
+          best.stdTheta());
+    }
+
+    double now = Timer.getFPGATimestamp();
+    if (now - lastFusionStatusLogSec >= FUSION_STATUS_LOG_PERIOD_SEC) {
+      lastFusionStatusLogSec = now;
+      System.out.printf(
+          "[YAGSLFusion][AUTO] accepted=%d rejected={noEstimate=%d stale=%d lowTagFar=%d highStd=%d outlier=%d}%n",
+          acceptedUpdates,
+          rejectedNoEstimate,
+          rejectedStale,
+          rejectedLowTagFar,
+          rejectedHighStd,
+          rejectedOutlier);
+    }
   }
 
   /**
@@ -287,12 +443,12 @@ public class Vision {
 
   /** Camera Enum to select each camera */
   enum Cameras {
-    /** Back Camera (camera1) */
-    CAMERA1(
+    /** Front Camera (camera1) */
+    FRONT_CAMERA(
         "camera1",
-        new Rotation3d(0, Math.toRadians(5), Math.toRadians(180)),
+        new Rotation3d(0, Math.toRadians(0), 0),
         new Translation3d(
-            Units.inchesToMeters(-12), Units.inchesToMeters(0), Units.inchesToMeters(0)),
+            Units.inchesToMeters(0), Units.inchesToMeters(0), Units.inchesToMeters(12)),
         VecBuilder.fill(4, 4, 8),
         VecBuilder.fill(0.5, 0.5, 1)),
     /** Right Camera */
@@ -315,14 +471,18 @@ public class Vision {
             Units.inchesToMeters(16.129)),
         VecBuilder.fill(4, 4, 8),
         VecBuilder.fill(0.5, 0.5, 1)),
-    /** Generic camera0 (front camera) */
-    CAMERA0(
+    /** Back Camera (camera0) */
+    BACK_CAMERA(
         "camera0",
-        new Rotation3d(0, Math.toRadians(0), 0),
+        new Rotation3d(0, Math.toRadians(5), Math.toRadians(180)),
         new Translation3d(
-            Units.inchesToMeters(0), Units.inchesToMeters(0), Units.inchesToMeters(12)),
+            Units.inchesToMeters(-12), Units.inchesToMeters(0), Units.inchesToMeters(0)),
         VecBuilder.fill(4, 4, 8),
         VecBuilder.fill(0.5, 0.5, 1));
+
+    // Backward-compatible aliases used throughout existing code.
+    public static final Cameras CAMERA0 = BACK_CAMERA;
+    public static final Cameras CAMERA1 = FRONT_CAMERA;
 
     /** Latency alert to use when high latency is detected. */
     public final Alert latencyAlert;
