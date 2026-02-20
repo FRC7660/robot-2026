@@ -258,8 +258,6 @@ public class Vision {
     if (best != null) {
       if (best.hasStd()) {
         swerveDrive.addVisionMeasurement(best.pose(), best.timestampSec(), best.stdDevs());
-      } else {
-        swerveDrive.addVisionMeasurement(best.pose(), best.timestampSec());
       }
       lastFusedTimestampSec.put(best.camera(), best.timestampSec());
       acceptedUpdates++;
@@ -461,16 +459,17 @@ public class Vision {
     // Units.inchesToMeters(8.44)),
     // VecBuilder.fill(4, 4, 8),
     // VecBuilder.fill(0.5, 0.5, 1)),
-    /** Center Camera */
-    CENTER_CAM(
-        "camB",
-        new Rotation3d(0, Units.degreesToRadians(18), 0),
-        new Translation3d(
-            Units.inchesToMeters(-4.628),
-            Units.inchesToMeters(-10.687),
-            Units.inchesToMeters(16.129)),
-        VecBuilder.fill(4, 4, 8),
-        VecBuilder.fill(0.5, 0.5, 1)),
+    // CENTER_CAM disabled — "camB" not present on coprocessor, causes per-loop exceptions
+    // /** Center Camera */
+    // CENTER_CAM(
+    //     "camB",
+    //     new Rotation3d(0, Units.degreesToRadians(18), 0),
+    //     new Translation3d(
+    //         Units.inchesToMeters(-4.628),
+    //         Units.inchesToMeters(-10.687),
+    //         Units.inchesToMeters(16.129)),
+    //     VecBuilder.fill(4, 4, 8),
+    //     VecBuilder.fill(0.5, 0.5, 1)),
     /** Back Camera (camera0) */
     BACK_CAMERA(
         "camera0",
@@ -686,7 +685,7 @@ public class Vision {
       Optional<EstimatedRobotPose> visionEst = Optional.empty();
       for (var change : resultsList) {
         visionEst = poseEstimator.update(change);
-        updateEstimationStdDevs(visionEst, change.getTargets());
+        updateEstimationStdDevs(visionEst, visionEst.isPresent() ? visionEst.get().targetsUsed : change.getTargets());
       }
       estimatedRobotPose = visionEst;
     }
