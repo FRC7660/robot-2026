@@ -28,6 +28,7 @@ import frc.robot.commands.swervedrive.MisalignCorrection;
 import frc.robot.commands.swervedrive.YAGSLPitCheck;
 import frc.robot.commands.turret.TurretAutoTurn;
 import frc.robot.subsystems.Intake;
+import frc.robot.subsystems.Launch;
 import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
@@ -51,6 +52,7 @@ public class RobotContainer {
   private final MisalignCorrection misalignCorrection =
       new MisalignCorrection(drivebase, chassisDirectory);
   // private final Index indexSystem = new Index();
+  private final Launch launchSystem = new Launch();
 
   // Turret subsystem, constructed with a supplier that returns the current odometry pose
   private final Turret turret = new Turret(drivebase::getPose);
@@ -173,6 +175,15 @@ public class RobotContainer {
     Command driveSetpointGenKeyboard =
         drivebase.driveWithSetpointGeneratorFieldRelative(driveDirectAngleKeyboard);
 
+    driverXbox.rightTrigger(0.2).whileTrue(launchSystem.runAtTargetSpeed());
+    // driverXbox
+    // .leftTrigger(0.2)
+    // .and(new Trigger(launchSystem::atTargetSpeed))
+    // .whileTrue(
+    // indexSystem.runFeeder(
+    // RPM.of(Constants.Index.INDEX_TARGET_RPM),
+    // RPM.of(Constants.Index.FUNNEL_TARGET_RPM)));
+
     if (RobotBase.isSimulation()) {
       drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
     } else {
@@ -212,6 +223,10 @@ public class RobotContainer {
       //    .a()
       //    .whileTrue(
       //        indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
+      driverXbox
+          .a()
+          .whileTrue(
+              indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
     }
 
     if (DriverStation.isTest()) {
@@ -228,7 +243,12 @@ public class RobotContainer {
       driverXbox.rightBumper().onTrue(Commands.runOnce(misalignCorrection::execute));
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
-      // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
+      driverXbox
+          .x()
+          .whileTrue(
+              indexSystem.runFeeder(
+                  RPM.of(Constants.Index.INDEX_TARGET_RPM),
+                  RPM.of(Constants.Index.FUNNEL_TARGET_RPM)));
       driverXbox.start().whileTrue(Commands.none());
       driverXbox.back().whileTrue(Commands.none());
       driverXbox.leftBumper().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());

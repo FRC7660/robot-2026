@@ -29,23 +29,39 @@ import yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity;
 import yams.motorcontrollers.local.SparkWrapper;
 
 public class Launch extends SubsystemBase {
+  private static final double SHOOTER_KP = Constants.Launch.SHOOTER_KP;
+  private static final double SHOOTER_KI = Constants.Launch.SHOOTER_KI;
+  private static final double SHOOTER_KD = Constants.Launch.SHOOTER_KD;
+
+  private static final double SHOOTER_KS = Constants.Launch.SHOOTER_KS;
+  private static final double SHOOTER_KV = Constants.Launch.SHOOTER_KV;
+  private static final double SHOOTER_KA = Constants.Launch.SHOOTER_KA;
+
   private final SparkFlex motor1 =
       new SparkFlex(Constants.Launch.MOTOR1_ID, SparkLowLevel.MotorType.kBrushless);
 
   private final SparkFlex motor2 =
       new SparkFlex(Constants.Launch.MOTOR2_ID, SparkLowLevel.MotorType.kBrushless);
 
-  SmartMotorControllerConfig smcConfig =
+  private final SmartMotorControllerConfig smcConfig =
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
           // Feedback Constants (PID Constants)
           .withClosedLoopController(
-              50, 0, 0, DegreesPerSecond.of(90), DegreesPerSecondPerSecond.of(45))
+              SHOOTER_KP,
+              SHOOTER_KI,
+              SHOOTER_KD,
+              DegreesPerSecond.of(36000),
+              DegreesPerSecondPerSecond.of(120000))
           .withSimClosedLoopController(
-              50, 0, 0, DegreesPerSecond.of(90), DegreesPerSecondPerSecond.of(45))
+              SHOOTER_KP,
+              SHOOTER_KI,
+              SHOOTER_KD,
+              DegreesPerSecond.of(36000),
+              DegreesPerSecondPerSecond.of(120000))
           // Feedforward Constants
-          .withFeedforward(new SimpleMotorFeedforward(0, 0, 0))
-          .withSimFeedforward(new SimpleMotorFeedforward(0, 0, 0))
+          .withFeedforward(new SimpleMotorFeedforward(SHOOTER_KS, SHOOTER_KV, SHOOTER_KA))
+          .withSimFeedforward(new SimpleMotorFeedforward(SHOOTER_KS, SHOOTER_KV, SHOOTER_KA))
           // Telemetry name and verbosity level
           .withTelemetry("ShooterMotor", TelemetryVerbosity.HIGH)
           // Launch motors are 1:1 with fly wheel
@@ -53,18 +69,19 @@ public class Launch extends SubsystemBase {
           // Motor properties to prevent over currenting.
           .withMotorInverted(false)
           .withIdleMode(MotorMode.COAST)
-          .withStatorCurrentLimit(Amps.of(40))
-          .withClosedLoopRampRate(Seconds.of(0.25))
-          .withOpenLoopRampRate(Seconds.of(0.25))
+          .withStatorCurrentLimit(Amps.of(60))
+          .withClosedLoopRampRate(Seconds.of(0.05))
+          .withOpenLoopRampRate(Seconds.of(0.05))
           .withFollowers(Pair.of(motor2, true));
 
   // Vendor motor controller object
   // SparkMax motor1 = new SparkMax(31, MotorType.kBrushless);
   // SparkMax motor2 = new SparkMax(37, MotorType.kBrushless);
   // Create our SmartMotorController from our Spark and config with the NEO.
-  SmartMotorController launchSMC = new SparkWrapper(motor1, DCMotor.getNEO(1), smcConfig);
+  private final SmartMotorController launchSMC =
+      new SparkWrapper(motor1, DCMotor.getNEO(1), smcConfig);
 
-  FlyWheelConfig shooterConfig =
+  private final FlyWheelConfig shooterConfig =
       new FlyWheelConfig(launchSMC)
           // Diameter of the flywheel.
           .withDiameter(Inches.of(4))
@@ -76,7 +93,20 @@ public class Launch extends SubsystemBase {
           .withTelemetry("Shooter", TelemetryVerbosity.HIGH);
 
   // Shooter Mechanism
-  private FlyWheel shooter = new FlyWheel(shooterConfig);
+  private final FlyWheel shooter = new FlyWheel(shooterConfig);
+
+  public Command runAtSpeed(AngularVelocity speed) {
+    return runEnd(() -> setVelocitySetpoint(speed), () -> setVelocitySetpoint(RPM.of(0)));
+  }
+
+  public Command runAtTargetSpeed() {
+    return runAtSpeed(RPM.of(Constants.Launch.TARGET_RPM));
+  }
+
+  public boolean atTargetSpeed() {
+    double errorRpm = Math.abs(getVelocity().in(RPM) - Constants.Launch.TARGET_RPM);
+    return errorRpm <= Constants.Launch.AT_SPEED_TOLERANCE_RPM;
+  }
 
   /**
    * Gets the current velocity of the shooter.

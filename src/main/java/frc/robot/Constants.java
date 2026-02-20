@@ -66,6 +66,18 @@ public final class Constants {
     public static final double INDEX_SPEED = 0.5;
     public static final int FUNNEL_MOTOR_ID = 41;
     public static final double FUNNEL_SPEED = 0.5;
+
+    // Closed-loop velocity tuning starting points for feeder wheels.
+    public static final double FEEDER_KP = 0.0020;
+    public static final double FEEDER_KI = 0.0;
+    public static final double FEEDER_KD = 0.0;
+    public static final double FEEDER_KS = 0.20;
+    public static final double FEEDER_KV = 0.0020;
+    public static final double FEEDER_KA = 0.00015;
+
+    // Starting targets in mechanism RPM.
+    public static final double INDEX_TARGET_RPM = 600.0;
+    public static final double FUNNEL_TARGET_RPM = 700.0;
   }
 
   // Intake Constants
@@ -82,6 +94,17 @@ public final class Constants {
   public static final class Launch {
     public static final int MOTOR1_ID = 51;
     public static final int MOTOR2_ID = 52;
+
+    // Closed-loop velocity starting points for shooter flywheel.
+    public static final double SHOOTER_KP = 0.0025;
+    public static final double SHOOTER_KI = 0.0;
+    public static final double SHOOTER_KD = 0.0;
+    public static final double SHOOTER_KS = 0.22;
+    public static final double SHOOTER_KV = 0.0021;
+    public static final double SHOOTER_KA = 0.00012;
+
+    public static final double TARGET_RPM = 4200.0;
+    public static final double AT_SPEED_TOLERANCE_RPM = 75.0;
   }
 
   // Turret Constants

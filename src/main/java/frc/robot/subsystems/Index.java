@@ -29,23 +29,39 @@ import yams.motorcontrollers.local.SparkWrapper;
 
 // initializes index and funnel motors
 public class Index extends SubsystemBase {
+  private static final double FEEDER_KP = Constants.Index.FEEDER_KP;
+  private static final double FEEDER_KI = Constants.Index.FEEDER_KI;
+  private static final double FEEDER_KD = Constants.Index.FEEDER_KD;
+
+  private static final double FEEDER_KS = Constants.Index.FEEDER_KS;
+  private static final double FEEDER_KV = Constants.Index.FEEDER_KV;
+  private static final double FEEDER_KA = Constants.Index.FEEDER_KA;
+
   private final SparkFlex indexMotor =
       new SparkFlex(Constants.Index.INDEX_MOTOR_ID, SparkLowLevel.MotorType.kBrushless);
 
   private final SparkFlex funnelMotor =
       new SparkFlex(Constants.Index.FUNNEL_MOTOR_ID, SparkLowLevel.MotorType.kBrushless);
 
-  SmartMotorControllerConfig indexConfig =
+  private final SmartMotorControllerConfig indexConfig =
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
           // Feedback Constants (PID Constants)
           .withClosedLoopController(
-              50, 0, 0, DegreesPerSecond.of(90), DegreesPerSecondPerSecond.of(45))
+              FEEDER_KP,
+              FEEDER_KI,
+              FEEDER_KD,
+              DegreesPerSecond.of(3600),
+              DegreesPerSecondPerSecond.of(7200))
           .withSimClosedLoopController(
-              50, 0, 0, DegreesPerSecond.of(90), DegreesPerSecondPerSecond.of(45))
+              FEEDER_KP,
+              FEEDER_KI,
+              FEEDER_KD,
+              DegreesPerSecond.of(3600),
+              DegreesPerSecondPerSecond.of(7200))
           // Feedforward Constants
-          .withFeedforward(new SimpleMotorFeedforward(0, 0, 0))
-          .withSimFeedforward(new SimpleMotorFeedforward(0, 0, 0))
+          .withFeedforward(new SimpleMotorFeedforward(FEEDER_KS, FEEDER_KV, FEEDER_KA))
+          .withSimFeedforward(new SimpleMotorFeedforward(FEEDER_KS, FEEDER_KV, FEEDER_KA))
           // Telemetry name and verbosity level
           .withTelemetry("indexerMotor", TelemetryVerbosity.HIGH)
           // Gearing from the motor rotor to final shaft.
@@ -54,7 +70,7 @@ public class Index extends SubsystemBase {
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(3, 4)))
           // Motor properties to prevent over currenting.
           .withMotorInverted(false)
-          .withIdleMode(MotorMode.COAST)
+          .withIdleMode(MotorMode.BRAKE)
           .withStatorCurrentLimit(Amps.of(40))
           .withClosedLoopRampRate(Seconds.of(0.25))
           .withOpenLoopRampRate(Seconds.of(0.25));
@@ -63,10 +79,10 @@ public class Index extends SubsystemBase {
   // SparkMax spark1 = new SparkMax(40, SparkLowLevel.MotorType.kBrushless);
 
   // Create our SmartMotorController from our Spark and config with the NEO.
-  SmartMotorController sparkSmartMotorController1 =
+  private final SmartMotorController sparkSmartMotorController1 =
       new SparkWrapper(indexMotor, DCMotor.getNEO(1), indexConfig);
 
-  FlyWheelConfig indexingConfig =
+  private final FlyWheelConfig indexingConfig =
       new FlyWheelConfig(sparkSmartMotorController1)
           // Diameter of the flywheel.
           .withDiameter(Inches.of(4))
@@ -78,7 +94,7 @@ public class Index extends SubsystemBase {
           .withTelemetry("indexer", TelemetryVerbosity.HIGH);
 
   // index Mechanism
-  private FlyWheel indexer = new FlyWheel(indexingConfig);
+  private final FlyWheel indexer = new FlyWheel(indexingConfig);
 
   /**
    * Gets the current velocity of the index.
@@ -133,26 +149,34 @@ public class Index extends SubsystemBase {
   }
 
   // Funnel Motor Config
-  SmartMotorControllerConfig funnelConfig =
+  private final SmartMotorControllerConfig funnelConfig =
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
           // Feedback Constants (PID Constants)
           .withClosedLoopController(
-              50, 0, 0, DegreesPerSecond.of(90), DegreesPerSecondPerSecond.of(45))
+              FEEDER_KP,
+              FEEDER_KI,
+              FEEDER_KD,
+              DegreesPerSecond.of(3600),
+              DegreesPerSecondPerSecond.of(7200))
           .withSimClosedLoopController(
-              50, 0, 0, DegreesPerSecond.of(90), DegreesPerSecondPerSecond.of(45))
+              FEEDER_KP,
+              FEEDER_KI,
+              FEEDER_KD,
+              DegreesPerSecond.of(3600),
+              DegreesPerSecondPerSecond.of(7200))
           // Feedforward Constants
-          .withFeedforward(new SimpleMotorFeedforward(0, 0, 0))
-          .withSimFeedforward(new SimpleMotorFeedforward(0, 0, 0))
+          .withFeedforward(new SimpleMotorFeedforward(FEEDER_KS, FEEDER_KV, FEEDER_KA))
+          .withSimFeedforward(new SimpleMotorFeedforward(FEEDER_KS, FEEDER_KV, FEEDER_KA))
           // Telemetry name and verbosity level
-          .withTelemetry("ShooterMotor", TelemetryVerbosity.HIGH)
+          .withTelemetry("funnelMotor", TelemetryVerbosity.HIGH)
           // Gearing from the motor rotor to final shaft.
           // In this example gearbox(3,4) is the same as gearbox("3:1","4:1") which corresponds to
           // the gearbox attached to your motor.
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(3, 4)))
           // Motor properties to prevent over currenting.
           .withMotorInverted(false)
-          .withIdleMode(MotorMode.COAST)
+          .withIdleMode(MotorMode.BRAKE)
           .withStatorCurrentLimit(Amps.of(40))
           .withClosedLoopRampRate(Seconds.of(0.25))
           .withOpenLoopRampRate(Seconds.of(0.25));
@@ -161,10 +185,10 @@ public class Index extends SubsystemBase {
   // SparkMax spark2 = new SparkMax(4, SparkLowLevel.MotorType.kBrushless);
 
   // Create our SmartMotorController from our Spark and config with the NEO.
-  SmartMotorController sparkSmartMotorController2 =
+  private final SmartMotorController sparkSmartMotorController2 =
       new SparkWrapper(funnelMotor, DCMotor.getNEO(1), funnelConfig);
 
-  FlyWheelConfig funnelingConfig =
+  private final FlyWheelConfig funnelingConfig =
       new FlyWheelConfig(sparkSmartMotorController2)
           // Diameter of the flywheel.
           .withDiameter(Inches.of(4))
@@ -176,7 +200,19 @@ public class Index extends SubsystemBase {
           .withTelemetry("funnel", TelemetryVerbosity.HIGH);
 
   // Funnel Mechanism
-  private FlyWheel funneler = new FlyWheel(funnelingConfig);
+  private final FlyWheel funneler = new FlyWheel(funnelingConfig);
+
+  public Command runFeeder(AngularVelocity indexSpeed, AngularVelocity funnelSpeed) {
+    return runEnd(
+        () -> {
+          setVelocitySetpointindex(indexSpeed);
+          setVelocitySetpointfunnel(funnelSpeed);
+        },
+        () -> {
+          setVelocitySetpointindex(RPM.of(0));
+          setVelocitySetpointfunnel(RPM.of(0));
+        });
+  }
 
   /**
    * Gets the current velocity of the funnel.
