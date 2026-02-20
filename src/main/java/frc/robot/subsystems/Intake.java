@@ -52,11 +52,11 @@ public class Intake extends SubsystemBase {
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
           .withClosedLoopController(
-              0.0, 0.0, 0.0, DegreesPerSecond.of(180), DegreesPerSecondPerSecond.of(90))
+              175.0, 0.0, 20.0, DegreesPerSecond.of(720), DegreesPerSecondPerSecond.of(360))
           .withFeedforward(new ArmFeedforward(0.02, 0.005, 0.0))
           // sim
           .withSimClosedLoopController(
-              0.0, 0, 0.0, DegreesPerSecond.of(180), DegreesPerSecondPerSecond.of(90))
+              175.0, 0, 20.0, DegreesPerSecond.of(720), DegreesPerSecondPerSecond.of(360))
           .withSimFeedforward(new ArmFeedforward(0.02, 0.005, 0.0))
           .withTelemetry("LiftMotor", TelemetryVerbosity.HIGH)
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(5, 5, 3.333)))
@@ -72,8 +72,8 @@ public class Intake extends SubsystemBase {
 
   private ArmConfig liftCfg =
       new ArmConfig(liftSmartMotorController)
-          .withSoftLimits(Degrees.of(-1), Degrees.of(110))
-          .withHardLimit(Degrees.of(-15), Degrees.of(110))
+          .withSoftLimits(Degrees.of(-25), Degrees.of(110))
+          .withHardLimit(Degrees.of(-30), Degrees.of(110))
           .withStartingPosition(Degrees.of(110))
           .withLength(Inches.of(8))
           .withMass(Pounds.of(8.466))
