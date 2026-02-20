@@ -14,7 +14,6 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.trajectory.TrapezoidProfile.Constraints;
 import edu.wpi.first.math.util.Units;
-import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
@@ -28,7 +27,6 @@ import frc.robot.Constants.OperatorConstants;
 import frc.robot.commands.swervedrive.MisalignCorrection;
 import frc.robot.commands.swervedrive.YAGSLPitCheck;
 import frc.robot.commands.turret.TurretAutoTurn;
-import frc.robot.subsystems.Index;
 import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
@@ -52,7 +50,7 @@ public class RobotContainer {
       new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), chassisDirectory));
   private final MisalignCorrection misalignCorrection =
       new MisalignCorrection(drivebase, chassisDirectory);
-  private final Index indexSystem = new Index();
+  // private final Index indexSystem = new Index();
 
   // Turret subsystem, constructed with a supplier that returns the current odometry pose
   private final Turret turret = new Turret(drivebase::getPose);
@@ -210,10 +208,10 @@ public class RobotContainer {
       driverXbox.rightBumper().whileTrue(intakeSystem.setAngle(30.0));
       driverXbox.leftBumper().whileTrue(intakeSystem.setAngle(-10.0));
 
-      driverXbox
-          .a()
-          .whileTrue(
-              indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
+      // driverXbox
+      //    .a()
+      //    .whileTrue(
+      //        indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
     }
 
     if (DriverStation.isTest()) {
