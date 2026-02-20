@@ -315,7 +315,7 @@ public class Vision {
             Units.inchesToMeters(16.129)),
         VecBuilder.fill(4, 4, 8),
         VecBuilder.fill(0.5, 0.5, 1)),
-    /** Generic camera0 (e.g. for object detection) */
+    /** Generic camera0 (front camera) */
     CAMERA0(
         "camera0",
         new Rotation3d(0, Math.toRadians(0), 0),
