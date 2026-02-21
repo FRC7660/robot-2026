@@ -1297,7 +1297,9 @@ public class SwerveSubsystem extends SubsystemBase {
 
   private static Optional<PhotonTrackedTarget> getClosestNonFiducialTarget(
       Vision.CameraSnapshot snapshot) {
-    if (snapshot == null || snapshot.latestResult() == null || !snapshot.latestResult().hasTargets()) {
+    if (snapshot == null
+        || snapshot.latestResult() == null
+        || !snapshot.latestResult().hasTargets()) {
       return Optional.empty();
     }
     PhotonTrackedTarget best = null;
@@ -1370,11 +1372,11 @@ public class SwerveSubsystem extends SubsystemBase {
       }
     }
 
-    int nextProxyCount =
-        currentState.proxyCollectedFuelCount() + (collectedThisCycle ? 1 : 0);
+    int nextProxyCount = currentState.proxyCollectedFuelCount() + (collectedThisCycle ? 1 : 0);
     boolean reachedFuelTarget = hasCollectedFuelTargetCount(nextProxyCount, FUEL_TARGET_COUNT);
     boolean timedOut = elapsedSec >= timeoutSec;
-    boolean holdAfterCompletion = mode == FuelPalantirMode.STOP_AFTER_20S && timedOut && !reachedFuelTarget;
+    boolean holdAfterCompletion =
+        mode == FuelPalantirMode.STOP_AFTER_20S && timedOut && !reachedFuelTarget;
     boolean completed = reachedFuelTarget || timedOut;
     String reason =
         reachedFuelTarget ? "target_fuel_count_reached" : (timedOut ? "timeout" : "searching");
@@ -1420,11 +1422,15 @@ public class SwerveSubsystem extends SubsystemBase {
                     return;
                   }
                   double elapsed = Timer.getFPGATimestamp() - startTimeSec.get();
-                  FuelPalantirStep step = fuelPalantir(vision.getCameraData(), state.get(), mode, elapsed);
+                  FuelPalantirStep step =
+                      fuelPalantir(vision.getCameraData(), state.get(), mode, elapsed);
                   state.set(step.nextState());
                   lastStep.set(step);
                   swerveDrive.drive(
-                      new Translation2d(step.forwardMps(), 0), step.rotationRadPerSec(), false, false);
+                      new Translation2d(step.forwardMps(), 0),
+                      step.rotationRadPerSec(),
+                      false,
+                      false);
                 })
             .until(() -> lastStep.get() != null && lastStep.get().completed())
             .finallyDo(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false))
