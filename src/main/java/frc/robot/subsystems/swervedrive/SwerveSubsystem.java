@@ -115,9 +115,6 @@ public class SwerveSubsystem extends SubsystemBase {
   /** PhotonVision class to keep an accurate odometry. */
   private Vision vision;
 
-  /** Printer that logs photonvision object-detection once per second. */
-  private PhotonObjectPrinter photonObjectPrinter;
-
   private int currentAutoRunId = -1;
 
   /**
@@ -192,16 +189,10 @@ public class SwerveSubsystem extends SubsystemBase {
   /** Setup the photon vision class. */
   public void setupPhotonVision() {
     vision = new Vision(swerveDrive::getPose, swerveDrive.field);
-    // PhotonObjectPrinter disabled -- uncomment to re-enable debug logging
-    // photonObjectPrinter = new PhotonObjectPrinter();
-    // photonObjectPrinter.forceImmediatePrint();
   }
 
   @Override
   public void periodic() {
-    if (photonObjectPrinter != null) {
-      photonObjectPrinter.periodic();
-    }
     // When vision is enabled we must manually update odometry in SwerveDrive
     if (visionDriveTest) {
       swerveDrive.updateOdometry();
