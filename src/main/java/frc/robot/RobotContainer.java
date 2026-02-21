@@ -219,7 +219,7 @@ public class RobotContainer {
       drivebase.setDefaultCommand(
           driveFieldOrientedAnglularVelocity); // Overrides drive command above!
 
-      driverXbox.x().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
+      // driverXbox.x().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
       driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
       driverXbox.back().whileTrue(drivebase.centerModulesCommand());
       // driverXbox.leftBumper().onTrue(Commands.runOnce(pitCheck::start,
@@ -227,6 +227,16 @@ public class RobotContainer {
       // This starts the command when you press LB, and stops it immediately when you let go.
       driverXbox.leftBumper().whileTrue(new YAGSLPitCheck(drivebase));
       driverXbox.rightBumper().onTrue(Commands.runOnce(misalignCorrection::execute));
+      driverXbox.b().whileTrue(Commands.runOnce(() -> indexSystem.setfunnel(0.1)));
+      driverXbox
+          .y()
+          .whileTrue(
+              intakeSystem.runCommand(
+                  () -> {
+                    return .99;
+                  }));
+      driverXbox.a().onTrue(intakeSystem.setAngle(-25.0));
+      driverXbox.x().onTrue(intakeSystem.setAngle(110.0));
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
