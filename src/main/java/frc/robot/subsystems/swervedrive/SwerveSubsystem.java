@@ -38,7 +38,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -65,7 +64,7 @@ public class SwerveSubsystem extends SubsystemBase {
   private static final AtomicInteger AUTO_RUN_COUNTER = new AtomicInteger(0);
   private static final double TAG_APPROACH_DISTANCE_METERS = 0.5;
   private static final double TAG_SEARCH_MAX_RADIANS = 2.0 * Math.PI; // 360 deg
-  private static final double SEARCH_ROTATION_RAD_PER_SEC = Math.toRadians(45.0);
+  static final double SEARCH_ROTATION_RAD_PER_SEC = Math.toRadians(45.0);
   private static final double TAG_CENTER_TOLERANCE_DEG = 3.0;
   private static final double TAG_CENTER_NEAR_TOLERANCE_EXTRA_DEG = 1.0;
   private static final double TAG_CENTER_NEAR_HOLD_SEC = 0.7;
@@ -75,36 +74,13 @@ public class SwerveSubsystem extends SubsystemBase {
   private static final double APPROACH_DISTANCE_TOLERANCE_METERS = 0.20;
   private static final double APPROACH_STALL_DISTANCE_DELTA_METERS = 0.02;
   private static final double APPROACH_STALL_TIME_SEC = 1.8;
-  private static final double ANGULAR_TRACKING_GAIN = 2.0;
+  static final double ANGULAR_TRACKING_GAIN = 2.0;
   private static final double DEBUG_LOG_PERIOD_SEC = 0.25;
   private static final double LOST_TAG_HOLD_SEC = 0.4;
   private static final double LOST_TAG_RECOVERY_ROTATION_RAD_PER_SEC = Math.toRadians(16.0);
-  private static final double FUEL_APPROACH_STOP_AREA = 4.5;
-  private static final double FUEL_APPROACH_MIN_FORWARD_MPS = 0.10;
-  private static final double FUEL_APPROACH_MAX_FORWARD_MPS = 0.35;
-  private static final double FUEL_APPROACH_TIMEOUT_SEC = 10.0;
   private static final double DETECTION_CHIRP_TRANSLATION_MPS = 0.22;
   private static final double DETECTION_CHIRP_TIME_SEC = 0.06;
   private static final double DETECTION_CHIRP_GAP_SEC = 0.04;
-  private static final int FUEL_TARGET_COUNT = 8;
-  private static final double FUEL_PALANTIR_CONTINUE_TIMEOUT_SEC = 30.0;
-  private static final double FUEL_PALANTIR_STOP_TIMEOUT_SEC = 20.0;
-
-  public enum FuelPalantirMode {
-    CONTINUE_AFTER_30S,
-    STOP_AFTER_20S
-  }
-
-  public record FuelPalantirState(
-      int proxyCollectedFuelCount, Optional<Cameras> lockedCamera, boolean holdAfterCompletion) {}
-
-  public record FuelPalantirStep(
-      FuelPalantirState nextState,
-      double forwardMps,
-      double rotationRadPerSec,
-      boolean fuelCollectedThisCycle,
-      boolean completed,
-      String reason) {}
 
   /** Swerve drive object. */
   private final SwerveDrive swerveDrive;
@@ -800,7 +776,7 @@ public class SwerveSubsystem extends SubsystemBase {
     return sb.toString();
   }
 
-  private static double calculateRotationFromYawDeg(double yawDeg) {
+  static double calculateRotationFromYawDeg(double yawDeg) {
     // Negative sign so positive yaw commands correction back toward center.
     return MathUtil.clamp(
         -Math.toRadians(yawDeg) * ANGULAR_TRACKING_GAIN,
@@ -1209,15 +1185,15 @@ public class SwerveSubsystem extends SubsystemBase {
                 double rotation = calculateRotationFromYawDeg(yawDeg);
                 double area = fuelFront.get().getArea();
                 double forward = 0.0;
-                if (area >= FUEL_APPROACH_STOP_AREA) {
+                if (area >= FuelPalantir.FUEL_APPROACH_STOP_AREA) {
                   fuelFound.set(true);
                 } else {
-                  double areaError = FUEL_APPROACH_STOP_AREA - area;
+                  double areaError = FuelPalantir.FUEL_APPROACH_STOP_AREA - area;
                   forward =
                       MathUtil.clamp(
                           areaError * 0.08,
-                          FUEL_APPROACH_MIN_FORWARD_MPS,
-                          FUEL_APPROACH_MAX_FORWARD_MPS);
+                          FuelPalantir.FUEL_APPROACH_MIN_FORWARD_MPS,
+                          FuelPalantir.FUEL_APPROACH_MAX_FORWARD_MPS);
                 }
                 swerveDrive.drive(new Translation2d(forward, 0), rotation, false, false);
                 if (forward > 0.0 && shouldDebugLog(lastLogTimeSec, DEBUG_LOG_PERIOD_SEC)) {
@@ -1253,7 +1229,8 @@ public class SwerveSubsystem extends SubsystemBase {
             () ->
                 fuelFound.get()
                     || rotatedRad.get() >= TAG_SEARCH_MAX_RADIANS
-                    || (Timer.getFPGATimestamp() - startTimeSec.get()) >= FUEL_APPROACH_TIMEOUT_SEC)
+                    || (Timer.getFPGATimestamp() - startTimeSec.get())
+                        >= FuelPalantir.FUEL_APPROACH_TIMEOUT_SEC)
         .finallyDo(
             () -> {
               debugAuto(
@@ -1290,140 +1267,42 @@ public class SwerveSubsystem extends SubsystemBase {
                         activeTagId.get(), fuelFound.get()))));
   }
 
-  private static boolean hasCollectedFuelTargetCount(int proxyCollectedFuelCount, int targetCount) {
-    // TODO: Replace proxy count with real fuel collection sensor/indexer integration.
-    return proxyCollectedFuelCount >= targetCount;
-  }
-
-  private static Optional<PhotonTrackedTarget> getClosestNonFiducialTarget(
-      Vision.CameraSnapshot snapshot) {
-    if (snapshot == null
-        || snapshot.latestResult() == null
-        || !snapshot.latestResult().hasTargets()) {
-      return Optional.empty();
-    }
-    PhotonTrackedTarget best = null;
-    double minAbsYaw = Double.POSITIVE_INFINITY;
-    for (PhotonTrackedTarget target : snapshot.latestResult().getTargets()) {
-      if (target.getFiducialId() > 0) {
-        continue;
-      }
-      double absYaw = Math.abs(target.getYaw());
-      if (absYaw < minAbsYaw) {
-        minAbsYaw = absYaw;
-        best = target;
-      }
-    }
-    return Optional.ofNullable(best);
-  }
-
-  private static Optional<Cameras> chooseLockCamera(
-      Map<Cameras, Vision.CameraSnapshot> cameraData, Optional<Cameras> currentlyLocked) {
-    if (currentlyLocked.isPresent()) {
-      return currentlyLocked;
-    }
-    Cameras[] candidates = {Cameras.CAMERA0, Cameras.CAMERA1};
-    Cameras bestCamera = null;
-    double minAbsYaw = Double.POSITIVE_INFINITY;
-    for (Cameras camera : candidates) {
-      Optional<PhotonTrackedTarget> target = getClosestNonFiducialTarget(cameraData.get(camera));
-      if (target.isEmpty()) {
-        continue;
-      }
-      double absYaw = Math.abs(target.get().getYaw());
-      if (absYaw < minAbsYaw) {
-        minAbsYaw = absYaw;
-        bestCamera = camera;
-      }
-    }
-    return Optional.ofNullable(bestCamera);
-  }
-
-  public static FuelPalantirStep fuelPalantir(
-      Map<Cameras, Vision.CameraSnapshot> cameraData,
-      FuelPalantirState currentState,
-      FuelPalantirMode mode,
-      double elapsedSec) {
-    final double timeoutSec =
-        mode == FuelPalantirMode.CONTINUE_AFTER_30S
-            ? FUEL_PALANTIR_CONTINUE_TIMEOUT_SEC
-            : FUEL_PALANTIR_STOP_TIMEOUT_SEC;
-
-    Optional<Cameras> lockedCamera = chooseLockCamera(cameraData, currentState.lockedCamera());
-    Optional<PhotonTrackedTarget> target =
-        lockedCamera.flatMap(camera -> getClosestNonFiducialTarget(cameraData.get(camera)));
-
-    double rotation = SEARCH_ROTATION_RAD_PER_SEC;
-    double forward = 0.0;
-    boolean collectedThisCycle = false;
-
-    if (target.isPresent()) {
-      double yawDeg = target.get().getYaw();
-      rotation = calculateRotationFromYawDeg(yawDeg);
-      double area = target.get().getArea();
-      if (area >= FUEL_APPROACH_STOP_AREA) {
-        collectedThisCycle = true;
-        forward = 0.0;
-      } else {
-        double areaError = FUEL_APPROACH_STOP_AREA - area;
-        forward =
-            MathUtil.clamp(
-                areaError * 0.08, FUEL_APPROACH_MIN_FORWARD_MPS, FUEL_APPROACH_MAX_FORWARD_MPS);
-      }
-    }
-
-    int nextProxyCount = currentState.proxyCollectedFuelCount() + (collectedThisCycle ? 1 : 0);
-    boolean reachedFuelTarget = hasCollectedFuelTargetCount(nextProxyCount, FUEL_TARGET_COUNT);
-    boolean timedOut = elapsedSec >= timeoutSec;
-    boolean holdAfterCompletion =
-        mode == FuelPalantirMode.STOP_AFTER_20S && timedOut && !reachedFuelTarget;
-    boolean completed = reachedFuelTarget || timedOut;
-    String reason =
-        reachedFuelTarget ? "target_fuel_count_reached" : (timedOut ? "timeout" : "searching");
-
-    return new FuelPalantirStep(
-        new FuelPalantirState(nextProxyCount, lockedCamera, holdAfterCompletion),
-        forward,
-        rotation,
-        collectedThisCycle,
-        completed,
-        reason);
-  }
-
   private Command holdStoppedUntilDisabled() {
     return run(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false))
         .until(DriverStation::isDisabled)
         .withName("FuelPalantirHoldStoppedUntilDisabled");
   }
 
-  public Command fuelPalantirCommand(FuelPalantirMode mode) {
+  public Command fuelPalantirCommand(FuelPalantir.FuelPalantirMode mode) {
     AtomicReference<Double> startTimeSec = new AtomicReference<>(0.0);
-    AtomicReference<FuelPalantirState> state =
-        new AtomicReference<>(new FuelPalantirState(0, Optional.empty(), false));
-    AtomicReference<FuelPalantirStep> lastStep = new AtomicReference<>(null);
+    AtomicReference<FuelPalantir.FuelPalantirState> state =
+        new AtomicReference<>(new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
+    AtomicReference<FuelPalantir.FuelPalantirStep> lastStep = new AtomicReference<>(null);
 
     Command runFuelPalantir =
         startRun(
                 () -> {
                   startTimeSec.set(Timer.getFPGATimestamp());
-                  state.set(new FuelPalantirState(0, Optional.empty(), false));
+                  state.set(new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
                   lastStep.set(null);
                   debugAuto(
                       String.format(
-                          "FUEL PALANTIR START mode=%s targetFuel=%d", mode, FUEL_TARGET_COUNT));
+                          "FUEL PALANTIR START mode=%s targetFuel=%d",
+                          mode, FuelPalantir.FUEL_TARGET_COUNT));
                 },
                 () -> {
                   if (vision == null) {
                     debugAuto("FUEL PALANTIR no vision instance available");
                     lastStep.set(
-                        new FuelPalantirStep(
+                        new FuelPalantir.FuelPalantirStep(
                             state.get(), 0.0, 0.0, false, true, "vision_not_initialized"));
                     swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
                     return;
                   }
                   double elapsed = Timer.getFPGATimestamp() - startTimeSec.get();
-                  FuelPalantirStep step =
-                      fuelPalantir(vision.getCameraData(), state.get(), mode, elapsed);
+                  FuelPalantir.FuelPalantirStep step =
+                      FuelPalantir.fuelPalantir(
+                          vision.getLatestCameraData(), state.get(), mode, elapsed);
                   state.set(step.nextState());
                   lastStep.set(step);
                   swerveDrive.drive(
@@ -1437,7 +1316,7 @@ public class SwerveSubsystem extends SubsystemBase {
             .andThen(
                 runOnce(
                     () -> {
-                      FuelPalantirStep step = lastStep.get();
+                      FuelPalantir.FuelPalantirStep step = lastStep.get();
                       String reason = step == null ? "unknown" : step.reason();
                       debugAuto(
                           String.format(
@@ -1452,7 +1331,7 @@ public class SwerveSubsystem extends SubsystemBase {
     return Commands.either(
             Commands.sequence(runFuelPalantir, holdStoppedUntilDisabled()),
             runFuelPalantir,
-            () -> mode == FuelPalantirMode.STOP_AFTER_20S)
+            () -> mode == FuelPalantir.FuelPalantirMode.STOP_AFTER_20S)
         .withName("FuelPalantirCommand-" + mode.name());
   }
 

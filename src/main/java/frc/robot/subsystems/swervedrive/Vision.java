@@ -135,6 +135,7 @@ public class Vision {
   private Pose2d lastLoggedFusedPose = null;
   private final EnumMap<Cameras, CameraTagObservation> lastLoggedCameraTagObs =
       new EnumMap<>(Cameras.class);
+  private Map<Cameras, CameraSnapshot> latestCameraData = new EnumMap<>(Cameras.class);
 
   /**
    * Constructor for the Vision class.
@@ -506,6 +507,7 @@ public class Vision {
 
     // Fetch raw camera frames
     Map<Cameras, CameraSnapshot> cameraData = getCameraData();
+    latestCameraData = cameraData;
     long t1 = System.nanoTime();
 
     // Run pose estimation on each camera
@@ -753,6 +755,15 @@ public class Vision {
   @Deprecated(since = "2025", forRemoval = true)
   public Map<Cameras, CameraSnapshot> updatePoseEstimation(SwerveDrive swerveDrive) {
     return process(swerveDrive);
+  }
+
+  /**
+   * Get the camera data from the most recent {@link #process} cycle.
+   *
+   * @return the latest camera snapshot map
+   */
+  public Map<Cameras, CameraSnapshot> getLatestCameraData() {
+    return latestCameraData;
   }
 
   // ── Legacy methods (still used by other subsystems) ───────────────────────
