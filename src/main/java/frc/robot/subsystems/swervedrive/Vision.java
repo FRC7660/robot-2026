@@ -500,9 +500,8 @@ public class Vision {
    * Run the full vision pipeline. Runs every cycle regardless of mode (teleop + auto).
    *
    * @param swerveDrive {@link SwerveDrive} instance
-   * @return the raw camera data from this cycle, for use by other subsystems (e.g. FuelPalantir)
    */
-  public Map<Cameras, CameraSnapshot> process(SwerveDrive swerveDrive) {
+  public void process(SwerveDrive swerveDrive) {
     long t0 = System.nanoTime();
 
     // Fetch raw camera frames
@@ -526,8 +525,6 @@ public class Vision {
         cameraData, estimations, swerveDrive.getPose(), selection.bestCandidate());
     logAprilTagTelemetryOnChange(cameraData, swerveDrive.getPose(), selection.bestCandidate());
     logPipelineCycle(t0, t1, t2, t3, t4);
-
-    return cameraData;
   }
 
   private Optional<CameraTagObservation> getClosestTagObservation(CameraSnapshot snapshot) {
@@ -745,16 +742,6 @@ public class Vision {
           rejectedHighStd,
           rejectedOutlier);
     }
-  }
-
-  /**
-   * Deprecated. Use {@link #process(SwerveDrive)} instead.
-   *
-   * @param swerveDrive {@link SwerveDrive} instance
-   */
-  @Deprecated(since = "2025", forRemoval = true)
-  public Map<Cameras, CameraSnapshot> updatePoseEstimation(SwerveDrive swerveDrive) {
-    return process(swerveDrive);
   }
 
   /**
