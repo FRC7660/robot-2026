@@ -9,6 +9,7 @@ import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -22,6 +23,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.photonvision.EstimatedRobotPose;
+import org.photonvision.PhotonPoseEstimator;
+import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 import org.photonvision.PhotonUtils;
 import org.photonvision.simulation.VisionSystemSim;
 import org.photonvision.targeting.PhotonPipelineResult;
@@ -107,6 +110,7 @@ public class Vision {
   private static final double TAG_YAW_LOG_DELTA_DEG = 1.0;
   private static final double TAG_DISTANCE_LOG_DELTA_METERS = 0.05;
   private static final double TAG_TIMESTAMP_LOG_DELTA_SEC = 0.1;
+  private static final double TELEOP_TAG_RECORD_PERIOD_SEC = 0.25;
 
   // ── Instance state ────────────────────────────────────────────────────────
 
@@ -136,6 +140,7 @@ public class Vision {
   private final EnumMap<Cameras, CameraTagObservation> lastLoggedCameraTagObs =
       new EnumMap<>(Cameras.class);
   private Map<Cameras, CameraSnapshot> latestCameraData = new EnumMap<>(Cameras.class);
+  private double lastTeleopTagRecordLogSec = Double.NEGATIVE_INFINITY;
 
   /**
    * Constructor for the Vision class.
@@ -506,6 +511,8 @@ public class Vision {
 
     // Fetch raw camera frames
     Map<Cameras, CameraSnapshot> cameraData = getCameraData();
+    Map<Cameras, Optional<EstimatedRobotPose>> rawLatestPoseByCamera =
+        estimateRawLatestPoseFromCameraData(cameraData);
     latestCameraData = cameraData;
     long t1 = System.nanoTime();
 
@@ -522,8 +529,13 @@ public class Vision {
     long t4 = System.nanoTime();
 
     publishDashboardTelemetry(
-        cameraData, estimations, swerveDrive.getPose(), selection.bestCandidate());
+        cameraData,
+        rawLatestPoseByCamera,
+        estimations,
+        swerveDrive.getPose(),
+        selection.bestCandidate());
     logAprilTagTelemetryOnChange(cameraData, swerveDrive.getPose(), selection.bestCandidate());
+    logTeleopAprilTagRecord(cameraData, estimations);
     logPipelineCycle(t0, t1, t2, t3, t4);
   }
 
@@ -594,8 +606,19 @@ public class Vision {
     }
   }
 
+  private void publishPose3dToDashboard(String prefix, Pose3d pose, boolean valid) {
+    SmartDashboard.putBoolean(prefix + "/Valid", valid);
+    if (valid && pose != null) {
+      SmartDashboard.putNumber(prefix + "/X", pose.getX());
+      SmartDashboard.putNumber(prefix + "/Y", pose.getY());
+      SmartDashboard.putNumber(prefix + "/Z", pose.getZ());
+      SmartDashboard.putNumber(prefix + "/HeadingDeg", pose.getRotation().toRotation2d().getDegrees());
+    }
+  }
+
   private void publishDashboardTelemetry(
       Map<Cameras, CameraSnapshot> cameraData,
+      Map<Cameras, Optional<EstimatedRobotPose>> rawLatestPoseByCamera,
       List<PoseEstimationResult> estimations,
       Pose2d odomPose,
       Optional<FusionCandidate> fusedCandidate) {
@@ -622,6 +645,14 @@ public class Vision {
                 "%s:id=%d yaw=%.1f dist=%.2f",
                 camera.name(), obs.tagId(), obs.yawDeg(), obs.distanceMeters()));
       }
+
+      String rawPoseKey = "Vision/" + camera.name() + "/RawLatestPose";
+      Optional<EstimatedRobotPose> rawPose = rawLatestPoseByCamera.getOrDefault(camera, Optional.empty());
+      if (rawPose.isPresent()) {
+        publishPose3dToDashboard(rawPoseKey, rawPose.get().estimatedPose, true);
+      } else {
+        publishPose3dToDashboard(rawPoseKey, null, false);
+      }
     }
 
     for (PoseEstimationResult est : estimations) {
@@ -647,6 +678,24 @@ public class Vision {
                     "(%.2f, %.2f, %.1fdeg)",
                     fusedPose.getX(), fusedPose.getY(), fusedPose.getRotation().getDegrees()),
             tagSummary.length() == 0 ? "none" : tagSummary.toString()));
+  }
+
+  private Map<Cameras, Optional<EstimatedRobotPose>> estimateRawLatestPoseFromCameraData(
+      Map<Cameras, CameraSnapshot> cameraData) {
+    EnumMap<Cameras, Optional<EstimatedRobotPose>> raw = new EnumMap<>(Cameras.class);
+    for (Cameras camera : Cameras.values()) {
+      CameraSnapshot snapshot = cameraData.get(camera);
+      if (snapshot == null || snapshot.latestResult() == null || !snapshot.latestResult().hasTargets()) {
+        raw.put(camera, Optional.empty());
+        continue;
+      }
+
+      PhotonPoseEstimator tempEstimator =
+          new PhotonPoseEstimator(fieldLayout, PoseStrategy.MULTI_TAG_PNP_ON_COPROCESSOR, camera.robotToCamTransform);
+      tempEstimator.setMultiTagFallbackStrategy(PoseStrategy.LOWEST_AMBIGUITY);
+      raw.put(camera, tempEstimator.update(snapshot.latestResult()));
+    }
+    return raw;
   }
 
   private void logAprilTagTelemetryOnChange(
@@ -705,6 +754,85 @@ public class Vision {
       for (Cameras camera : Cameras.values()) {
         lastLoggedCameraTagObs.put(camera, currentObs.get(camera));
       }
+    }
+  }
+
+  private void logTeleopAprilTagRecord(
+      Map<Cameras, CameraSnapshot> cameraData, List<PoseEstimationResult> estimations) {
+    if (!DriverStation.isTeleopEnabled()) {
+      return;
+    }
+
+    double now = Timer.getFPGATimestamp();
+    if (now - lastTeleopTagRecordLogSec < TELEOP_TAG_RECORD_PERIOD_SEC) {
+      return;
+    }
+
+    StringBuilder sb = new StringBuilder();
+    boolean sawAnyTag = false;
+
+    for (Cameras camera : Cameras.values()) {
+      CameraSnapshot snapshot = cameraData.get(camera);
+      if (snapshot == null || snapshot.latestResult() == null || !snapshot.latestResult().hasTargets()) {
+        continue;
+      }
+
+      StringBuilder camTags = new StringBuilder();
+      for (PhotonTrackedTarget target : snapshot.latestResult().getTargets()) {
+        int tagId = target.getFiducialId();
+        if (tagId <= 0) {
+          continue;
+        }
+        sawAnyTag = true;
+        double dist = target.getBestCameraToTarget().getTranslation().getNorm();
+        Optional<Pose3d> tagPose = fieldLayout.getTagPose(tagId);
+        String tagPoseText =
+            tagPose.isPresent()
+                ? String.format(
+                    "(x=%.2f,y=%.2f,z=%.2f)",
+                    tagPose.get().getX(),
+                    tagPose.get().getY(),
+                    tagPose.get().getZ())
+                : "(unknown)";
+        if (camTags.length() > 0) {
+          camTags.append(", ");
+        }
+        camTags.append(
+            String.format(
+                "id=%d yaw=%.1f dist=%.2f fieldPose=%s", tagId, target.getYaw(), dist, tagPoseText));
+      }
+
+      if (camTags.length() == 0) {
+        continue;
+      }
+
+      Optional<EstimatedRobotPose> estPose = Optional.empty();
+      for (PoseEstimationResult est : estimations) {
+        if (est.camera() == camera) {
+          estPose = est.estimatedPose();
+          break;
+        }
+      }
+
+      String robotPoseText =
+          estPose.isPresent()
+              ? String.format(
+                  "(x=%.3f,y=%.3f,z=%.3f)",
+                  estPose.get().estimatedPose.getX(),
+                  estPose.get().estimatedPose.getY(),
+                  estPose.get().estimatedPose.getZ())
+              : "none";
+
+      if (sb.length() > 0) {
+        sb.append(" | ");
+      }
+      sb.append(
+          String.format("%s robotPose=%s tags=[%s]", camera.name(), robotPoseText, camTags.toString()));
+    }
+
+    if (sawAnyTag) {
+      System.out.printf("[AprilTagTeleopRecord] t=%.3f %s%n", now, sb.toString());
+      lastTeleopTagRecordLogSec = now;
     }
   }
 
