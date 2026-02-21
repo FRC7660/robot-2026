@@ -161,24 +161,24 @@ class VisionPipelineTest {
     assertEquals(MULTI_TAG_STD.get(2, 0), result.get(2, 0), 1e-6);
   }
 
-  // ── selectBestPose tests ────────────────────────────────────────────────
+  // ── selectAdvancedPose tests ────────────────────────────────────────────────
 
   @Test
-  void selectBestPose_allCamerasEmpty_rejectedNoEstimate() {
+  void selectAdvancedPose_allCamerasEmpty_rejectedNoEstimate() {
     List<Vision.PoseEstimationResult> estimations = new ArrayList<>();
     for (Cameras cam : Cameras.values()) {
       estimations.add(new Vision.PoseEstimationResult(cam, Optional.empty(), SINGLE_TAG_STD, 0));
     }
 
     Vision.SelectionResult result =
-        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(Cameras.values().length, result.rejectedNoEstimate());
   }
 
   @Test
-  void selectBestPose_staleTimestamp_rejected() {
+  void selectAdvancedPose_staleTimestamp_rejected() {
     Cameras cam = Cameras.values()[0];
     PhotonTrackedTarget target = makeTarget(1);
     EstimatedRobotPose est = makeEstimatedPose(0.0, 0.0, 5.0, List.of(target));
@@ -190,14 +190,14 @@ class VisionPipelineTest {
     Map<Cameras, Double> lastFused = new EnumMap<>(Cameras.class);
     lastFused.put(cam, 5.0);
 
-    Vision.SelectionResult result = Vision.selectBestPose(estimations, new Pose2d(), lastFused);
+    Vision.SelectionResult result = Vision.selectAdvancedPose(estimations, new Pose2d(), lastFused);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedStale());
   }
 
   @Test
-  void selectBestPose_singleTagHighTranslationError_rejectedLowTagFar() {
+  void selectAdvancedPose_singleTagHighTranslationError_rejectedLowTagFar() {
     Cameras cam = Cameras.values()[0];
     // Single tag, estimated at (2,0) but current at (0,0) -> error = 2m > 0.8m
     PhotonTrackedTarget target = makeTarget(1);
@@ -208,14 +208,14 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedLowTagFar());
   }
 
   @Test
-  void selectBestPose_highStdDevs_rejectedHighStd() {
+  void selectAdvancedPose_highStdDevs_rejectedHighStd() {
     Cameras cam = Cameras.values()[0];
     PhotonTrackedTarget target1 = makeTarget(1);
     PhotonTrackedTarget target2 = makeTarget(2);
@@ -226,14 +226,14 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedHighStd());
   }
 
   @Test
-  void selectBestPose_outlierTranslationError_rejectedOutlier() {
+  void selectAdvancedPose_outlierTranslationError_rejectedOutlier() {
     Cameras cam = Cameras.values()[0];
     PhotonTrackedTarget target1 = makeTarget(1);
     PhotonTrackedTarget target2 = makeTarget(2);
@@ -244,14 +244,14 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedOutlier());
   }
 
   @Test
-  void selectBestPose_singleValidCamera_accepted() {
+  void selectAdvancedPose_singleValidCamera_accepted() {
     Cameras cam = Cameras.values()[0];
     PhotonTrackedTarget target1 = makeTarget(1);
     PhotonTrackedTarget target2 = makeTarget(2);
@@ -262,7 +262,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
 
     assertTrue(result.bestCandidate().isPresent());
     Vision.FusionCandidate best = result.bestCandidate().get();
@@ -274,7 +274,7 @@ class VisionPipelineTest {
   }
 
   @Test
-  void selectBestPose_twoValidCameras_lowestScoreWins() {
+  void selectAdvancedPose_twoValidCameras_lowestScoreWins() {
     Cameras[] cams = Cameras.values();
     assertTrue(cams.length >= 2, "Need at least 2 cameras for this test");
 
@@ -294,14 +294,14 @@ class VisionPipelineTest {
             new Vision.PoseEstimationResult(cams[1], Optional.of(est2), stdDevs2, 1));
 
     Vision.SelectionResult result =
-        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
 
     assertTrue(result.bestCandidate().isPresent());
     assertEquals(cams[1], result.bestCandidate().get().camera());
   }
 
   @Test
-  void selectBestPose_multiTagBypassesSingleTagDistanceFilter() {
+  void selectAdvancedPose_multiTagBypassesSingleTagDistanceFilter() {
     Cameras cam = Cameras.values()[0];
     PhotonTrackedTarget target1 = makeTarget(1);
     PhotonTrackedTarget target2 = makeTarget(2);
@@ -312,14 +312,14 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
 
     assertTrue(result.bestCandidate().isPresent());
     assertEquals(0, result.rejectedLowTagFar());
   }
 
   @Test
-  void selectBestPose_boundaryExactlyAtSingleTagLimit_rejected() {
+  void selectAdvancedPose_boundaryExactlyAtSingleTagLimit_rejected() {
     Cameras cam = Cameras.values()[0];
     PhotonTrackedTarget target = makeTarget(1);
     EstimatedRobotPose est = makeEstimatedPose(0.801, 0.0, 1.0, List.of(target));
@@ -329,14 +329,14 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedLowTagFar());
   }
 
   @Test
-  void selectBestPose_boundaryExactlyAtSingleTagLimit_accepted() {
+  void selectAdvancedPose_boundaryExactlyAtSingleTagLimit_accepted() {
     Cameras cam = Cameras.values()[0];
     PhotonTrackedTarget target = makeTarget(1);
     EstimatedRobotPose est = makeEstimatedPose(0.8, 0.0, 1.0, List.of(target));
@@ -346,7 +346,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
 
     // 0.8 is not > 0.8, so it passes the single-tag filter
     assertTrue(result.bestCandidate().isPresent());

@@ -27,15 +27,15 @@ import org.photonvision.simulation.VisionSystemSim;
 import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 import swervelib.SwerveDrive;
-import swervelib.telemetry.SwerveDriveTelemetry;
 
 /**
  * Vision pipeline for AprilTag-based pose estimation and fusion.
  *
  * <p>The pipeline runs every robot cycle (teleop + auto) and consists of: 1. {@link
- * #getCameraData()} -- fetch raw results from all cameras 2. {@link #poseEstimation(Map)} -- run
- * PhotonPoseEstimator on each camera's results 3. {@link #selectBestPose(List, Pose2d, Map)} --
- * filter and score candidates 4. Apply the best candidate to the swerve drive pose estimator
+ * #getCameraData()} -- fetch raw results from all cameras 2. {@link #updateAprilTagError(Map)} --
+ * run PhotonPoseEstimator on each camera's results 3. {@link #selectBestPose(List, SwerveDrive)} --
+ * filter and score candidates 4. {@link #setVisionMeasurement(SwerveDrive, SelectionResult)} --
+ * apply the best candidate to the swerve drive pose estimator
  */
 public class Vision {
 
@@ -83,7 +83,8 @@ public class Vision {
       int rejectedOutlier) {}
 
   /** Per-camera raw AprilTag observation summary from the latest frame. */
-  public record CameraTagObservation(int tagId, double yawDeg, double distanceMeters, double tsSec) {}
+  public record CameraTagObservation(
+      int tagId, double yawDeg, double distanceMeters, double tsSec) {}
 
   // ── Constants ─────────────────────────────────────────────────────────────
 
@@ -192,7 +193,7 @@ public class Vision {
     return data;
   }
 
-  // ── Pipeline Step 2: poseEstimation() ─────────────────────────────────────
+  // ── Pipeline Step 2: updateAprilTagError() ────────────────────────────────
 
   /**
    * Run pose estimation on each camera's results. Updates each camera's curStdDevs and
@@ -201,7 +202,7 @@ public class Vision {
    * @param cameraData the snapshots from {@link #getCameraData()}
    * @return list of pose estimation results
    */
-  public List<PoseEstimationResult> poseEstimation(Map<Cameras, CameraSnapshot> cameraData) {
+  public List<PoseEstimationResult> updateAprilTagError(Map<Cameras, CameraSnapshot> cameraData) {
     List<PoseEstimationResult> results = new ArrayList<>();
     for (var entry : cameraData.entrySet()) {
       Cameras camera = entry.getKey();
@@ -292,17 +293,18 @@ public class Vision {
     return estStdDevs;
   }
 
-  // ── Pipeline Step 3: selectBestPose() (pure static) ───────────────────────
+  // ── Pipeline Step 3: selectAdvancedPose() (pure static) ──────────────────
 
   /**
-   * Filter and score pose estimation results, selecting the best candidate.
+   * Filter and score pose estimation results using advanced rejection filters, selecting the best
+   * candidate.
    *
-   * @param estimations results from {@link #poseEstimation}
+   * @param estimations results from {@link #updateAprilTagError}
    * @param currentPose the current robot pose from odometry
    * @param lastFusedTimestamps last fused timestamp per camera
    * @return selection result with best candidate and rejection counts
    */
-  public static SelectionResult selectBestPose(
+  static SelectionResult selectAdvancedPose(
       List<PoseEstimationResult> estimations,
       Pose2d currentPose,
       Map<Cameras, Double> lastFusedTimestamps) {
@@ -337,14 +339,14 @@ public class Vision {
       }
 
       Matrix<N3, N1> stdDevs = est.stdDevs();
-      boolean hasStd = stdDevs != null;
-      double stdX = hasStd ? stdDevs.get(0, 0) : 1.0;
-      double stdY = hasStd ? stdDevs.get(1, 0) : 1.0;
-      double stdTheta = hasStd ? stdDevs.get(2, 0) : 1.0;
-      if (hasStd
-          && (stdX > MAX_STD_XY_METERS
-              || stdY > MAX_STD_XY_METERS
-              || stdTheta > MAX_STD_THETA_RAD)) {
+      if (stdDevs == null) {
+        rejNoEst++;
+        continue;
+      }
+      double stdX = stdDevs.get(0, 0);
+      double stdY = stdDevs.get(1, 0);
+      double stdTheta = stdDevs.get(2, 0);
+      if (stdX > MAX_STD_XY_METERS || stdY > MAX_STD_XY_METERS || stdTheta > MAX_STD_THETA_RAD) {
         rejHighStd++;
         continue;
       }
@@ -365,7 +367,7 @@ public class Vision {
               stdTheta,
               tagCount,
               translationError,
-              hasStd,
+              true,
               stdDevs,
               score);
       if (best == null || candidate.score() < best.score()) {
@@ -377,7 +379,7 @@ public class Vision {
         Optional.ofNullable(best), rejNoEst, rejStale, rejLowTagFar, rejHighStd, rejOutlier);
   }
 
-  public static SelectionResult selectBasicPose(
+  static SelectionResult selectBasicPose(
       List<PoseEstimationResult> estimations,
       Pose2d currentPose,
       Map<Cameras, Double> lastFusedTimestamps) {
@@ -402,10 +404,13 @@ public class Vision {
       int tagCount = pose.targetsUsed.size();
       double translationError = currentPose.getTranslation().getDistance(pose2d.getTranslation());
       Matrix<N3, N1> stdDevs = est.stdDevs();
-      boolean hasStd = stdDevs != null;
-      double stdX = hasStd ? stdDevs.get(0, 0) : 1.0;
-      double stdY = hasStd ? stdDevs.get(1, 0) : 1.0;
-      double stdTheta = hasStd ? stdDevs.get(2, 0) : 1.0;
+      if (stdDevs == null) {
+        rejNoEst++;
+        continue;
+      }
+      double stdX = stdDevs.get(0, 0);
+      double stdY = stdDevs.get(1, 0);
+      double stdTheta = stdDevs.get(2, 0);
       double score = translationError;
 
       FusionCandidate candidate =
@@ -418,7 +423,7 @@ public class Vision {
               stdTheta,
               tagCount,
               translationError,
-              hasStd,
+              true,
               stdDevs,
               score);
       if (best == null || candidate.score() < best.score()) {
@@ -429,42 +434,41 @@ public class Vision {
     return new SelectionResult(Optional.ofNullable(best), rejNoEst, rejStale, 0, 0, 0);
   }
 
-  // ── Pipeline Orchestrator ─────────────────────────────────────────────────
+  // ── Pipeline: selectBestPose (instance) ──────────────────────────────────
 
   /**
-   * Run the full vision pipeline. Replaces {@link #updatePoseEstimation}. Runs every cycle
-   * regardless of mode (teleop + auto).
+   * Select the best pose candidate using the current estimator mode (advanced or basic).
    *
-   * @param swerveDrive {@link SwerveDrive} instance
+   * @param estimations results from {@link #updateAprilTagError}
+   * @param swerveDrive the swerve drive for current pose
+   * @return selection result with best candidate and rejection counts
    */
-  public void process(SwerveDrive swerveDrive) {
-    if (SwerveDriveTelemetry.isSimulation
-        && swerveDrive.getSimulationDriveTrainPose().isPresent()) {
-      visionSim.update(swerveDrive.getSimulationDriveTrainPose().get());
-    }
-
-    long t0 = System.nanoTime();
-    Map<Cameras, CameraSnapshot> cameraData = getCameraData();
-    long t1 = System.nanoTime();
-    List<PoseEstimationResult> estimations = poseEstimation(cameraData);
-    long t2 = System.nanoTime();
+  public SelectionResult selectBestPose(
+      List<PoseEstimationResult> estimations, SwerveDrive swerveDrive) {
     EstimatorMode selectedMode = estimatorModeChooser.getSelected();
     if (selectedMode == null) {
       selectedMode = EstimatorMode.ADVANCED;
     }
     SmartDashboard.putString("Vision/EstimatorMode/Selected", selectedMode.name());
-    SelectionResult selection =
-        selectedMode == EstimatorMode.BASIC
-            ? selectBasicPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec)
-            : selectBestPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec);
-    long t3 = System.nanoTime();
+    return selectedMode == EstimatorMode.BASIC
+        ? selectBasicPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec)
+        : selectAdvancedPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec);
+  }
+
+  // ── Pipeline: setVisionMeasurement ─────────────────────────────────────
+
+  /**
+   * Apply the best vision candidate to the swerve drive pose estimator.
+   *
+   * @param swerveDrive the swerve drive to update
+   * @param selection the selection result from {@link #selectBestPose}
+   */
+  public void setVisionMeasurement(SwerveDrive swerveDrive, SelectionResult selection) {
     Optional<FusionCandidate> fusedCandidate = selection.bestCandidate();
 
     if (fusedCandidate.isPresent()) {
       FusionCandidate best = fusedCandidate.get();
-      if (best.hasStd()) {
-        swerveDrive.addVisionMeasurement(best.pose(), best.timestampSec(), best.stdDevs());
-      }
+      swerveDrive.addVisionMeasurement(best.pose(), best.timestampSec(), best.stdDevs());
       lastFusedTimestampSec.put(best.camera(), best.timestampSec());
       acceptedUpdates++;
       System.out.printf(
@@ -481,23 +485,53 @@ public class Vision {
           best.stdTheta());
     }
 
-    long t4 = System.nanoTime();
-
     // Accumulate rejection counters
     rejectedNoEstimate += selection.rejectedNoEstimate();
     rejectedStale += selection.rejectedStale();
     rejectedLowTagFar += selection.rejectedLowTagFar();
     rejectedHighStd += selection.rejectedHighStd();
     rejectedOutlier += selection.rejectedOutlier();
+  }
 
-    publishDashboardTelemetry(cameraData, estimations, swerveDrive.getPose(), fusedCandidate);
-    logAprilTagTelemetryOnChange(cameraData, swerveDrive.getPose(), fusedCandidate);
+  // ── Pipeline Orchestrator ─────────────────────────────────────────────────
 
+  /**
+   * Run the full vision pipeline. Runs every cycle regardless of mode (teleop + auto).
+   *
+   * @param swerveDrive {@link SwerveDrive} instance
+   * @return the raw camera data from this cycle, for use by other subsystems (e.g. FuelPalantir)
+   */
+  public Map<Cameras, CameraSnapshot> process(SwerveDrive swerveDrive) {
+    long t0 = System.nanoTime();
+
+    // Fetch raw camera frames
+    Map<Cameras, CameraSnapshot> cameraData = getCameraData();
+    long t1 = System.nanoTime();
+
+    // Run pose estimation on each camera
+    List<PoseEstimationResult> estimations = updateAprilTagError(cameraData);
+    long t2 = System.nanoTime();
+
+    // Select the best pose candidate
+    SelectionResult selection = selectBestPose(estimations, swerveDrive);
+    long t3 = System.nanoTime();
+
+    // Apply the vision measurement to the swerve drive
+    setVisionMeasurement(swerveDrive, selection);
+    long t4 = System.nanoTime();
+
+    publishDashboardTelemetry(
+        cameraData, estimations, swerveDrive.getPose(), selection.bestCandidate());
+    logAprilTagTelemetryOnChange(cameraData, swerveDrive.getPose(), selection.bestCandidate());
     logPipelineCycle(t0, t1, t2, t3, t4);
+
+    return cameraData;
   }
 
   private Optional<CameraTagObservation> getClosestTagObservation(CameraSnapshot snapshot) {
-    if (snapshot == null || snapshot.latestResult() == null || !snapshot.latestResult().hasTargets()) {
+    if (snapshot == null
+        || snapshot.latestResult() == null
+        || !snapshot.latestResult().hasTargets()) {
       return Optional.empty();
     }
 
@@ -528,8 +562,7 @@ public class Vision {
     if (previous == null || current == null) {
       return true;
     }
-    double translationDelta =
-        previous.getTranslation().getDistance(current.getTranslation());
+    double translationDelta = previous.getTranslation().getDistance(current.getTranslation());
     double rotationDeltaDeg =
         Math.abs(current.getRotation().minus(previous.getRotation()).getDegrees());
     return translationDelta >= POSE_LOG_TRANSLATION_DELTA_METERS
@@ -548,7 +581,8 @@ public class Vision {
       return true;
     }
     return Math.abs(previous.yawDeg() - current.yawDeg()) >= TAG_YAW_LOG_DELTA_DEG
-        || Math.abs(previous.distanceMeters() - current.distanceMeters()) >= TAG_DISTANCE_LOG_DELTA_METERS
+        || Math.abs(previous.distanceMeters() - current.distanceMeters())
+            >= TAG_DISTANCE_LOG_DELTA_METERS
         || Math.abs(previous.tsSec() - current.tsSec()) >= TAG_TIMESTAMP_LOG_DELTA_SEC;
   }
 
@@ -717,8 +751,8 @@ public class Vision {
    * @param swerveDrive {@link SwerveDrive} instance
    */
   @Deprecated(since = "2025", forRemoval = true)
-  public void updatePoseEstimation(SwerveDrive swerveDrive) {
-    process(swerveDrive);
+  public Map<Cameras, CameraSnapshot> updatePoseEstimation(SwerveDrive swerveDrive) {
+    return process(swerveDrive);
   }
 
   // ── Legacy methods (still used by other subsystems) ───────────────────────
