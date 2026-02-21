@@ -11,6 +11,7 @@ import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.Robot;
 import java.awt.Desktop;
@@ -37,6 +38,11 @@ import swervelib.telemetry.SwerveDriveTelemetry;
  * filter and score candidates 4. Apply the best candidate to the swerve drive pose estimator
  */
 public class Vision {
+
+  public enum EstimatorMode {
+    ADVANCED,
+    BASIC
+  }
 
   // ── Data records for pipeline stages ──────────────────────────────────────
 
@@ -116,6 +122,7 @@ public class Vision {
   private Field2d field2d;
 
   private final EnumMap<Cameras, Double> lastFusedTimestampSec = new EnumMap<>(Cameras.class);
+  private final SendableChooser<EstimatorMode> estimatorModeChooser = new SendableChooser<>();
   private double lastFusionStatusLogSec = Double.NEGATIVE_INFINITY;
   private int acceptedUpdates = 0;
   private int rejectedNoEstimate = 0;
@@ -141,6 +148,10 @@ public class Vision {
     for (Cameras camera : Cameras.values()) {
       lastFusedTimestampSec.put(camera, Double.NEGATIVE_INFINITY);
     }
+    estimatorModeChooser.setDefaultOption("Advanced (Default)", EstimatorMode.ADVANCED);
+    estimatorModeChooser.addOption("Basic", EstimatorMode.BASIC);
+    SmartDashboard.putData("Vision/EstimatorMode", estimatorModeChooser);
+    SmartDashboard.putString("Vision/EstimatorMode/Selected", EstimatorMode.ADVANCED.name());
 
     if (Robot.isSimulation()) {
       visionSim = new VisionSystemSim("Vision");
@@ -366,6 +377,58 @@ public class Vision {
         Optional.ofNullable(best), rejNoEst, rejStale, rejLowTagFar, rejHighStd, rejOutlier);
   }
 
+  public static SelectionResult selectBasicPose(
+      List<PoseEstimationResult> estimations,
+      Pose2d currentPose,
+      Map<Cameras, Double> lastFusedTimestamps) {
+    int rejNoEst = 0;
+    int rejStale = 0;
+    FusionCandidate best = null;
+
+    for (PoseEstimationResult est : estimations) {
+      if (est.estimatedPose().isEmpty()) {
+        rejNoEst++;
+        continue;
+      }
+
+      var pose = est.estimatedPose().get();
+      double lastTs = lastFusedTimestamps.getOrDefault(est.camera(), Double.NEGATIVE_INFINITY);
+      if (pose.timestampSeconds <= lastTs + STALE_TIMESTAMP_EPSILON_SEC) {
+        rejStale++;
+        continue;
+      }
+
+      Pose2d pose2d = pose.estimatedPose.toPose2d();
+      int tagCount = pose.targetsUsed.size();
+      double translationError = currentPose.getTranslation().getDistance(pose2d.getTranslation());
+      Matrix<N3, N1> stdDevs = est.stdDevs();
+      boolean hasStd = stdDevs != null;
+      double stdX = hasStd ? stdDevs.get(0, 0) : 1.0;
+      double stdY = hasStd ? stdDevs.get(1, 0) : 1.0;
+      double stdTheta = hasStd ? stdDevs.get(2, 0) : 1.0;
+      double score = translationError;
+
+      FusionCandidate candidate =
+          new FusionCandidate(
+              est.camera(),
+              pose2d,
+              pose.timestampSeconds,
+              stdX,
+              stdY,
+              stdTheta,
+              tagCount,
+              translationError,
+              hasStd,
+              stdDevs,
+              score);
+      if (best == null || candidate.score() < best.score()) {
+        best = candidate;
+      }
+    }
+
+    return new SelectionResult(Optional.ofNullable(best), rejNoEst, rejStale, 0, 0, 0);
+  }
+
   // ── Pipeline Orchestrator ─────────────────────────────────────────────────
 
   /**
@@ -385,8 +448,15 @@ public class Vision {
     long t1 = System.nanoTime();
     List<PoseEstimationResult> estimations = poseEstimation(cameraData);
     long t2 = System.nanoTime();
+    EstimatorMode selectedMode = estimatorModeChooser.getSelected();
+    if (selectedMode == null) {
+      selectedMode = EstimatorMode.ADVANCED;
+    }
+    SmartDashboard.putString("Vision/EstimatorMode/Selected", selectedMode.name());
     SelectionResult selection =
-        selectBestPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec);
+        selectedMode == EstimatorMode.BASIC
+            ? selectBasicPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec)
+            : selectBestPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec);
     long t3 = System.nanoTime();
     Optional<FusionCandidate> fusedCandidate = selection.bestCandidate();
 

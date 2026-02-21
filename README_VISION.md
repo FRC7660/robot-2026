@@ -19,6 +19,21 @@ PathPlanner .auto ---> NamedCommands (FuelPalantir*, ResetPoseFromAprilTags)
                    ---> fuelPalantirCommand(...)
 ```
 
+## Vision Estimator Chooser
+
+Dashboard chooser key:
+
+- `Vision/EstimatorMode`
+
+Possible options:
+
+- `Advanced (Default)` -> uses the current full filter/scoring pipeline (`selectBestPose`).
+- `Basic` -> uses a simplified filter (`selectBasicPose`) that only rejects empty/stale estimates and picks the lowest translation-error candidate.
+
+Current selected mode is echoed to:
+
+- `Vision/EstimatorMode/Selected`
+
 ## Dashboard Configuration Items
 
 These are chooser/config entries you can change from the dashboard:
@@ -73,7 +88,6 @@ Per-camera derived robot pose outputs:
 
 Other existing dashboard outputs in this project:
 
-- `Auto/NeutralToBallPickup/ProxyPickups`
 - `Turret/SetpointRad`
 - `Turret/TargetX`
 - `Turret/TargetY`
@@ -118,7 +132,9 @@ Mode behavior:
 
 - Split sequencing for PathPlanner autos is in PathPlanner auto JSON files:
   - `src/main/deploy/pathplanner/autos/*.auto`
-- Today, current autos are single-path examples (`auto1.auto`, `auto2.auto`, `togo.auto`).
+- Current configured split example is `togo.auto` using:
+  - `path_to_center`
+  - `path_to_alliance`
 - The Java side provides the named command hooks in `RobotContainer`; the split itself is authored in the `.auto` file.
 
 ## Where PathPlanner Files Go
