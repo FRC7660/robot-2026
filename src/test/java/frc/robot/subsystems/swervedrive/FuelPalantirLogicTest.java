@@ -48,11 +48,11 @@ class FuelPalantirLogicTest {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
     data.put(Cameras.CAMERA0, snapshotWithTarget(-1, 10.0, 1.0, 1.0));
 
-    SwerveSubsystem.FuelPalantirStep step =
-        SwerveSubsystem.fuelPalantir(
+    FuelPalantir.FuelPalantirStep step =
+        FuelPalantir.fuelPalantir(
             data,
-            new SwerveSubsystem.FuelPalantirState(0, Optional.empty(), false),
-            SwerveSubsystem.FuelPalantirMode.CONTINUE_AFTER_30S,
+            new FuelPalantir.FuelPalantirState(0, Optional.empty(), false),
+            FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
             1.0);
 
     assertTrue(step.nextState().lockedCamera().isPresent());
@@ -67,11 +67,11 @@ class FuelPalantirLogicTest {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
     data.put(Cameras.CAMERA0, snapshotWithTarget(-1, 1.0, 5.0, 1.0));
 
-    SwerveSubsystem.FuelPalantirStep step =
-        SwerveSubsystem.fuelPalantir(
+    FuelPalantir.FuelPalantirStep step =
+        FuelPalantir.fuelPalantir(
             data,
-            new SwerveSubsystem.FuelPalantirState(2, Optional.of(Cameras.CAMERA0), false),
-            SwerveSubsystem.FuelPalantirMode.CONTINUE_AFTER_30S,
+            new FuelPalantir.FuelPalantirState(2, Optional.of(Cameras.CAMERA0), false),
+            FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
             2.0);
 
     assertTrue(step.fuelCollectedThisCycle());
@@ -81,11 +81,11 @@ class FuelPalantirLogicTest {
 
   @Test
   void fuelPalantir_continueModeTimeoutCompletesWithoutHold() {
-    SwerveSubsystem.FuelPalantirStep step =
-        SwerveSubsystem.fuelPalantir(
+    FuelPalantir.FuelPalantirStep step =
+        FuelPalantir.fuelPalantir(
             baseCameraData(),
-            new SwerveSubsystem.FuelPalantirState(0, Optional.empty(), false),
-            SwerveSubsystem.FuelPalantirMode.CONTINUE_AFTER_30S,
+            new FuelPalantir.FuelPalantirState(0, Optional.empty(), false),
+            FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
             30.0);
 
     assertTrue(step.completed());
@@ -95,11 +95,11 @@ class FuelPalantirLogicTest {
 
   @Test
   void fuelPalantir_stopModeTimeoutCompletesWithHold() {
-    SwerveSubsystem.FuelPalantirStep step =
-        SwerveSubsystem.fuelPalantir(
+    FuelPalantir.FuelPalantirStep step =
+        FuelPalantir.fuelPalantir(
             baseCameraData(),
-            new SwerveSubsystem.FuelPalantirState(0, Optional.empty(), false),
-            SwerveSubsystem.FuelPalantirMode.STOP_AFTER_20S,
+            new FuelPalantir.FuelPalantirState(0, Optional.empty(), false),
+            FuelPalantir.FuelPalantirMode.STOP_AFTER_20S,
             20.0);
 
     assertTrue(step.completed());
@@ -112,11 +112,11 @@ class FuelPalantirLogicTest {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
     data.put(Cameras.CAMERA0, snapshotWithTarget(-1, 0.0, 6.0, 1.0));
 
-    SwerveSubsystem.FuelPalantirStep step =
-        SwerveSubsystem.fuelPalantir(
+    FuelPalantir.FuelPalantirStep step =
+        FuelPalantir.fuelPalantir(
             data,
-            new SwerveSubsystem.FuelPalantirState(7, Optional.of(Cameras.CAMERA0), false),
-            SwerveSubsystem.FuelPalantirMode.CONTINUE_AFTER_30S,
+            new FuelPalantir.FuelPalantirState(7, Optional.of(Cameras.CAMERA0), false),
+            FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
             5.0);
 
     assertTrue(step.completed());
