@@ -33,7 +33,12 @@ import frc.robot.subsystems.UpperShooterSubsystem;
 import frc.robot.subsystems.swervedrive.FuelPalantir.FuelPalantirMode;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
+import java.util.Set;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import swervelib.SwerveInputStream;
 
@@ -59,6 +64,7 @@ public class RobotContainer {
   private final AutonomousManager autonomousManager;
 
   private final SendableChooser<String> poseInitChooser;
+  private final SendableChooser<FuelPalantirMode> logoFuelPalantirModeChooser;
 
   private SwerveSubsystem createDrivebase() {
     System.out.println("[BootTrace] RobotContainer field init drivebase start");
@@ -145,6 +151,12 @@ public class RobotContainer {
     System.out.println("[BootTrace] configureBindings complete");
     DriverStation.silenceJoystickConnectionWarning(true);
 
+    logoFuelPalantirModeChooser = new SendableChooser<>();
+    logoFuelPalantirModeChooser.setDefaultOption(
+        "Continue After 30s", FuelPalantirMode.CONTINUE_AFTER_30S);
+    logoFuelPalantirModeChooser.addOption("Stop After 20s", FuelPalantirMode.STOP_AFTER_20S);
+    SmartDashboard.putData("Logo FuelPalantir Mode", logoFuelPalantirModeChooser);
+
     // Create the NamedCommands that will be used in PathPlanner
     NamedCommands.registerCommand("test", Commands.print("I EXIST"));
     NamedCommands.registerCommand(
@@ -152,6 +164,11 @@ public class RobotContainer {
         drivebase.fuelPalantirCommand(FuelPalantirMode.CONTINUE_AFTER_30S));
     NamedCommands.registerCommand(
         "FuelPalantirStop20", drivebase.fuelPalantirCommand(FuelPalantirMode.STOP_AFTER_20S));
+    NamedCommands.registerCommand(
+        "LogoFuelPalantir",
+        Commands.defer(
+            () -> drivebase.fuelPalantirCommand(getSelectedLogoFuelPalantirMode()),
+            Set.of(drivebase)));
     NamedCommands.registerCommand(
         "ResetPoseFromAprilTags",
         Commands.runOnce(
@@ -375,16 +392,30 @@ public class RobotContainer {
 
   private void resetPoseFromPathPlanner() {
     try {
-      // Use the selected auto's path to get the starting pose
+      // Use the selected auto file's first path to get the starting pose
       Command selectedAuto = autonomousManager.getAutonomousCommand();
       String autoName = selectedAuto != null ? selectedAuto.getName() : "path_to_center";
-      // Extract path name from command name if possible, fall back to path_to_center
-      String pathName = "path_to_center";
-      if (autoName.contains("PathPlanner-")) {
-        int start = autoName.indexOf("PathPlanner-") + "PathPlanner-".length();
-        int end = autoName.indexOf("-", start);
-        if (end > start) {
-          pathName = autoName.substring(start, end);
+      String pathName = null;
+
+      String selectedAutoName = autonomousManager.getSelectedAutoName();
+      if (selectedAutoName != null) {
+        pathName = getFirstPathNameFromAutoFile(selectedAutoName);
+      }
+
+      if (pathName == null) {
+        // Extract path name from command name if possible, fall back to path_to_center
+        pathName = "path_to_center";
+        if (autoName.contains("PathPlanner-")) {
+          int start = autoName.indexOf("PathPlanner-") + "PathPlanner-".length();
+          String suffix = "-PathfindThenFollow";
+          if (autoName.endsWith(suffix) && autoName.length() > start + suffix.length()) {
+            pathName = autoName.substring(start, autoName.length() - suffix.length());
+          } else {
+            int end = autoName.indexOf("-", start);
+            if (end > start) {
+              pathName = autoName.substring(start, end);
+            }
+          }
         }
       }
 
@@ -403,6 +434,76 @@ public class RobotContainer {
       System.out.println(
           "[PoseReset] source=PATHPLANNER_FALLBACK_ZERO pose=(0.000, 0.000, 0.0deg)");
     }
+  }
+
+  private String getFirstPathNameFromAutoFile(String autoFileName) {
+    File autoFile =
+        new File(Filesystem.getDeployDirectory(), "pathplanner/autos/" + autoFileName + ".auto");
+    if (!autoFile.exists()) {
+      System.out.printf("[PoseReset] auto file not found: %s%n", autoFile.getAbsolutePath());
+      return null;
+    }
+
+    try (FileReader reader = new FileReader(autoFile)) {
+      Object parsed = new JSONParser().parse(reader);
+      if (!(parsed instanceof JSONObject)) {
+        return null;
+      }
+      JSONObject root = (JSONObject) parsed;
+      JSONObject command = (JSONObject) root.get("command");
+      String pathName = findFirstPathName(command);
+      if (pathName != null) {
+        System.out.printf("[PoseReset] auto=%s firstPath=%s%n", autoFileName, pathName);
+      }
+      return pathName;
+    } catch (IOException | ParseException e) {
+      DriverStation.reportWarning(
+          "[PoseReset] Failed to parse PathPlanner auto '" + autoFileName + "': " + e.getMessage(),
+          false);
+      return null;
+    }
+  }
+
+  private FuelPalantirMode getSelectedLogoFuelPalantirMode() {
+    FuelPalantirMode selected = logoFuelPalantirModeChooser.getSelected();
+    return selected == null ? FuelPalantirMode.CONTINUE_AFTER_30S : selected;
+  }
+
+  private String findFirstPathName(JSONObject commandNode) {
+    if (commandNode == null) {
+      return null;
+    }
+
+    String type = (String) commandNode.get("type");
+    JSONObject data = (JSONObject) commandNode.get("data");
+    if ("path".equals(type) && data != null) {
+      Object pathName = data.get("pathName");
+      return pathName instanceof String ? (String) pathName : null;
+    }
+
+    if (data == null) {
+      return null;
+    }
+
+    Object commandsObj = data.get("commands");
+    if (commandsObj instanceof JSONArray) {
+      JSONArray commands = (JSONArray) commandsObj;
+      for (Object command : commands) {
+        if (command instanceof JSONObject) {
+          String pathName = findFirstPathName((JSONObject) command);
+          if (pathName != null) {
+            return pathName;
+          }
+        }
+      }
+    }
+
+    Object nestedObj = data.get("command");
+    if (nestedObj instanceof JSONObject) {
+      return findFirstPathName((JSONObject) nestedObj);
+    }
+
+    return null;
   }
 
   private void resetPoseFromDriverStation() {
