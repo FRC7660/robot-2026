@@ -2,18 +2,24 @@
 
 ## Architecture and Data Flow
 
-This pipeline takes AprilTag data from both cameras, fuses it into robot pose updates, and exposes telemetry to both dashboard and stdout.  
+This pipeline takes AprilTag data from both cameras, fuses it into robot pose updates, and exposes telemetry to both dashboard and stdout.
 The same camera snapshot stream also feeds the pure `fuelPalantir(...)` decision step used by teleop and PathPlanner-triggered commands.
 
 ```text
 CAMERA0 ----\
              \
-CAMERA1 ------> Vision.process(...) ---> fused pose ---> swerveDrive.addVisionMeasurement(...)
-             /
-            +--> dashboard: Pose/*, Vision/*
-            +--> stdout: [VisionPipeline], [AprilTagTeleop]
-            +--> CameraSnapshot map ---> fuelPalantir(...) [pure static]
-                                       ---> fuelPalantirCommand(...) ---> swerveDrive.drive(...)
+CAMERA1 ------> Vision.process(swerveDrive)
+                  |
+                  |  1. getCameraData()           -- fetch raw frames
+                  |  2. updateAprilTagError()     -- run pose estimation per camera
+                  |  3. selectBestPose()          -- filter/score candidates (advanced or basic)
+                  |  4. setVisionMeasurement()    -- apply best pose to swerve drive
+                  |
+                  +--> fused pose ---> swerveDrive.addVisionMeasurement(...)
+                  +--> dashboard: Pose/*, Vision/*
+                  +--> stdout: [VisionPipeline], [AprilTagTeleop]
+                  +--> returns CameraSnapshot map ---> fuelPalantir(...) [pure static]
+                                                     ---> fuelPalantirCommand(...) ---> swerveDrive.drive(...)
 
 PathPlanner .auto ---> NamedCommands (FuelPalantir*, ResetPoseFromAprilTags)
                    ---> fuelPalantirCommand(...)
@@ -27,7 +33,7 @@ Dashboard chooser key:
 
 Possible options:
 
-- `Advanced (Default)` -> uses the current full filter/scoring pipeline (`selectBestPose`).
+- `Advanced (Default)` -> uses the full filter/scoring pipeline (`selectAdvancedPose`).
 - `Basic` -> uses a simplified filter (`selectBasicPose`) that only rejects empty/stale estimates and picks the lowest translation-error candidate.
 
 Current selected mode is echoed to:
