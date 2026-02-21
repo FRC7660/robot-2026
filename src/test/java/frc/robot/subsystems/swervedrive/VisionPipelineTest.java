@@ -1,0 +1,354 @@
+package frc.robot.subsystems.swervedrive;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.math.Matrix;
+import edu.wpi.first.math.VecBuilder;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.numbers.N1;
+import edu.wpi.first.math.numbers.N3;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+import org.photonvision.EstimatedRobotPose;
+import org.photonvision.targeting.PhotonTrackedTarget;
+
+class VisionPipelineTest {
+
+  private static final Matrix<N3, N1> SINGLE_TAG_STD = VecBuilder.fill(4, 4, 8);
+  private static final Matrix<N3, N1> MULTI_TAG_STD = VecBuilder.fill(0.5, 0.5, 1);
+
+  // ── Helper methods ──────────────────────────────────────────────────────
+
+  private static PhotonTrackedTarget makeTarget(int fiducialId) {
+    PhotonTrackedTarget target = mock(PhotonTrackedTarget.class);
+    when(target.getFiducialId()).thenReturn(fiducialId);
+    return target;
+  }
+
+  private static EstimatedRobotPose makeEstimatedPose(
+      double x, double y, double timestampSec, List<PhotonTrackedTarget> targets) {
+    return new EstimatedRobotPose(new Pose3d(x, y, 0, new Rotation3d()), timestampSec, targets);
+  }
+
+  /**
+   * Build a mock AprilTagFieldLayout that returns tag poses at known locations. Tags 1-22 are
+   * placed at (tagId, 0, 0) for predictable distance calculations.
+   */
+  private static AprilTagFieldLayout makeMockFieldLayout() {
+    AprilTagFieldLayout layout = mock(AprilTagFieldLayout.class);
+    for (int id = 1; id <= 22; id++) {
+      when(layout.getTagPose(id)).thenReturn(Optional.of(new Pose3d(id, 0, 0, new Rotation3d())));
+    }
+    when(layout.getTagPose(0)).thenReturn(Optional.empty());
+    when(layout.getTagPose(-1)).thenReturn(Optional.empty());
+    return layout;
+  }
+
+  // ── computeStdDevs tests ────────────────────────────────────────────────
+
+  @Test
+  void computeStdDevs_noPoseEstimate_returnsSingleTagStdDevs() {
+    Matrix<N3, N1> result =
+        Vision.computeStdDevs(
+            Optional.empty(), List.of(), SINGLE_TAG_STD, MULTI_TAG_STD, makeMockFieldLayout());
+
+    assertEquals(SINGLE_TAG_STD, result);
+  }
+
+  @Test
+  void computeStdDevs_poseButNoRecognizedTags_returnsSingleTagStdDevs() {
+    PhotonTrackedTarget unknownTarget = makeTarget(0);
+    EstimatedRobotPose est = makeEstimatedPose(1.0, 0.0, 1.0, List.of(unknownTarget));
+
+    Matrix<N3, N1> result =
+        Vision.computeStdDevs(
+            Optional.of(est),
+            List.of(unknownTarget),
+            SINGLE_TAG_STD,
+            MULTI_TAG_STD,
+            makeMockFieldLayout());
+
+    assertEquals(SINGLE_TAG_STD, result);
+  }
+
+  @Test
+  void computeStdDevs_singleTagClose_returnsScaledSingleTagStdDevs() {
+    // Tag 1 is at (1,0,0). Robot estimated at (0,0,0). Distance = 1m.
+    PhotonTrackedTarget target = makeTarget(1);
+    EstimatedRobotPose est = makeEstimatedPose(0.0, 0.0, 1.0, List.of(target));
+
+    Matrix<N3, N1> result =
+        Vision.computeStdDevs(
+            Optional.of(est),
+            List.of(target),
+            SINGLE_TAG_STD,
+            MULTI_TAG_STD,
+            makeMockFieldLayout());
+
+    // avgDist = 1.0m, scale = 1 + (1*1/30) = 1.0333...
+    double expectedScale = 1 + (1.0 * 1.0 / 30);
+    assertEquals(SINGLE_TAG_STD.get(0, 0) * expectedScale, result.get(0, 0), 1e-6);
+    assertEquals(SINGLE_TAG_STD.get(1, 0) * expectedScale, result.get(1, 0), 1e-6);
+    assertEquals(SINGLE_TAG_STD.get(2, 0) * expectedScale, result.get(2, 0), 1e-6);
+  }
+
+  @Test
+  void computeStdDevs_singleTagFar_returnsMaxValue() {
+    // Tag 1 at (1,0,0). Robot estimated at (-4,0,0). Distance = 5m > 4m threshold.
+    PhotonTrackedTarget target = makeTarget(1);
+    EstimatedRobotPose est = makeEstimatedPose(-4.0, 0.0, 1.0, List.of(target));
+
+    Matrix<N3, N1> result =
+        Vision.computeStdDevs(
+            Optional.of(est),
+            List.of(target),
+            SINGLE_TAG_STD,
+            MULTI_TAG_STD,
+            makeMockFieldLayout());
+
+    assertEquals(Double.MAX_VALUE, result.get(0, 0));
+    assertEquals(Double.MAX_VALUE, result.get(1, 0));
+    assertEquals(Double.MAX_VALUE, result.get(2, 0));
+  }
+
+  @Test
+  void computeStdDevs_multipleTags_returnsScaledMultiTagStdDevs() {
+    // Tags 1 at (1,0,0) and 2 at (2,0,0). Robot at (0,0,0).
+    // Distances: 1m and 2m. avgDist = 1.5m.
+    PhotonTrackedTarget target1 = makeTarget(1);
+    PhotonTrackedTarget target2 = makeTarget(2);
+    EstimatedRobotPose est = makeEstimatedPose(0.0, 0.0, 1.0, List.of(target1, target2));
+
+    Matrix<N3, N1> result =
+        Vision.computeStdDevs(
+            Optional.of(est),
+            List.of(target1, target2),
+            SINGLE_TAG_STD,
+            MULTI_TAG_STD,
+            makeMockFieldLayout());
+
+    // avgDist = 1.5, scale = 1 + (1.5*1.5/30) = 1.075
+    double expectedScale = 1 + (1.5 * 1.5 / 30);
+    assertEquals(MULTI_TAG_STD.get(0, 0) * expectedScale, result.get(0, 0), 1e-6);
+    assertEquals(MULTI_TAG_STD.get(1, 0) * expectedScale, result.get(1, 0), 1e-6);
+    assertEquals(MULTI_TAG_STD.get(2, 0) * expectedScale, result.get(2, 0), 1e-6);
+  }
+
+  @Test
+  void computeStdDevs_multipleTagsAtZeroDistance_returnsExactlyMultiTagStdDevs() {
+    AprilTagFieldLayout layout = mock(AprilTagFieldLayout.class);
+    when(layout.getTagPose(1)).thenReturn(Optional.of(new Pose3d(0, 0, 0, new Rotation3d())));
+    when(layout.getTagPose(2)).thenReturn(Optional.of(new Pose3d(0, 0, 0, new Rotation3d())));
+
+    PhotonTrackedTarget target1 = makeTarget(1);
+    PhotonTrackedTarget target2 = makeTarget(2);
+    EstimatedRobotPose est = makeEstimatedPose(0.0, 0.0, 1.0, List.of(target1, target2));
+
+    Matrix<N3, N1> result =
+        Vision.computeStdDevs(
+            Optional.of(est), List.of(target1, target2), SINGLE_TAG_STD, MULTI_TAG_STD, layout);
+
+    assertEquals(MULTI_TAG_STD.get(0, 0), result.get(0, 0), 1e-6);
+    assertEquals(MULTI_TAG_STD.get(1, 0), result.get(1, 0), 1e-6);
+    assertEquals(MULTI_TAG_STD.get(2, 0), result.get(2, 0), 1e-6);
+  }
+
+  // ── selectBestPose tests ────────────────────────────────────────────────
+
+  @Test
+  void selectBestPose_allCamerasEmpty_rejectedNoEstimate() {
+    List<Vision.PoseEstimationResult> estimations = new ArrayList<>();
+    for (Cameras cam : Cameras.values()) {
+      estimations.add(new Vision.PoseEstimationResult(cam, Optional.empty(), SINGLE_TAG_STD, 0));
+    }
+
+    Vision.SelectionResult result =
+        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+
+    assertTrue(result.bestCandidate().isEmpty());
+    assertEquals(Cameras.values().length, result.rejectedNoEstimate());
+  }
+
+  @Test
+  void selectBestPose_staleTimestamp_rejected() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target = makeTarget(1);
+    EstimatedRobotPose est = makeEstimatedPose(0.0, 0.0, 5.0, List.of(target));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Map<Cameras, Double> lastFused = new EnumMap<>(Cameras.class);
+    lastFused.put(cam, 5.0);
+
+    Vision.SelectionResult result = Vision.selectBestPose(estimations, new Pose2d(), lastFused);
+
+    assertTrue(result.bestCandidate().isEmpty());
+    assertEquals(1, result.rejectedStale());
+  }
+
+  @Test
+  void selectBestPose_singleTagHighTranslationError_rejectedLowTagFar() {
+    Cameras cam = Cameras.values()[0];
+    // Single tag, estimated at (2,0) but current at (0,0) -> error = 2m > 0.8m
+    PhotonTrackedTarget target = makeTarget(1);
+    EstimatedRobotPose est = makeEstimatedPose(2.0, 0.0, 1.0, List.of(target));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+
+    assertTrue(result.bestCandidate().isEmpty());
+    assertEquals(1, result.rejectedLowTagFar());
+  }
+
+  @Test
+  void selectBestPose_highStdDevs_rejectedHighStd() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target1 = makeTarget(1);
+    PhotonTrackedTarget target2 = makeTarget(2);
+    EstimatedRobotPose est = makeEstimatedPose(0.1, 0.0, 1.0, List.of(target1, target2));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(6.0, 6.0, 1.0); // stdX > 5.0
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+
+    assertTrue(result.bestCandidate().isEmpty());
+    assertEquals(1, result.rejectedHighStd());
+  }
+
+  @Test
+  void selectBestPose_outlierTranslationError_rejectedOutlier() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target1 = makeTarget(1);
+    PhotonTrackedTarget target2 = makeTarget(2);
+    EstimatedRobotPose est = makeEstimatedPose(1.6, 0.0, 1.0, List.of(target1, target2));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+
+    assertTrue(result.bestCandidate().isEmpty());
+    assertEquals(1, result.rejectedOutlier());
+  }
+
+  @Test
+  void selectBestPose_singleValidCamera_accepted() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target1 = makeTarget(1);
+    PhotonTrackedTarget target2 = makeTarget(2);
+    EstimatedRobotPose est = makeEstimatedPose(0.1, 0.0, 1.0, List.of(target1, target2));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 2.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+
+    assertTrue(result.bestCandidate().isPresent());
+    Vision.FusionCandidate best = result.bestCandidate().get();
+    assertEquals(cam, best.camera());
+
+    // score = (1.0 + 1.0) + (0.5 * 2.0) + (0.25 * 0.1)
+    double expectedScore = 2.0 + 1.0 + 0.025;
+    assertEquals(expectedScore, best.score(), 1e-6);
+  }
+
+  @Test
+  void selectBestPose_twoValidCameras_lowestScoreWins() {
+    Cameras[] cams = Cameras.values();
+    assertTrue(cams.length >= 2, "Need at least 2 cameras for this test");
+
+    PhotonTrackedTarget t1a = makeTarget(1);
+    PhotonTrackedTarget t1b = makeTarget(2);
+    EstimatedRobotPose est1 = makeEstimatedPose(0.1, 0.0, 1.0, List.of(t1a, t1b));
+    Matrix<N3, N1> stdDevs1 = VecBuilder.fill(2.0, 2.0, 3.0);
+
+    PhotonTrackedTarget t2a = makeTarget(1);
+    PhotonTrackedTarget t2b = makeTarget(2);
+    EstimatedRobotPose est2 = makeEstimatedPose(0.1, 0.0, 2.0, List.of(t2a, t2b));
+    Matrix<N3, N1> stdDevs2 = VecBuilder.fill(0.5, 0.5, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(
+            new Vision.PoseEstimationResult(cams[0], Optional.of(est1), stdDevs1, 1),
+            new Vision.PoseEstimationResult(cams[1], Optional.of(est2), stdDevs2, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+
+    assertTrue(result.bestCandidate().isPresent());
+    assertEquals(cams[1], result.bestCandidate().get().camera());
+  }
+
+  @Test
+  void selectBestPose_multiTagBypassesSingleTagDistanceFilter() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target1 = makeTarget(1);
+    PhotonTrackedTarget target2 = makeTarget(2);
+    EstimatedRobotPose est = makeEstimatedPose(0.9, 0.0, 1.0, List.of(target1, target2));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+
+    assertTrue(result.bestCandidate().isPresent());
+    assertEquals(0, result.rejectedLowTagFar());
+  }
+
+  @Test
+  void selectBestPose_boundaryExactlyAtSingleTagLimit_rejected() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target = makeTarget(1);
+    EstimatedRobotPose est = makeEstimatedPose(0.801, 0.0, 1.0, List.of(target));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+
+    assertTrue(result.bestCandidate().isEmpty());
+    assertEquals(1, result.rejectedLowTagFar());
+  }
+
+  @Test
+  void selectBestPose_boundaryExactlyAtSingleTagLimit_accepted() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target = makeTarget(1);
+    EstimatedRobotPose est = makeEstimatedPose(0.8, 0.0, 1.0, List.of(target));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectBestPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+
+    // 0.8 is not > 0.8, so it passes the single-tag filter
+    assertTrue(result.bestCandidate().isPresent());
+  }
+}
