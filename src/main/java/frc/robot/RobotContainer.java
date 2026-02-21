@@ -32,6 +32,8 @@ import frc.robot.Constants.OperatorConstants;
 import frc.robot.autonomous.AutonomousManager;
 import frc.robot.commands.swervedrive.MisalignCorrection;
 import frc.robot.commands.swervedrive.YAGSLPitCheck;
+import frc.robot.commands.turret.DefaultCommand;
+import frc.robot.commands.turret.TurretAutoTurn;
 import frc.robot.subsystems.Index;
 import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Launch;
@@ -76,12 +78,10 @@ public class RobotContainer {
   private Trigger shotPressureMaxed = new Trigger(() -> (driverXbox.getRightTriggerAxis() > 0.85));
 
   // The robot's subsystems and commands are defined here...
+  private final SwerveSubsystem drivebase = createDrivebase();
   private final String chassisDirectory = "swerve/7660-chassis1";
-  private final SwerveSubsystem drivebase =
-      new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), chassisDirectory));
   private final MisalignCorrection misalignCorrection =
       new MisalignCorrection(drivebase, chassisDirectory);
-  // private final Index indexSystem = new Index();
   private final Index indexSystem = new Index();
   // Turret subsystem, constructed with a supplier that returns the current odometry pose
   private final Turret turret = new Turret(drivebase::getPose);
@@ -91,6 +91,21 @@ public class RobotContainer {
   private final AutonomousManager autonomousManager;
 
   private final SendableChooser<String> poseInitChooser;
+
+  private SwerveSubsystem createDrivebase() {
+    System.out.println("[BootTrace] RobotContainer field init drivebase start");
+    SwerveSubsystem s =
+        new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-chassis1"));
+    System.out.println("[BootTrace] RobotContainer field init drivebase complete");
+    return s;
+  }
+
+  private Turret createTurret() {
+    System.out.println("[BootTrace] RobotContainer field init turret start");
+    Turret t = new Turret(drivebase::getPose);
+    System.out.println("[BootTrace] RobotContainer field init turret complete");
+    return t;
+  }
 
   private double getRightXCorrected() {
     if (RobotBase.isSimulation()) {
@@ -161,8 +176,11 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
+    System.out.println("[BootTrace] RobotContainer ctor start");
     // Configure the trigger bindings
+    System.out.println("[BootTrace] configureBindings start");
     configureBindings();
+    System.out.println("[BootTrace] configureBindings complete");
     DriverStation.silenceJoystickConnectionWarning(true);
 
     // Create the NamedCommands that will be used in PathPlanner
@@ -180,7 +198,9 @@ public class RobotContainer {
               System.out.printf("[PoseReset] source=APRILTAG commandResult=%s%n", reset);
             }));
 
+    System.out.println("[BootTrace] AutonomousManager create start");
     autonomousManager = new AutonomousManager(drivebase);
+    System.out.println("[BootTrace] AutonomousManager create complete");
 
     poseInitChooser = new SendableChooser<>();
     poseInitChooser.setDefaultOption("PathPlanner path start", "pathplanner");
@@ -189,8 +209,10 @@ public class RobotContainer {
     SmartDashboard.putData("Pose Init", poseInitChooser);
 
     // Set the turret default command to compute targets from odometry
-    // turret.setDefaultCommand(turret.autoSetAngle());
-    driverXbox.povUp().whileTrue(turret.autoSetAngle());
+    System.out.println("[BootTrace] Turret default command set start");
+    turret.setDefaultCommand(new DefaultCommand(turret));
+    driverXbox.povUp().whileTrue(new TurretAutoTurn(turret));
+    System.out.println("[BootTrace] RobotContainer ctor complete");
   }
 
   /**

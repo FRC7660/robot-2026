@@ -41,10 +41,12 @@ public class Robot extends TimedRobot {
   @Override
   public void robotInit() {
     System.out.println("[RobotDebug] robotInit start");
+    System.out.println("[RobotDebug] robotInit creating RobotContainer");
     // Instantiate our RobotContainer. This will perform all our button bindings,
     // and put our
     // autonomous chooser on the dashboard.
     m_robotContainer = new RobotContainer();
+    System.out.println("[RobotDebug] robotInit RobotContainer created");
 
     // Create a timer to disable motor brake a few seconds after disable. This will
     // let the robot

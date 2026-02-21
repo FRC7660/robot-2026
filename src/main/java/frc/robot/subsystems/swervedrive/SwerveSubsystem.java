@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -99,6 +100,7 @@ public class SwerveSubsystem extends SubsystemBase {
    * @param directory Directory of swerve drive config files.
    */
   public SwerveSubsystem(File directory) {
+    System.out.println("[BootTrace] SwerveSubsystem ctor start");
     // We default to Blue Alliance (0) to match the default behavior of the
     // DriverStation and SwerveInputStream.
     // The correct pose will be set by Autonomous or zeroGyroWithAlliance at
@@ -113,13 +115,22 @@ public class SwerveSubsystem extends SubsystemBase {
     // created.
     SwerveDriveTelemetry.verbosity = TelemetryVerbosity.HIGH;
     try {
+      System.out.println("[BootTrace] SwerveSubsystem creating SwerveDrive from parser");
+      System.out.printf(
+          "[BootTrace] SwerveSubsystem parser input pose=(%.3f, %.3f, %.1fdeg)%n",
+          startingPose.getX(),
+          startingPose.getY(),
+          startingPose.getRotation().getDegrees());
       swerveDrive =
           new SwerveParser(directory).createSwerveDrive(Constants.MAX_SPEED, startingPose);
+      System.out.println("[BootTrace] SwerveSubsystem created SwerveDrive");
       // Alternative method if you don't want to supply the conversion factor via JSON
       // files.
       // swerveDrive = new SwerveParser(directory).createSwerveDrive(maximumSpeed,
       // angleConversionFactor, driveConversionFactor);
     } catch (Exception e) {
+      System.err.println("[BootTrace] Exception while creating SwerveDrive:");
+      e.printStackTrace();
       throw new RuntimeException(e);
     }
     swerveDrive.setHeadingCorrection(
@@ -138,12 +149,16 @@ public class SwerveSubsystem extends SubsystemBase {
     // over the internal
     // encoder and push the offsets onto it. Throws warning if not possible
     if (visionDriveTest) {
+      System.out.println("[BootTrace] SwerveSubsystem setupPhotonVision start");
       setupPhotonVision();
+      System.out.println("[BootTrace] SwerveSubsystem setupPhotonVision complete");
       // Stop the odometry thread if we are using vision that way we can synchronize
       // updates better.
       swerveDrive.stopOdometryThread();
     }
+    System.out.println("[BootTrace] SwerveSubsystem setupPathPlanner start");
     setupPathPlanner();
+    System.out.println("[BootTrace] SwerveSubsystem ctor complete");
   }
 
   /**
@@ -1274,64 +1289,70 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   public Command fuelPalantirCommand(FuelPalantir.FuelPalantirMode mode) {
-    AtomicReference<Double> startTimeSec = new AtomicReference<>(0.0);
-    AtomicReference<FuelPalantir.FuelPalantirState> state =
-        new AtomicReference<>(new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
-    AtomicReference<FuelPalantir.FuelPalantirStep> lastStep = new AtomicReference<>(null);
+    return Commands.defer(
+            () -> {
+              AtomicReference<Double> startTimeSec = new AtomicReference<>(0.0);
+              AtomicReference<FuelPalantir.FuelPalantirState> state =
+                  new AtomicReference<>(
+                      new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
+              AtomicReference<FuelPalantir.FuelPalantirStep> lastStep = new AtomicReference<>(null);
 
-    Command runFuelPalantir =
-        startRun(
-                () -> {
-                  startTimeSec.set(Timer.getFPGATimestamp());
-                  state.set(new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
-                  lastStep.set(null);
-                  debugAuto(
-                      String.format(
-                          "FUEL PALANTIR START mode=%s targetFuel=%d",
-                          mode, FuelPalantir.FUEL_TARGET_COUNT));
-                },
-                () -> {
-                  if (vision == null) {
-                    debugAuto("FUEL PALANTIR no vision instance available");
-                    lastStep.set(
-                        new FuelPalantir.FuelPalantirStep(
-                            state.get(), 0.0, 0.0, false, true, "vision_not_initialized"));
-                    swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
-                    return;
-                  }
-                  double elapsed = Timer.getFPGATimestamp() - startTimeSec.get();
-                  FuelPalantir.FuelPalantirStep step =
-                      FuelPalantir.fuelPalantir(
-                          vision.getLatestCameraData(), state.get(), mode, elapsed);
-                  state.set(step.nextState());
-                  lastStep.set(step);
-                  swerveDrive.drive(
-                      new Translation2d(step.forwardMps(), 0),
-                      step.rotationRadPerSec(),
-                      false,
-                      false);
-                })
-            .until(() -> lastStep.get() != null && lastStep.get().completed())
-            .finallyDo(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false))
-            .andThen(
-                runOnce(
-                    () -> {
-                      FuelPalantir.FuelPalantirStep step = lastStep.get();
-                      String reason = step == null ? "unknown" : step.reason();
-                      debugAuto(
-                          String.format(
-                              "FUEL PALANTIR END mode=%s proxyFuel=%d elapsed=%.2fs reason=%s",
-                              mode,
-                              state.get().proxyCollectedFuelCount(),
-                              Timer.getFPGATimestamp() - startTimeSec.get(),
-                              reason));
-                    }))
-            .withName("FuelPalantirCommand-" + mode.name());
+              Command runFuelPalantir =
+                  startRun(
+                          () -> {
+                            startTimeSec.set(Timer.getFPGATimestamp());
+                            state.set(new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
+                            lastStep.set(null);
+                            debugAuto(
+                                String.format(
+                                    "FUEL PALANTIR START mode=%s targetFuel=%d",
+                                    mode, FuelPalantir.FUEL_TARGET_COUNT));
+                          },
+                          () -> {
+                            if (vision == null) {
+                              debugAuto("FUEL PALANTIR no vision instance available");
+                              lastStep.set(
+                                  new FuelPalantir.FuelPalantirStep(
+                                      state.get(), 0.0, 0.0, false, true, "vision_not_initialized"));
+                              swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
+                              return;
+                            }
+                            double elapsed = Timer.getFPGATimestamp() - startTimeSec.get();
+                            FuelPalantir.FuelPalantirStep step =
+                                FuelPalantir.fuelPalantir(
+                                    vision.getLatestCameraData(), state.get(), mode, elapsed);
+                            state.set(step.nextState());
+                            lastStep.set(step);
+                            swerveDrive.drive(
+                                new Translation2d(step.forwardMps(), 0),
+                                step.rotationRadPerSec(),
+                                false,
+                                false);
+                          })
+                      .until(() -> lastStep.get() != null && lastStep.get().completed())
+                      .finallyDo(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false))
+                      .andThen(
+                          runOnce(
+                              () -> {
+                                FuelPalantir.FuelPalantirStep step = lastStep.get();
+                                String reason = step == null ? "unknown" : step.reason();
+                                debugAuto(
+                                    String.format(
+                                        "FUEL PALANTIR END mode=%s proxyFuel=%d elapsed=%.2fs reason=%s",
+                                        mode,
+                                        state.get().proxyCollectedFuelCount(),
+                                        Timer.getFPGATimestamp() - startTimeSec.get(),
+                                        reason));
+                              }))
+                      .withName("FuelPalantirCommand-" + mode.name());
 
-    return Commands.either(
-            Commands.sequence(runFuelPalantir, holdStoppedUntilDisabled()),
-            runFuelPalantir,
-            () -> mode == FuelPalantir.FuelPalantirMode.STOP_AFTER_20S)
+              if (mode == FuelPalantir.FuelPalantirMode.STOP_AFTER_20S) {
+                return Commands.sequence(runFuelPalantir, holdStoppedUntilDisabled())
+                    .withName("FuelPalantirStopAfter20ThenHold");
+              }
+              return runFuelPalantir;
+            },
+            Set.of(this))
         .withName("FuelPalantirCommand-" + mode.name());
   }
 
