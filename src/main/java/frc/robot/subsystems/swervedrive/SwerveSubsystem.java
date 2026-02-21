@@ -1327,20 +1327,26 @@ public class SwerveSubsystem extends SubsystemBase {
                                     cameraData, state.get(), mode, elapsed);
                             state.set(step.nextState());
                             lastStep.set(step);
+                            Optional<Cameras> lockedCameraForDrive = step.nextState().lockedCamera();
+                            double commandedForwardMps = step.forwardMps();
+                            if (lockedCameraForDrive.isPresent()
+                                && lockedCameraForDrive.get() == Cameras.BACK_CAMERA) {
+                              commandedForwardMps = -commandedForwardMps;
+                            }
                             swerveDrive.drive(
-                                new Translation2d(step.forwardMps(), 0),
+                                new Translation2d(commandedForwardMps, 0),
                                 step.rotationRadPerSec(),
                                 false,
                                 false);
                             if (step.fuelCollectedThisCycle()
                                 || step.completed()
                                 || shouldDebugLog(lastStatusLogTimeSec, 1.0)) {
-                              Optional<PhotonTrackedTarget> cam0Target =
+                              Optional<PhotonTrackedTarget> backCameraTarget =
                                   FuelPalantir.getClosestNonFiducialTarget(
-                                      cameraData.get(Cameras.CAMERA0));
-                              Optional<PhotonTrackedTarget> cam1Target =
+                                      cameraData.get(Cameras.BACK_CAMERA));
+                              Optional<PhotonTrackedTarget> frontCameraTarget =
                                   FuelPalantir.getClosestNonFiducialTarget(
-                                      cameraData.get(Cameras.CAMERA1));
+                                      cameraData.get(Cameras.FRONT_CAMERA));
                               Optional<Cameras> lockedCamera = step.nextState().lockedCamera();
                               Optional<PhotonTrackedTarget> lockedTarget =
                                   lockedCamera.flatMap(
@@ -1351,18 +1357,18 @@ public class SwerveSubsystem extends SubsystemBase {
                               debugAuto(
                                   String.format(
                                       "FUEL PALANTIR STATUS mode=%s elapsed=%.2fs proxyFuel=%d"
-                                          + " locked=%s cam0Target=%s cam1Target=%s"
+                                          + " locked=%s backTarget=%s frontTarget=%s"
                                           + " lockedYaw=%.1f lockedArea=%.2f"
                                           + " fwd=%.2f rot=%.2f collected=%s reason=%s",
                                       mode,
                                       elapsed,
                                       step.nextState().proxyCollectedFuelCount(),
                                       lockedCamera.map(Enum::name).orElse("none"),
-                                      cam0Target.isPresent(),
-                                      cam1Target.isPresent(),
+                                      backCameraTarget.isPresent(),
+                                      frontCameraTarget.isPresent(),
                                       lockedTarget.map(PhotonTrackedTarget::getYaw).orElse(Double.NaN),
                                       lockedTarget.map(PhotonTrackedTarget::getArea).orElse(Double.NaN),
-                                      step.forwardMps(),
+                                      commandedForwardMps,
                                       step.rotationRadPerSec(),
                                       step.fuelCollectedThisCycle(),
                                       step.reason()));
