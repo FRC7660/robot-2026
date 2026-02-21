@@ -1,30 +1,31 @@
 package frc.robot.autonomous;
 
 import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.path.PathConstraints;
-import com.pathplanner.lib.path.PathPlannerPath;
-import com.pathplanner.lib.util.FileVersionException;
-import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
-import java.io.IOException;
 import java.util.Set;
-import org.json.simple.parser.ParseException;
 
 public class AutonomousManager {
+  private static final String AUTO_TOGO = "togo";
+  private static final String AUTO_THERE_BACK = "there-back";
+  private static final String AUTO_NAME_PREFIX = "PathPlannerAuto-";
+
   private final SendableChooser<Command> autoChooser;
-  private final Command pathToCenterAuto;
+  private final Command togoAuto;
+  private final Command thereBackAuto;
   private final SwerveSubsystem drivebase;
 
   public AutonomousManager(SwerveSubsystem drivebase) {
     this.drivebase = drivebase;
     autoChooser = AutoBuilder.buildAutoChooser();
-    pathToCenterAuto = buildPathPlannerPathToCenterCommand();
-    autoChooser.setDefaultOption("ToGo: path_to_center", pathToCenterAuto);
+    togoAuto = buildPathPlannerAutoCommand(AUTO_TOGO);
+    thereBackAuto = buildPathPlannerAutoCommand(AUTO_THERE_BACK);
+    autoChooser.setDefaultOption("ThereBack: there-back", thereBackAuto);
+    autoChooser.addOption("ToGo: togo", togoAuto);
 
     SmartDashboard.putData("Auto Chooser", autoChooser);
   }
@@ -32,41 +33,41 @@ public class AutonomousManager {
   public Command getAutonomousCommand() {
     Command selected = autoChooser.getSelected();
     System.out.println("[AutoChooser] Selected command: " + selected);
-    return selected == null ? pathToCenterAuto : selected;
+    return selected == null ? thereBackAuto : selected;
   }
 
-  private Command buildPathPlannerPathToCenterCommand() {
+  public String getSelectedAutoName() {
+    Command selected = autoChooser.getSelected();
+    Command effective = selected == null ? thereBackAuto : selected;
+    String name = effective.getName();
+    if (name != null && name.startsWith(AUTO_NAME_PREFIX)) {
+      return name.substring(AUTO_NAME_PREFIX.length());
+    }
+    return null;
+  }
+
+  private Command buildPathPlannerAutoCommand(String autoName) {
     return Commands.defer(
         () -> {
           try {
-            final String pathName = "path_to_center";
-            System.out.println("[AutoChooser] Loading PathPlanner path: " + pathName);
-            PathPlannerPath path = PathPlannerPath.fromPathFile(pathName);
-            System.out.println("[AutoChooser] Loaded PathPlanner path: " + pathName);
-
-            PathConstraints constraints =
-                new PathConstraints(
-                    0.35,
-                    0.35,
-                    drivebase.getSwerveDrive().getMaximumChassisAngularVelocity(),
-                    Units.degreesToRadians(720.0));
-
-            return AutoBuilder.pathfindThenFollowPath(path, constraints)
+            System.out.println("[AutoChooser] Loading PathPlanner auto: " + autoName);
+            return drivebase
+                .getAutonomousCommand(autoName)
                 .beforeStarting(
                     () ->
                         System.out.println(
-                            "[AutoChooser] Starting PathPlanner path command: " + pathName))
+                            "[AutoChooser] Starting PathPlanner auto command: " + autoName))
                 .finallyDo(
                     interrupted ->
                         System.out.println(
-                            "[AutoChooser] Finished PathPlanner path command: "
-                                + pathName
+                            "[AutoChooser] Finished PathPlanner auto command: "
+                                + autoName
                                 + " interrupted="
                                 + interrupted))
-                .withName("PathPlanner-" + pathName + "-PathfindThenFollow");
-          } catch (IOException | ParseException | FileVersionException e) {
+                .withName(AUTO_NAME_PREFIX + autoName);
+          } catch (RuntimeException e) {
             DriverStation.reportError(
-                "[AutoChooser] Failed to load PathPlanner path 'path_to_center'",
+                "[AutoChooser] Failed to load PathPlanner auto '" + autoName + "'",
                 e.getStackTrace());
             return Commands.none();
           }
