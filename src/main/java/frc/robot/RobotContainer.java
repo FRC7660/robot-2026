@@ -48,15 +48,32 @@ public class RobotContainer {
   // Replace with CommandPS4Controller or CommandJoystick if needed
   final CommandXboxController driverXbox = new CommandXboxController(0);
   // The robot's subsystems and commands are defined here...
-  private final SwerveSubsystem drivebase =
-      new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-jv0"));
+  private final SwerveSubsystem drivebase = createDrivebase();
 
   private final UpperShooterSubsystem upperShooter = new UpperShooterSubsystem();
   private final LowerShooterSubsystem lowerShooter = new LowerShooterSubsystem();
 
+  // Turret subsystem, constructed with a supplier that returns the current odometry pose
+  private final Turret turret = createTurret();
+
   private final AutonomousManager autonomousManager;
 
   private final SendableChooser<String> poseInitChooser;
+
+  private SwerveSubsystem createDrivebase() {
+    System.out.println("[BootTrace] RobotContainer field init drivebase start");
+    SwerveSubsystem s =
+        new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-jv0"));
+    System.out.println("[BootTrace] RobotContainer field init drivebase complete");
+    return s;
+  }
+
+  private Turret createTurret() {
+    System.out.println("[BootTrace] RobotContainer field init turret start");
+    Turret t = new Turret(drivebase::getPose);
+    System.out.println("[BootTrace] RobotContainer field init turret complete");
+    return t;
+  }
 
   private double getRightXCorrected() {
     double base = driverXbox.getRightX();
@@ -121,8 +138,11 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
+    System.out.println("[BootTrace] RobotContainer ctor start");
     // Configure the trigger bindings
+    System.out.println("[BootTrace] configureBindings start");
     configureBindings();
+    System.out.println("[BootTrace] configureBindings complete");
     DriverStation.silenceJoystickConnectionWarning(true);
 
     // Create the NamedCommands that will be used in PathPlanner
@@ -140,7 +160,9 @@ public class RobotContainer {
               System.out.printf("[PoseReset] source=APRILTAG commandResult=%s%n", reset);
             }));
 
+    System.out.println("[BootTrace] AutonomousManager create start");
     autonomousManager = new AutonomousManager(drivebase);
+    System.out.println("[BootTrace] AutonomousManager create complete");
 
     poseInitChooser = new SendableChooser<>();
     poseInitChooser.setDefaultOption("PathPlanner path start", "pathplanner");
@@ -149,7 +171,9 @@ public class RobotContainer {
     SmartDashboard.putData("Pose Init", poseInitChooser);
 
     // Set the turret default command to compute targets from odometry
+    System.out.println("[BootTrace] Turret default command set start");
     turret.setDefaultCommand(new DefaultCommand(turret));
+    System.out.println("[BootTrace] RobotContainer ctor complete");
   }
 
   /**
