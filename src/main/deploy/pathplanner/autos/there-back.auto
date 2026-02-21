@@ -11,15 +11,15 @@
           }
         },
         {
-          "type": "named",
-          "data": {
-            "name": "LogoFuelPalantir"
-          }
-        },
-        {
           "type": "path",
           "data": {
             "pathName": "part-2"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "LogoFuelPalantir"
           }
         }
       ]
