@@ -101,7 +101,7 @@ public class Intake extends SubsystemBase {
 
   public Command setAngle(Double angle) {
     Angle convertedAngle = Angle.ofRelativeUnits(angle, Degrees);
-    return lift.run(convertedAngle);
+    return lift.setAngle(convertedAngle);
   }
 
   public Command setAngleAndStop(Double angle) {
