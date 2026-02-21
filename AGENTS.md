@@ -2,7 +2,7 @@
 
 ## Robot log workflow
 
-Use SSH to inspect logs on the robot. 
+Use SSH to inspect logs on the robot.
 
 ```bash
 ssh admin@10.76.60.2

@@ -5,7 +5,6 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import frc.robot.subsystems.swervedrive.Vision.Cameras;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -69,7 +68,9 @@ public class AprilTagBallShuttleAuto {
       sequence.add(
           Commands.startRun(
                   () -> {},
-                  () -> drivebase.drive(new Translation2d(DETECTION_CHIRP_TRANSLATION_MPS, 0), 0, false),
+                  () ->
+                      drivebase.drive(
+                          new Translation2d(DETECTION_CHIRP_TRANSLATION_MPS, 0), 0, false),
                   drivebase)
               .withTimeout(DETECTION_CHIRP_TIME_SEC));
       sequence.add(Commands.runOnce(() -> drivebase.drive(new Translation2d(0, 0), 0, false)));
@@ -305,7 +306,8 @@ public class AprilTagBallShuttleAuto {
                 double yawDeg = target.get().getYaw();
                 double absYaw = Math.abs(yawDeg);
                 boolean hardCentered = absYaw <= centeredToleranceDeg;
-                boolean nearCentered = absYaw <= centeredToleranceDeg + TAG_CENTER_NEAR_TOLERANCE_EXTRA_DEG;
+                boolean nearCentered =
+                    absYaw <= centeredToleranceDeg + TAG_CENTER_NEAR_TOLERANCE_EXTRA_DEG;
 
                 if (hardCentered) {
                   centered.set(true);
@@ -314,7 +316,9 @@ public class AprilTagBallShuttleAuto {
                   if (Double.isNaN(nearCenteredSinceSec.get())) {
                     nearCenteredSinceSec.set(Timer.getFPGATimestamp());
                   }
-                  centered.set(Timer.getFPGATimestamp() - nearCenteredSinceSec.get() >= TAG_CENTER_NEAR_HOLD_SEC);
+                  centered.set(
+                      Timer.getFPGATimestamp() - nearCenteredSinceSec.get()
+                          >= TAG_CENTER_NEAR_HOLD_SEC);
                 } else {
                   nearCenteredSinceSec.set(Double.NaN);
                   centered.set(false);
@@ -327,10 +331,12 @@ public class AprilTagBallShuttleAuto {
                           centered.get(),
                           Double.isNaN(nearCenteredSinceSec.get())
                               ? "n/a"
-                              : String.format("%.2f", Timer.getFPGATimestamp() - nearCenteredSinceSec.get()),
+                              : String.format(
+                                  "%.2f", Timer.getFPGATimestamp() - nearCenteredSinceSec.get()),
                           Math.toDegrees(rotatedRad.get())));
                 }
-                drivebase.drive(new Translation2d(0, 0), calculateRotationFromYawDeg(yawDeg), false);
+                drivebase.drive(
+                    new Translation2d(0, 0), calculateRotationFromYawDeg(yawDeg), false);
               } else {
                 if (shouldDebugLog(lastLogTimeSec, DEBUG_LOG_PERIOD_SEC)) {
                   debugAuto(
@@ -416,7 +422,8 @@ public class AprilTagBallShuttleAuto {
                           "APPROACH tagId=%d not visible, spinning rotated=%.1fdeg",
                           tagIdRef.get(), Math.toDegrees(rotatedRad.get())));
                 }
-                drivebase.drive(new Translation2d(0, 0), LOST_TAG_RECOVERY_ROTATION_RAD_PER_SEC, false);
+                drivebase.drive(
+                    new Translation2d(0, 0), LOST_TAG_RECOVERY_ROTATION_RAD_PER_SEC, false);
                 return;
               }
 
@@ -426,7 +433,8 @@ public class AprilTagBallShuttleAuto {
               lastSeenTargetTimeSec.set(Timer.getFPGATimestamp());
               lastSeenYawDeg.set(yawDeg);
               if (Double.isNaN(lastDistanceMeters.get())
-                  || Math.abs(lastDistanceMeters.get() - distance) > APPROACH_STALL_DISTANCE_DELTA_METERS) {
+                  || Math.abs(lastDistanceMeters.get() - distance)
+                      > APPROACH_STALL_DISTANCE_DELTA_METERS) {
                 lastProgressTimeSec.set(Timer.getFPGATimestamp());
               }
               lastDistanceMeters.set(distance);
@@ -435,7 +443,8 @@ public class AprilTagBallShuttleAuto {
               double forwardSpeed = 0.0;
               if (distanceError > 0.0) {
                 forwardSpeed =
-                    MathUtil.clamp(distanceError * 0.9, APPROACH_MIN_FORWARD_MPS, APPROACH_MAX_FORWARD_MPS);
+                    MathUtil.clamp(
+                        distanceError * 0.9, APPROACH_MIN_FORWARD_MPS, APPROACH_MAX_FORWARD_MPS);
               }
               double cameraForwardSign = observation.get().camera() == Cameras.CAMERA1 ? -1.0 : 1.0;
               double commandedForward = cameraForwardSign * forwardSpeed;
@@ -474,7 +483,8 @@ public class AprilTagBallShuttleAuto {
             });
   }
 
-  private Command updateTagIdFromVisibleTarget(AtomicInteger tagToUpdate, IntSupplier excludedTagId) {
+  private Command updateTagIdFromVisibleTarget(
+      AtomicInteger tagToUpdate, IntSupplier excludedTagId) {
     return Commands.runOnce(
         () -> {
           getClosestVisibleAprilTagObservation(excludedTagId.getAsInt())
@@ -571,9 +581,7 @@ public class AprilTagBallShuttleAuto {
               rotatedRad.set(rotatedRad.get() + Math.abs(delta));
               lastHeadingRad.set(currentHeading);
               drivebase.drive(
-                  new Translation2d(0, 0),
-                  direction * SEARCH_ROTATION_RAD_PER_SEC,
-                  false);
+                  new Translation2d(0, 0), direction * SEARCH_ROTATION_RAD_PER_SEC, false);
             },
             drivebase)
         .until(() -> rotatedRad.get() >= targetRadians)
@@ -582,13 +590,13 @@ public class AprilTagBallShuttleAuto {
               debugAuto(
                   String.format(
                       "ROTATE END target=%.1f actual=%.1f",
-                      degrees,
-                      Math.toDegrees(rotatedRad.get())));
+                      degrees, Math.toDegrees(rotatedRad.get())));
               drivebase.drive(new Translation2d(0, 0), 0, false);
             });
   }
 
-  private Command findSecondTagFromCurrentTag(AtomicInteger currentTagId, AtomicInteger secondTagId) {
+  private Command findSecondTagFromCurrentTag(
+      AtomicInteger currentTagId, AtomicInteger secondTagId) {
     return Commands.sequence(
         Commands.runOnce(
             () ->
@@ -645,7 +653,8 @@ public class AprilTagBallShuttleAuto {
               lastHeadingRad.set(currentHeading);
 
               if (lockedFuelCamera.get() == null) {
-                Optional<TargetObservation> firstSeen = getClosestDetectedObjectObservationAnyCamera();
+                Optional<TargetObservation> firstSeen =
+                    getClosestDetectedObjectObservationAnyCamera();
                 if (firstSeen.isPresent()) {
                   lockedFuelCamera.set(firstSeen.get().camera());
                   debugAuto(

@@ -70,7 +70,8 @@ public final class Constants {
     public static final double DEBUG_MODE_FORWARD_MPS = 0.35;
     public static final double DEBUG_MODE_ROTATION_RAD_PER_SEC = 0.35;
 
-    public static final String PICKUP_PROXY_COUNT_DASHBOARD_KEY = "Auto/NeutralToBallPickup/ProxyPickups";
+    public static final String PICKUP_PROXY_COUNT_DASHBOARD_KEY =
+        "Auto/NeutralToBallPickup/ProxyPickups";
   }
 
   // Index Constants

@@ -56,24 +56,30 @@ public class Robot extends TimedRobot {
       DriverStation.silenceJoystickConnectionWarning(true);
     }
 
-    CommandScheduler.getInstance().onCommandInitialize(
-        command -> System.out.printf(
-            "[CmdInit][%.2f][%s] %s%n",
-            Timer.getFPGATimestamp(),
-            DriverStation.isAutonomousEnabled() ? "AUTO" : "NONAUTO",
-            command.getName()));
-    CommandScheduler.getInstance().onCommandFinish(
-        command -> System.out.printf(
-            "[CmdFinish][%.2f][%s] %s%n",
-            Timer.getFPGATimestamp(),
-            DriverStation.isAutonomousEnabled() ? "AUTO" : "NONAUTO",
-            command.getName()));
-    CommandScheduler.getInstance().onCommandInterrupt(
-        command -> System.out.printf(
-            "[CmdInterrupt][%.2f][%s] %s%n",
-            Timer.getFPGATimestamp(),
-            DriverStation.isAutonomousEnabled() ? "AUTO" : "NONAUTO",
-            command.getName()));
+    CommandScheduler.getInstance()
+        .onCommandInitialize(
+            command ->
+                System.out.printf(
+                    "[CmdInit][%.2f][%s] %s%n",
+                    Timer.getFPGATimestamp(),
+                    DriverStation.isAutonomousEnabled() ? "AUTO" : "NONAUTO",
+                    command.getName()));
+    CommandScheduler.getInstance()
+        .onCommandFinish(
+            command ->
+                System.out.printf(
+                    "[CmdFinish][%.2f][%s] %s%n",
+                    Timer.getFPGATimestamp(),
+                    DriverStation.isAutonomousEnabled() ? "AUTO" : "NONAUTO",
+                    command.getName()));
+    CommandScheduler.getInstance()
+        .onCommandInterrupt(
+            command ->
+                System.out.printf(
+                    "[CmdInterrupt][%.2f][%s] %s%n",
+                    Timer.getFPGATimestamp(),
+                    DriverStation.isAutonomousEnabled() ? "AUTO" : "NONAUTO",
+                    command.getName()));
     System.out.println("[RobotDebug] robotInit complete");
   }
 
@@ -119,7 +125,7 @@ public class Robot extends TimedRobot {
   public void autonomousInit() {
     System.out.printf("[RobotDebug][%.2f] autonomousInit%n", Timer.getFPGATimestamp());
     m_robotContainer.setMotorBrake(true);
-    m_robotContainer.resetPoseFromAprilTagsOrPath2Start();
+    m_robotContainer.resetPoseFromChooser();
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
 
     // Print the selected autonomous command upon autonomous init
@@ -144,10 +150,7 @@ public class Robot extends TimedRobot {
       String autoName = m_autonomousCommand == null ? "null" : m_autonomousCommand.getName();
       boolean scheduled = m_autonomousCommand != null && m_autonomousCommand.isScheduled();
       System.out.printf(
-          "[RobotDebug][%.2f] autonomousPeriodic auto=%s scheduled=%s%n",
-          now,
-          autoName,
-          scheduled);
+          "[RobotDebug][%.2f] autonomousPeriodic auto=%s scheduled=%s%n", now, autoName, scheduled);
     }
   }
 

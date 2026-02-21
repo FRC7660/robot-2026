@@ -1,8 +1,8 @@
 package frc.robot.autonomous;
 
-import static frc.robot.Constants.NeutralToBallPickupAutoConstants.DEFAULT_PICKUP_TIMEOUT_SEC;
 import static frc.robot.Constants.NeutralToBallPickupAutoConstants.DEBUG_MODE_FORWARD_MPS;
 import static frc.robot.Constants.NeutralToBallPickupAutoConstants.DEBUG_MODE_ROTATION_RAD_PER_SEC;
+import static frc.robot.Constants.NeutralToBallPickupAutoConstants.DEFAULT_PICKUP_TIMEOUT_SEC;
 import static frc.robot.Constants.NeutralToBallPickupAutoConstants.MAX_MODE_FORWARD_MPS;
 import static frc.robot.Constants.NeutralToBallPickupAutoConstants.MAX_MODE_ROTATION_RAD_PER_SEC;
 import static frc.robot.Constants.NeutralToBallPickupAutoConstants.OBJECT_APPROACH_MIN_FWD_MPS;
@@ -19,8 +19,8 @@ import com.pathplanner.lib.util.FileVersionException;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
@@ -86,9 +86,7 @@ public class NeutralToBallPickupAuto {
             return AutoBuilder.followPath(path);
           } catch (IOException | ParseException | FileVersionException e) {
             DriverStation.reportError(
-                String.format(
-                    "[NeutralToBallPickup] Failed loading choreo '%s'",
-                    trajectoryName),
+                String.format("[NeutralToBallPickup] Failed loading choreo '%s'", trajectoryName),
                 e.getStackTrace());
             return Commands.none();
           }
@@ -119,13 +117,12 @@ public class NeutralToBallPickupAuto {
               SmartDashboard.putNumber(PICKUP_PROXY_COUNT_DASHBOARD_KEY, 0);
               System.out.printf(
                   "[NeutralToBallPickup] pickup loop start timeout=%.1fs maxFwd=%.2f maxRot=%.2f%n",
-                  pickupTimeoutSec,
-                  getMaxForwardMps(),
-                  getMaxRotationRadPerSec());
+                  pickupTimeoutSec, getMaxForwardMps(), getMaxRotationRadPerSec());
             },
             () -> {
               double headingNow = drivebase.getHeading().getRadians();
-              double headingDelta = Math.abs(MathUtil.angleModulus(headingNow - lastHeadingRad.get()));
+              double headingDelta =
+                  Math.abs(MathUtil.angleModulus(headingNow - lastHeadingRad.get()));
               lastHeadingRad.set(headingNow);
 
               Optional<SwerveSubsystem.DetectedObjectObservation> observation =
@@ -213,8 +210,7 @@ public class NeutralToBallPickupAuto {
             () -> {
               drivebase.drive(new Translation2d(0, 0), 0, false);
               System.out.printf(
-                  "[NeutralToBallPickup] pickup loop end proxyPickups=%d%n",
-                  proxyPickups.get());
+                  "[NeutralToBallPickup] pickup loop end proxyPickups=%d%n", proxyPickups.get());
             });
   }
 

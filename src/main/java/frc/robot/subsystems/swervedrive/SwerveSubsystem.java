@@ -33,7 +33,6 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Config;
 import frc.robot.Constants;
-import frc.robot.subsystems.swervedrive.Vision.Cameras;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -47,7 +46,6 @@ import java.util.function.DoubleSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import org.json.simple.parser.ParseException;
-import org.photonvision.EstimatedRobotPose;
 import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 import org.photonvision.targeting.TargetCorner;
@@ -98,6 +96,7 @@ public class SwerveSubsystem extends SubsystemBase {
 
   /** Printer that logs photonvision object-detection once per second. */
   private PhotonObjectPrinter photonObjectPrinter;
+
   private int currentAutoRunId = -1;
 
   /**
@@ -172,9 +171,9 @@ public class SwerveSubsystem extends SubsystemBase {
   /** Setup the photon vision class. */
   public void setupPhotonVision() {
     vision = new Vision(swerveDrive::getPose, swerveDrive.field);
-    // Create the object printer for camera0 and force immediate print on next loop
-    photonObjectPrinter = new PhotonObjectPrinter();
-    photonObjectPrinter.forceImmediatePrint();
+    // PhotonObjectPrinter disabled -- uncomment to re-enable debug logging
+    // photonObjectPrinter = new PhotonObjectPrinter();
+    // photonObjectPrinter.forceImmediatePrint();
   }
 
   @Override
@@ -185,7 +184,7 @@ public class SwerveSubsystem extends SubsystemBase {
     // When vision is enabled we must manually update odometry in SwerveDrive
     if (visionDriveTest) {
       swerveDrive.updateOdometry();
-      vision.updatePoseEstimation(swerveDrive);
+      vision.process(swerveDrive);
     }
   }
 
@@ -489,7 +488,9 @@ public class SwerveSubsystem extends SubsystemBase {
     }
   }
 
-  /** Lightweight object-detection observation suitable for autonomous logic outside this package. */
+  /**
+   * Lightweight object-detection observation suitable for autonomous logic outside this package.
+   */
   public record DetectedObjectObservation(String cameraName, double yawDeg, double area) {}
 
   /**
@@ -592,7 +593,8 @@ public class SwerveSubsystem extends SubsystemBase {
                       swerveDrive.drive(
                           new Translation2d(DETECTION_CHIRP_TRANSLATION_MPS, 0), 0, false, false))
               .withTimeout(DETECTION_CHIRP_TIME_SEC));
-      sequence.add(Commands.runOnce(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false)));
+      sequence.add(
+          Commands.runOnce(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false)));
       if (i < chirpCount - 1) {
         sequence.add(Commands.waitSeconds(DETECTION_CHIRP_GAP_SEC));
       }
@@ -827,7 +829,8 @@ public class SwerveSubsystem extends SubsystemBase {
                 double yawDeg = target.get().getYaw();
                 double absYaw = Math.abs(yawDeg);
                 boolean hardCentered = absYaw <= centeredToleranceDeg;
-                boolean nearCentered = absYaw <= centeredToleranceDeg + TAG_CENTER_NEAR_TOLERANCE_EXTRA_DEG;
+                boolean nearCentered =
+                    absYaw <= centeredToleranceDeg + TAG_CENTER_NEAR_TOLERANCE_EXTRA_DEG;
 
                 if (hardCentered) {
                   centered.set(true);
@@ -836,7 +839,9 @@ public class SwerveSubsystem extends SubsystemBase {
                   if (Double.isNaN(nearCenteredSinceSec.get())) {
                     nearCenteredSinceSec.set(Timer.getFPGATimestamp());
                   }
-                  centered.set(Timer.getFPGATimestamp() - nearCenteredSinceSec.get() >= TAG_CENTER_NEAR_HOLD_SEC);
+                  centered.set(
+                      Timer.getFPGATimestamp() - nearCenteredSinceSec.get()
+                          >= TAG_CENTER_NEAR_HOLD_SEC);
                 } else {
                   nearCenteredSinceSec.set(Double.NaN);
                   centered.set(false);
@@ -849,7 +854,8 @@ public class SwerveSubsystem extends SubsystemBase {
                           centered.get(),
                           Double.isNaN(nearCenteredSinceSec.get())
                               ? "n/a"
-                              : String.format("%.2f", Timer.getFPGATimestamp() - nearCenteredSinceSec.get()),
+                              : String.format(
+                                  "%.2f", Timer.getFPGATimestamp() - nearCenteredSinceSec.get()),
                           Math.toDegrees(rotatedRad.get())));
                 }
                 swerveDrive.drive(
@@ -950,7 +956,8 @@ public class SwerveSubsystem extends SubsystemBase {
               lastSeenTargetTimeSec.set(Timer.getFPGATimestamp());
               lastSeenYawDeg.set(yawDeg);
               if (Double.isNaN(lastDistanceMeters.get())
-                  || Math.abs(lastDistanceMeters.get() - distance) > APPROACH_STALL_DISTANCE_DELTA_METERS) {
+                  || Math.abs(lastDistanceMeters.get() - distance)
+                      > APPROACH_STALL_DISTANCE_DELTA_METERS) {
                 lastProgressTimeSec.set(Timer.getFPGATimestamp());
               }
               lastDistanceMeters.set(distance);
@@ -959,7 +966,8 @@ public class SwerveSubsystem extends SubsystemBase {
               double forwardSpeed = 0.0;
               if (distanceError > 0.0) {
                 forwardSpeed =
-                    MathUtil.clamp(distanceError * 0.9, APPROACH_MIN_FORWARD_MPS, APPROACH_MAX_FORWARD_MPS);
+                    MathUtil.clamp(
+                        distanceError * 0.9, APPROACH_MIN_FORWARD_MPS, APPROACH_MAX_FORWARD_MPS);
               }
               double cameraForwardSign = observation.get().camera() == Cameras.CAMERA1 ? -1.0 : 1.0;
               double commandedForward = cameraForwardSign * forwardSpeed;
@@ -1095,10 +1103,7 @@ public class SwerveSubsystem extends SubsystemBase {
               rotatedRad.set(rotatedRad.get() + Math.abs(delta));
               lastHeadingRad.set(currentHeading);
               swerveDrive.drive(
-                  new Translation2d(0, 0),
-                  direction * SEARCH_ROTATION_RAD_PER_SEC,
-                  false,
-                  false);
+                  new Translation2d(0, 0), direction * SEARCH_ROTATION_RAD_PER_SEC, false, false);
             })
         .until(() -> rotatedRad.get() >= targetRadians)
         .finallyDo(
@@ -1106,13 +1111,13 @@ public class SwerveSubsystem extends SubsystemBase {
               debugAuto(
                   String.format(
                       "ROTATE END target=%.1f actual=%.1f",
-                      degrees,
-                      Math.toDegrees(rotatedRad.get())));
+                      degrees, Math.toDegrees(rotatedRad.get())));
               swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
             });
   }
 
-  private Command findSecondTagFromCurrentTag(AtomicInteger currentTagId, AtomicInteger secondTagId) {
+  private Command findSecondTagFromCurrentTag(
+      AtomicInteger currentTagId, AtomicInteger secondTagId) {
     return Commands.sequence(
         Commands.runOnce(
             () ->
@@ -1169,7 +1174,8 @@ public class SwerveSubsystem extends SubsystemBase {
               lastHeadingRad.set(currentHeading);
 
               if (lockedFuelCamera.get() == null) {
-                Optional<TargetObservation> firstSeen = getClosestDetectedObjectObservationAnyCamera();
+                Optional<TargetObservation> firstSeen =
+                    getClosestDetectedObjectObservationAnyCamera();
                 if (firstSeen.isPresent()) {
                   lockedFuelCamera.set(firstSeen.get().camera());
                   debugAuto(
@@ -1272,9 +1278,10 @@ public class SwerveSubsystem extends SubsystemBase {
                         activeTagId.get(), fuelFound.get()))));
   }
 
-  public Command aprilTagBallShuttleAuto(int repetitionCount) {
-    return new AprilTagBallShuttleAuto(this).build(repetitionCount);
-  }
+  // AprilTagBallShuttleAuto disabled -- uncomment to re-enable
+  // public Command aprilTagBallShuttleAuto(int repetitionCount) {
+  //   return new AprilTagBallShuttleAuto(this).build(repetitionCount);
+  // }
 
   /**
    * Drive with {@link SwerveSetpointGenerator} from 254, implemented by PathPlanner.
@@ -1530,122 +1537,6 @@ public class SwerveSubsystem extends SubsystemBase {
    */
   public Pose2d getPose() {
     return swerveDrive.getPose();
-  }
-
-  /**
-   * Get an initialization pose estimate from AprilTag detections (camera0/camera1).
-   *
-   * @return best available estimated robot pose from visible AprilTags
-   */
-  public Optional<Pose2d> getAprilTagEstimatedPoseForInitialization() {
-    record CameraEstimate(
-        Cameras camera,
-        Pose2d pose,
-        int tagCount,
-        double timestampSeconds,
-        double stdX,
-        double stdY,
-        double stdTheta,
-        double translationError,
-        double score) {}
-
-    final int minTagCount = 2;
-    final double maxStdXY = 5.0;
-    final double maxStdTheta = 10.0;
-    final double maxOutlierMeters = 1.5;
-    final double maxAgeSec = 0.5;
-
-    int rejectedNoEstimate = 0;
-    int rejectedLowTags = 0;
-    int rejectedHighStd = 0;
-    int rejectedOutlier = 0;
-    int rejectedStale = 0;
-
-    CameraEstimate best = null;
-    Cameras[] initCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
-    Pose2d currentPose = getPose();
-    double nowSec = Timer.getFPGATimestamp();
-
-    for (Cameras camera : initCameras) {
-      Optional<EstimatedRobotPose> estimate = vision.getEstimatedGlobalPose(camera);
-      if (estimate.isEmpty() || estimate.get().targetsUsed.isEmpty()) {
-        rejectedNoEstimate++;
-        continue;
-      }
-
-      int tagCount = estimate.get().targetsUsed.size();
-      if (tagCount < minTagCount) {
-        rejectedLowTags++;
-        continue;
-      }
-
-      double ageSec = nowSec - estimate.get().timestampSeconds;
-      if (ageSec > maxAgeSec) {
-        rejectedStale++;
-        continue;
-      }
-
-      if (camera.curStdDevs == null) {
-        rejectedHighStd++;
-        continue;
-      }
-      double stdX = camera.curStdDevs.get(0, 0);
-      double stdY = camera.curStdDevs.get(1, 0);
-      double stdTheta = camera.curStdDevs.get(2, 0);
-      if (stdX > maxStdXY || stdY > maxStdXY || stdTheta > maxStdTheta) {
-        rejectedHighStd++;
-        continue;
-      }
-
-      Pose2d estimatedPose = estimate.get().estimatedPose.toPose2d();
-      double translationError =
-          currentPose.getTranslation().getDistance(estimatedPose.getTranslation());
-      if (translationError > maxOutlierMeters) {
-        rejectedOutlier++;
-        continue;
-      }
-
-      double score = (stdX + stdY) + (0.5 * stdTheta) + (0.25 * translationError);
-      CameraEstimate candidate =
-          new CameraEstimate(
-              camera,
-              estimatedPose,
-              tagCount,
-              estimate.get().timestampSeconds,
-              stdX,
-              stdY,
-              stdTheta,
-              translationError,
-              score);
-
-      if (best == null
-          || candidate.score() < best.score()
-          || (Math.abs(candidate.score() - best.score()) < 1e-6
-              && candidate.timestampSeconds() > best.timestampSeconds())) {
-        best = candidate;
-      }
-    }
-
-    if (best == null) {
-      System.out.printf(
-          "[PoseReset] AprilTag init rejected all candidates: noEstimate=%d lowTags=%d stale=%d highStd=%d outlier=%d%n",
-          rejectedNoEstimate, rejectedLowTags, rejectedStale, rejectedHighStd, rejectedOutlier);
-      return Optional.empty();
-    }
-
-    System.out.printf(
-        "[PoseReset] AprilTag init pose from %s tags=%d ts=%.3f err=%.3f std=(%.3f, %.3f, %.3f) pose=(%.3f, %.3f, %.1fdeg)%n",
-        best.camera().name(),
-        best.tagCount(),
-        best.timestampSeconds(),
-        best.translationError(),
-        best.stdX(),
-        best.stdY(),
-        best.stdTheta(),
-        best.pose().getX(),
-        best.pose().getY(),
-        best.pose().getRotation().getDegrees());
-    return Optional.of(best.pose());
   }
 
   /**
