@@ -257,4 +257,8 @@ public class RobotContainer {
   public void setMotorBrake(boolean brake) {
     drivebase.setMotorBrake(brake);
   }
+
+  public void onDisable() {
+    drivebase.setMotorBrake(true);
+  }
 }
