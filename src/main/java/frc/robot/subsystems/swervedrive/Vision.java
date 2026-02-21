@@ -43,6 +43,7 @@ import swervelib.SwerveDrive;
 public class Vision {
 
   public enum EstimatorMode {
+    OFF,
     ADVANCED,
     BASIC
   }
@@ -157,6 +158,7 @@ public class Vision {
     }
     estimatorModeChooser.setDefaultOption("Advanced (Default)", EstimatorMode.ADVANCED);
     estimatorModeChooser.addOption("Basic", EstimatorMode.BASIC);
+    estimatorModeChooser.addOption("Off (No Pose Updates)", EstimatorMode.OFF);
     SmartDashboard.putData("Vision/EstimatorMode", estimatorModeChooser);
     SmartDashboard.putString("Vision/EstimatorMode/Selected", EstimatorMode.ADVANCED.name());
 
@@ -443,7 +445,7 @@ public class Vision {
   // ── Pipeline: selectBestPose (instance) ──────────────────────────────────
 
   /**
-   * Select the best pose candidate using the current estimator mode (advanced or basic).
+   * Select the best pose candidate using the current estimator mode.
    *
    * @param estimations results from {@link #updateAprilTagError}
    * @param swerveDrive the swerve drive for current pose
@@ -456,6 +458,9 @@ public class Vision {
       selectedMode = EstimatorMode.ADVANCED;
     }
     SmartDashboard.putString("Vision/EstimatorMode/Selected", selectedMode.name());
+    if (selectedMode == EstimatorMode.OFF) {
+      return new SelectionResult(Optional.empty(), 0, 0, 0, 0, 0);
+    }
     return selectedMode == EstimatorMode.BASIC
         ? selectBasicPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec)
         : selectAdvancedPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec);
