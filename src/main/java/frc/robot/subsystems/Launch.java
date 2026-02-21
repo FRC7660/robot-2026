@@ -6,6 +6,8 @@ import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Pounds;
 import static edu.wpi.first.units.Units.RPM;
+import static edu.wpi.first.units.Units.RevolutionsPerSecond;
+import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Seconds;
 
 import com.revrobotics.spark.SparkFlex;
@@ -30,22 +32,22 @@ import yams.motorcontrollers.local.SparkWrapper;
 
 public class Launch extends SubsystemBase {
   private final SparkFlex motor1 =
-      new SparkFlex(Constants.Launch.MOTOR1_ID, SparkLowLevel.MotorType.kBrushless);
+      new SparkFlex(Constants.LaunchConstants.MOTOR1_ID, SparkLowLevel.MotorType.kBrushless);
 
   private final SparkFlex motor2 =
-      new SparkFlex(Constants.Launch.MOTOR2_ID, SparkLowLevel.MotorType.kBrushless);
+      new SparkFlex(Constants.LaunchConstants.MOTOR2_ID, SparkLowLevel.MotorType.kBrushless);
 
   SmartMotorControllerConfig smcConfig =
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
           // Feedback Constants (PID Constants)
           .withClosedLoopController(
-              50, 0, 0, DegreesPerSecond.of(90), DegreesPerSecondPerSecond.of(45))
+              0, 0, 0, RPM.of(6700), RPM.per(Second).of(6700*2))
           .withSimClosedLoopController(
-              50, 0, 0, DegreesPerSecond.of(90), DegreesPerSecondPerSecond.of(45))
+              0, 0, 0, RPM.of(6700), RPM.per(Second).of(6700*2))
           // Feedforward Constants
-          .withFeedforward(new SimpleMotorFeedforward(0, 0, 0))
-          .withSimFeedforward(new SimpleMotorFeedforward(0, 0, 0))
+          .withFeedforward(new SimpleMotorFeedforward(0.115, 6.5, 3))
+          .withSimFeedforward(new SimpleMotorFeedforward(0.115, 6.5, 3))
           // Telemetry name and verbosity level
           .withTelemetry("ShooterMotor", TelemetryVerbosity.HIGH)
           // Launch motors are 1:1 with fly wheel
@@ -71,9 +73,9 @@ public class Launch extends SubsystemBase {
           // Mass of the flywheel.
           .withMass(Pounds.of(1))
           // Maximum speed of the shooter.
-          .withUpperSoftLimit(RPM.of(6000))
+          .withUpperSoftLimit(RPM.of(6700))
           // Telemetry name and verbosity for the arm.
-          .withTelemetry("Shooter", TelemetryVerbosity.HIGH);
+          .withTelemetry("ShooterConfig", TelemetryVerbosity.HIGH);
 
   // Shooter Mechanism
   private FlyWheel shooter = new FlyWheel(shooterConfig);
@@ -98,12 +100,19 @@ public class Launch extends SubsystemBase {
 
   /**
    * Set the shooter velocity.
+   * Speed should be POSITIVE.
    *
    * @param speed Speed to set.
    * @return {@link edu.wpi.first.wpilibj2.command.RunCommand}
    */
-  public Command setVelocity(AngularVelocity speed) {
-    return shooter.run(speed);
+  public Command setVelocity(double speed) {
+    double absSpeed = -Math.abs(speed);
+    AngularVelocity velocity = RPM.of(absSpeed);
+    return shooter.run(velocity);
+  }
+    
+  public void stop() {
+    shooter.run(RPM.of(0));
   }
 
   /**
