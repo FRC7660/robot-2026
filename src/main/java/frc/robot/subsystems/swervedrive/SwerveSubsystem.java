@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1296,6 +1297,8 @@ public class SwerveSubsystem extends SubsystemBase {
                   new AtomicReference<>(
                       new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
               AtomicReference<FuelPalantir.FuelPalantirStep> lastStep = new AtomicReference<>(null);
+              AtomicReference<Double> lastStatusLogTimeSec =
+                  new AtomicReference<>(Double.NEGATIVE_INFINITY);
 
               Command runFuelPalantir =
                   startRun(
@@ -1318,9 +1321,10 @@ public class SwerveSubsystem extends SubsystemBase {
                               return;
                             }
                             double elapsed = Timer.getFPGATimestamp() - startTimeSec.get();
+                            Map<Cameras, Vision.CameraSnapshot> cameraData = vision.getLatestCameraData();
                             FuelPalantir.FuelPalantirStep step =
                                 FuelPalantir.fuelPalantir(
-                                    vision.getLatestCameraData(), state.get(), mode, elapsed);
+                                    cameraData, state.get(), mode, elapsed);
                             state.set(step.nextState());
                             lastStep.set(step);
                             swerveDrive.drive(
@@ -1328,6 +1332,41 @@ public class SwerveSubsystem extends SubsystemBase {
                                 step.rotationRadPerSec(),
                                 false,
                                 false);
+                            if (step.fuelCollectedThisCycle()
+                                || step.completed()
+                                || shouldDebugLog(lastStatusLogTimeSec, 1.0)) {
+                              Optional<PhotonTrackedTarget> cam0Target =
+                                  FuelPalantir.getClosestNonFiducialTarget(
+                                      cameraData.get(Cameras.CAMERA0));
+                              Optional<PhotonTrackedTarget> cam1Target =
+                                  FuelPalantir.getClosestNonFiducialTarget(
+                                      cameraData.get(Cameras.CAMERA1));
+                              Optional<Cameras> lockedCamera = step.nextState().lockedCamera();
+                              Optional<PhotonTrackedTarget> lockedTarget =
+                                  lockedCamera.flatMap(
+                                      camera ->
+                                          FuelPalantir.getClosestNonFiducialTarget(
+                                              cameraData.get(camera)));
+
+                              debugAuto(
+                                  String.format(
+                                      "FUEL PALANTIR STATUS mode=%s elapsed=%.2fs proxyFuel=%d"
+                                          + " locked=%s cam0Target=%s cam1Target=%s"
+                                          + " lockedYaw=%.1f lockedArea=%.2f"
+                                          + " fwd=%.2f rot=%.2f collected=%s reason=%s",
+                                      mode,
+                                      elapsed,
+                                      step.nextState().proxyCollectedFuelCount(),
+                                      lockedCamera.map(Enum::name).orElse("none"),
+                                      cam0Target.isPresent(),
+                                      cam1Target.isPresent(),
+                                      lockedTarget.map(PhotonTrackedTarget::getYaw).orElse(Double.NaN),
+                                      lockedTarget.map(PhotonTrackedTarget::getArea).orElse(Double.NaN),
+                                      step.forwardMps(),
+                                      step.rotationRadPerSec(),
+                                      step.fuelCollectedThisCycle(),
+                                      step.reason()));
+                            }
                           })
                       .until(() -> lastStep.get() != null && lastStep.get().completed())
                       .finallyDo(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false))
