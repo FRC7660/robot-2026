@@ -1,0 +1,180 @@
+{
+  "NetworkTables": {
+    "transitory": {
+      "Mechanisms": {
+        "ShooterConfig": {
+          "ShooterMotor": {
+            "mechanism": {
+              "open": true
+            },
+            "open": true
+          },
+          "open": true
+        },
+        "open": true
+      },
+      "SmartDashboard": {
+        "Turret": {
+          "open": true
+        },
+        "open": true
+      },
+      "Tuning": {
+        "Arm": {
+          "open": true
+        },
+        "ShooterConfig": {
+          "ShooterMotor": {
+            "closedloop": {
+              "feedback": {
+                "open": true
+              },
+              "feedforward": {
+                "open": true
+              },
+              "motionprofile": {
+                "open": true
+              },
+              "open": true,
+              "setpoint": {
+                "open": true
+              }
+            },
+            "current": {
+              "open": true
+            },
+            "mechanism": {
+              "open": true
+            },
+            "open": true,
+            "ramprate": {
+              "dutycycle": {
+                "open": true
+              },
+              "open": true
+            }
+          },
+          "open": true
+        },
+        "funnel": {
+          "ShooterMotor": {
+            "closedloop": {
+              "open": true,
+              "setpoint": {
+                "open": true
+              }
+            },
+            "open": true
+          },
+          "open": true
+        },
+        "indexer": {
+          "open": true
+        },
+        "open": true
+      }
+    },
+    "types": {
+      "/FMSInfo": "FMSInfo",
+      "/SmartDashboard/Alerts": "Alerts",
+      "/SmartDashboard/Auto Chooser": "String Chooser",
+      "/SmartDashboard/Encoders": "Alerts",
+      "/SmartDashboard/Field": "Field2d",
+      "/SmartDashboard/IMU": "Alerts",
+      "/SmartDashboard/JSON": "Alerts",
+      "/SmartDashboard/Mechanisms/Commands/FunnelMotor/Down": "Command",
+      "/SmartDashboard/Mechanisms/Commands/FunnelMotor/Up": "Command",
+      "/SmartDashboard/Mechanisms/Commands/FunnelMotor/ZeroEncoder": "Command",
+      "/SmartDashboard/Mechanisms/Commands/Index/Live Tuning": "Command",
+      "/SmartDashboard/Mechanisms/Commands/Intake/Live Tuning": "Command",
+      "/SmartDashboard/Mechanisms/Commands/Launch/Live Tuning": "Command",
+      "/SmartDashboard/Mechanisms/Commands/LiftMotor/Down": "Command",
+      "/SmartDashboard/Mechanisms/Commands/LiftMotor/Up": "Command",
+      "/SmartDashboard/Mechanisms/Commands/LiftMotor/ZeroEncoder": "Command",
+      "/SmartDashboard/Mechanisms/Commands/ShooterMotor/Down": "Command",
+      "/SmartDashboard/Mechanisms/Commands/ShooterMotor/Up": "Command",
+      "/SmartDashboard/Mechanisms/Commands/ShooterMotor/ZeroEncoder": "Command",
+      "/SmartDashboard/Mechanisms/Commands/indexerMotor/Down": "Command",
+      "/SmartDashboard/Mechanisms/Commands/indexerMotor/Up": "Command",
+      "/SmartDashboard/Mechanisms/Commands/indexerMotor/ZeroEncoder": "Command",
+      "/SmartDashboard/Motors": "Alerts",
+      "/SmartDashboard/PathPlanner": "Alerts",
+      "/SmartDashboard/PhotonAlerts": "Alerts",
+      "/SmartDashboard/Swerve Drive": "Alerts"
+    },
+    "windows": {
+      "/SmartDashboard/Mechanisms/Commands/Launch/Live Tuning": {
+        "window": {
+          "visible": true
+        }
+      }
+    }
+  },
+  "NetworkTables Info": {
+    "Connections": {
+      "open": true
+    },
+    "visible": true
+  },
+  "NetworkTables Settings": {
+    "mode": "Client (NT4)",
+    "serverTeam": "10.76.60.2",
+    "visible": false
+  },
+  "Plots": {
+    "Plot <0>": {
+      "plots": [
+        {
+          "axis": [
+            {
+              "autoFit": true
+            }
+          ],
+          "backgroundColor": [
+            0.0,
+            0.0,
+            0.0,
+            0.8500000238418579
+          ],
+          "height": 326,
+          "series": [
+            {
+              "color": [
+                0.8666667342185974,
+                0.5176470875740051,
+                0.32156863808631897,
+                1.0
+              ],
+              "id": "NT:/Mechanisms/ShooterConfig/ShooterMotor/mechanism/velocity"
+            },
+            {
+              "color": [
+                0.3111112117767334,
+                1.0,
+                0.0,
+                1.0
+              ],
+              "id": "NT:/Tuning/ShooterConfig/ShooterMotor/closedloop/setpoint/velocity"
+            }
+          ]
+        }
+      ],
+      "window": {
+        "visible": false
+      }
+    },
+    "Plot <1>": {
+      "plots": [
+        {
+          "backgroundColor": [
+            0.0,
+            0.0,
+            0.0,
+            0.8500000238418579
+          ],
+          "height": 326
+        }
+      ]
+    }
+  }
+}

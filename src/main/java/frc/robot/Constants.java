@@ -79,7 +79,7 @@ public final class Constants {
   }
 
   // Launch Constants
-  public static final class Launch {
+  public static final class LaunchConstants {
     public static final int MOTOR1_ID = 51;
     public static final int MOTOR2_ID = 52;
   }

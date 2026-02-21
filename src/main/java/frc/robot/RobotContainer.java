@@ -23,6 +23,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+import frc.robot.subsystems.Launch;
 import frc.robot.Constants.OperatorConstants;
 import frc.robot.commands.swervedrive.MisalignCorrection;
 import frc.robot.commands.swervedrive.YAGSLPitCheck;
@@ -55,7 +56,8 @@ public class RobotContainer {
   private final Index indexSystem = new Index();
   // Turret subsystem, constructed with a supplier that returns the current odometry pose
   private final Turret turret = new Turret(drivebase::getPose);
-
+  // Launch subsystem
+  private final Launch launchSystem = new Launch();
   // Establish a Sendable Chooser that will be able to be sent to the SmartDashboard, allowing
   // selection of desired auto
   private final SendableChooser<Command> autoChooser;
@@ -226,8 +228,9 @@ public class RobotContainer {
       // drivebase).andThen(pitCheck::execute, drivebase));
       // This starts the command when you press LB, and stops it immediately when you let go.
       driverXbox.leftBumper().whileTrue(new YAGSLPitCheck(drivebase));
-      driverXbox.rightBumper().onTrue(Commands.runOnce(misalignCorrection::execute));
-      driverXbox.b().whileTrue(Commands.runOnce(() -> indexSystem.setfunnel(0.1)));
+      driverXbox.rightBumper().onTrue(launchSystem.setVelocity(50.0));
+      driverXbox.rightBumper().onFalse(launchSystem.setVelocity(0));
+      driverXbox.b().whileTrue(Commands.parallel(indexSystem.setSystemSpeed(0.6, 0.7)));
       driverXbox
           .y()
           .whileTrue(
