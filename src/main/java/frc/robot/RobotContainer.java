@@ -4,8 +4,11 @@
 
 package frc.robot;
 
-import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
+import com.pathplanner.lib.path.PathPlannerPath;
+import com.pathplanner.lib.util.FileVersionException;
+import com.pathplanner.lib.util.FlippingUtil;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -22,10 +25,16 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OperatorConstants;
+import frc.robot.autonomous.AutonomousManager;
+import frc.robot.commands.turret.DefaultCommand;
 import frc.robot.subsystems.LowerShooterSubsystem;
+import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.UpperShooterSubsystem;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
+import frc.robot.subsystems.swervedrive.SwerveSubsystem.FuelPalantirMode;
 import java.io.File;
+import java.io.IOException;
+import org.json.simple.parser.ParseException;
 import swervelib.SwerveInputStream;
 
 /**
@@ -45,9 +54,9 @@ public class RobotContainer {
   private final UpperShooterSubsystem upperShooter = new UpperShooterSubsystem();
   private final LowerShooterSubsystem lowerShooter = new LowerShooterSubsystem();
 
-  // Establish a Sendable Chooser that will be able to be sent to the SmartDashboard, allowing
-  // selection of desired auto
-  private final SendableChooser<Command> autoChooser;
+  private final AutonomousManager autonomousManager;
+
+  private final SendableChooser<String> poseInitChooser;
 
   private double getRightXCorrected() {
     double base = driverXbox.getRightX();
@@ -118,18 +127,29 @@ public class RobotContainer {
 
     // Create the NamedCommands that will be used in PathPlanner
     NamedCommands.registerCommand("test", Commands.print("I EXIST"));
+    NamedCommands.registerCommand(
+        "FuelPalantirContinue30",
+        drivebase.fuelPalantirCommand(FuelPalantirMode.CONTINUE_AFTER_30S));
+    NamedCommands.registerCommand(
+        "FuelPalantirStop20", drivebase.fuelPalantirCommand(FuelPalantirMode.STOP_AFTER_20S));
+    NamedCommands.registerCommand(
+        "ResetPoseFromAprilTags",
+        Commands.runOnce(
+            () -> {
+              boolean reset = drivebase.resetOdometryFromAprilTags();
+              System.out.printf("[PoseReset] source=APRILTAG commandResult=%s%n", reset);
+            }));
 
-    // Have the autoChooser pull in all PathPlanner autos as options
-    autoChooser = AutoBuilder.buildAutoChooser();
+    autonomousManager = new AutonomousManager(drivebase);
 
-    // Set the default auto (do nothing)
-    autoChooser.setDefaultOption("Do Nothing", Commands.none());
+    poseInitChooser = new SendableChooser<>();
+    poseInitChooser.setDefaultOption("PathPlanner path start", "pathplanner");
+    poseInitChooser.addOption("DriverStation alliance position", "driverstation");
+    poseInitChooser.addOption("Zero (origin)", "zero");
+    SmartDashboard.putData("Pose Init", poseInitChooser);
 
-    // Add a simple auto option to have the robot drive forward for 1 second then stop
-    autoChooser.addOption("Drive Forward", drivebase.driveForward().withTimeout(1));
-
-    // Put the autoChooser on the SmartDashboard
-    SmartDashboard.putData("Auto Chooser", autoChooser);
+    // Set the turret default command to compute targets from odometry
+    turret.setDefaultCommand(new DefaultCommand(turret));
   }
 
   /**
@@ -158,7 +178,8 @@ public class RobotContainer {
     } else {
       drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
     }
-
+    // driverXbox.rightBumper().onTrue(drivebase.trackDetectedObjectByCameraName("camera0",
+    // 3.0));
     if (Robot.isSimulation()) {
       Pose2d target = new Pose2d(new Translation2d(1, 4), Rotation2d.fromDegrees(90));
       // drivebase.getSwerveDrive().field.getObject("targetPose").setPose(target);
@@ -185,7 +206,10 @@ public class RobotContainer {
               drivebase.driveToPose(
                   new Pose2d(new Translation2d(14, 3), Rotation2d.fromDegrees(180))));
     }
+    System.out.println("Pre-Test");
+
     if (DriverStation.isTest()) {
+      System.out.println("Yay it's working");
       drivebase.setDefaultCommand(
           driveFieldOrientedAnglularVelocity); // Overrides drive command above!
 
@@ -193,12 +217,13 @@ public class RobotContainer {
       driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
       driverXbox.back().whileTrue(drivebase.centerModulesCommand());
       driverXbox.leftBumper().onTrue(Commands.none());
-      driverXbox.rightBumper().onTrue(Commands.none());
+      driverXbox.rightBumper().onTrue(drivebase.trackDetectedObjectByCameraName("CAMERA0", 3.0));
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
       driverXbox.start().whileTrue(Commands.none());
       driverXbox.back().whileTrue(Commands.none());
+<<<<<<< HEAD
       // driverXbox.leftBumper().whileTrue(Commands.runOnce(drivebase::lock,
       // drivebase).repeatedly());
       // driverXbox.rightBumper().onTrue(Commands.none());
@@ -283,28 +308,12 @@ public class RobotContainer {
                   upperShooter,
                   lowerShooter));
 
-      // Intake/Shooter Commands
-      // Lower intake: right trigger ≥ 0.9 → CCW at 75%, right bumper → CW at 75%, else brake
-      // driverXbox
-      // .rightTrigger(0.9)
-      // .or(driverXbox.rightBumper())
-      // .whileTrue(
-      // new RunLowerIntakeCommand(
-      // lowerShooter, driverXbox::getRightTriggerAxis, driverXbox.rightBumper()));
-
-      // Upper shooter: left trigger ≥ 0.9 → CCW at 50%, left bumper → CW at 50%, else brake
-      // driverXbox
-      // .leftTrigger(0.1)
-      // .or(driverXbox.leftBumper())
-      // .whileTrue(
-      //  new RunUpperShooterCommand(
-      //  upperShooter, driverXbox::getLeftTriggerAxis, driverXbox.leftBumper()));
-
+      driverXbox.leftBumper().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
       driverXbox
-          .b()
-          .whileTrue(
-              drivebase.driveToPose(
-                  new Pose2d(new Translation2d(14, 4), Rotation2d.fromDegrees(0))));
+          .rightBumper()
+          .onTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.CONTINUE_AFTER_30S));
+
+      driverXbox.b().whileTrue(drivebase.logDetectedObjectAreaByCameraName("CAMERA0"));
 
       driverXbox.y().whileTrue(drivebase.sysIdDriveMotorCommand());
     }
@@ -316,8 +325,96 @@ public class RobotContainer {
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
-    // Pass in the selected auto from the SmartDashboard as our desired autnomous commmand
-    return autoChooser.getSelected();
+    return autonomousManager.getAutonomousCommand();
+  }
+
+  public void resetPoseFromChooser() {
+    String choice = poseInitChooser.getSelected();
+    if (choice == null) {
+      choice = "pathplanner";
+    }
+
+    switch (choice) {
+      case "pathplanner":
+        resetPoseFromPathPlanner();
+        break;
+      case "driverstation":
+        resetPoseFromDriverStation();
+        break;
+      case "zero":
+      default:
+        drivebase.resetOdometry(new Pose2d());
+        System.out.println("[PoseReset] source=ZERO pose=(0.000, 0.000, 0.0deg)");
+        break;
+    }
+  }
+
+  private void resetPoseFromPathPlanner() {
+    try {
+      // Use the selected auto's path to get the starting pose
+      Command selectedAuto = autonomousManager.getAutonomousCommand();
+      String autoName = selectedAuto != null ? selectedAuto.getName() : "path_to_center";
+      // Extract path name from command name if possible, fall back to path_to_center
+      String pathName = "path_to_center";
+      if (autoName.contains("PathPlanner-")) {
+        int start = autoName.indexOf("PathPlanner-") + "PathPlanner-".length();
+        int end = autoName.indexOf("-", start);
+        if (end > start) {
+          pathName = autoName.substring(start, end);
+        }
+      }
+
+      PathPlannerPath path = PathPlannerPath.fromPathFile(pathName);
+      Pose2d startPose = path.getStartingHolonomicPose().orElse(new Pose2d());
+      var alliance = DriverStation.getAlliance();
+      if (alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red) {
+        startPose = FlippingUtil.flipFieldPose(startPose);
+      }
+      drivebase.resetOdometry(startPose);
+      System.out.printf(
+          "[PoseReset] source=PATHPLANNER path=%s pose=(%.3f, %.3f, %.1fdeg)%n",
+          pathName, startPose.getX(), startPose.getY(), startPose.getRotation().getDegrees());
+    } catch (IOException | ParseException | FileVersionException e) {
+      drivebase.resetOdometry(new Pose2d());
+      System.out.println(
+          "[PoseReset] source=PATHPLANNER_FALLBACK_ZERO pose=(0.000, 0.000, 0.0deg)");
+    }
+  }
+
+  private void resetPoseFromDriverStation() {
+    // Known starting positions per alliance station (approximate field positions)
+    // 2026 Reefscape field: Blue alliance stations are on the left side (x~1.0m)
+    // Station 1 is closest to the scoring table, Station 3 is farthest
+    double[][] bluePositions = {
+      {1.0, 1.0, 0.0}, // Station 1
+      {1.0, 4.0, 0.0}, // Station 2
+      {1.0, 7.0, 0.0}, // Station 3
+    };
+    double[][] redPositions = {
+      {16.0, 1.0, 180.0}, // Station 1
+      {16.0, 4.0, 180.0}, // Station 2
+      {16.0, 7.0, 180.0}, // Station 3
+    };
+
+    var alliance = DriverStation.getAlliance();
+    var location = DriverStation.getLocation();
+
+    boolean isRed = alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red;
+    int station = location.isPresent() ? location.getAsInt() : 2; // default to station 2
+    station = (int) MathUtil.clamp(station, 1, 3);
+
+    double[][] positions = isRed ? redPositions : bluePositions;
+    double[] pos = positions[station - 1];
+    Pose2d startPose =
+        new Pose2d(new Translation2d(pos[0], pos[1]), Rotation2d.fromDegrees(pos[2]));
+    drivebase.resetOdometry(startPose);
+    System.out.printf(
+        "[PoseReset] source=DRIVERSTATION alliance=%s station=%d pose=(%.3f, %.3f, %.1fdeg)%n",
+        isRed ? "Red" : "Blue",
+        station,
+        startPose.getX(),
+        startPose.getY(),
+        startPose.getRotation().getDegrees());
   }
 
   public void setMotorBrake(boolean brake) {
