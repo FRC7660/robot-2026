@@ -2,6 +2,9 @@
 
 ## Architecture and Data Flow
 
+This pipeline takes AprilTag data from both cameras, fuses it into robot pose updates, and exposes telemetry to both dashboard and stdout.  
+The same camera snapshot stream also feeds the pure `fuelPalantir(...)` decision step used by teleop and PathPlanner-triggered commands.
+
 ```text
 CAMERA0 ----\
              \
