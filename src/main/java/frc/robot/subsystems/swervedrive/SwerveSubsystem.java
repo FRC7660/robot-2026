@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -46,6 +47,7 @@ import java.util.function.DoubleSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import org.json.simple.parser.ParseException;
+import org.photonvision.EstimatedRobotPose;
 import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 import org.photonvision.targeting.TargetCorner;
@@ -84,6 +86,25 @@ public class SwerveSubsystem extends SubsystemBase {
   private static final double DETECTION_CHIRP_TRANSLATION_MPS = 0.22;
   private static final double DETECTION_CHIRP_TIME_SEC = 0.06;
   private static final double DETECTION_CHIRP_GAP_SEC = 0.04;
+  private static final int FUEL_TARGET_COUNT = 8;
+  private static final double FUEL_PALANTIR_CONTINUE_TIMEOUT_SEC = 30.0;
+  private static final double FUEL_PALANTIR_STOP_TIMEOUT_SEC = 20.0;
+
+  public enum FuelPalantirMode {
+    CONTINUE_AFTER_30S,
+    STOP_AFTER_20S
+  }
+
+  public record FuelPalantirState(
+      int proxyCollectedFuelCount, Optional<Cameras> lockedCamera, boolean holdAfterCompletion) {}
+
+  public record FuelPalantirStep(
+      FuelPalantirState nextState,
+      double forwardMps,
+      double rotationRadPerSec,
+      boolean fuelCollectedThisCycle,
+      boolean completed,
+      String reason) {}
 
   /** Swerve drive object. */
   private final SwerveDrive swerveDrive;
@@ -788,7 +809,7 @@ public class SwerveSubsystem extends SubsystemBase {
     return sb.toString();
   }
 
-  private double calculateRotationFromYawDeg(double yawDeg) {
+  private static double calculateRotationFromYawDeg(double yawDeg) {
     // Negative sign so positive yaw commands correction back toward center.
     return MathUtil.clamp(
         -Math.toRadians(yawDeg) * ANGULAR_TRACKING_GAIN,
@@ -1276,6 +1297,203 @@ public class SwerveSubsystem extends SubsystemBase {
                     String.format(
                         "FUEL ROUTINE END tagId=%d fuelFound=%s",
                         activeTagId.get(), fuelFound.get()))));
+  }
+
+  private static boolean hasCollectedFuelTargetCount(int proxyCollectedFuelCount, int targetCount) {
+    // TODO: Replace proxy count with real fuel collection sensor/indexer integration.
+    return proxyCollectedFuelCount >= targetCount;
+  }
+
+  private static Optional<PhotonTrackedTarget> getClosestNonFiducialTarget(
+      Vision.CameraSnapshot snapshot) {
+    if (snapshot == null || snapshot.latestResult() == null || !snapshot.latestResult().hasTargets()) {
+      return Optional.empty();
+    }
+    PhotonTrackedTarget best = null;
+    double minAbsYaw = Double.POSITIVE_INFINITY;
+    for (PhotonTrackedTarget target : snapshot.latestResult().getTargets()) {
+      if (target.getFiducialId() > 0) {
+        continue;
+      }
+      double absYaw = Math.abs(target.getYaw());
+      if (absYaw < minAbsYaw) {
+        minAbsYaw = absYaw;
+        best = target;
+      }
+    }
+    return Optional.ofNullable(best);
+  }
+
+  private static Optional<Cameras> chooseLockCamera(
+      Map<Cameras, Vision.CameraSnapshot> cameraData, Optional<Cameras> currentlyLocked) {
+    if (currentlyLocked.isPresent()) {
+      return currentlyLocked;
+    }
+    Cameras[] candidates = {Cameras.CAMERA0, Cameras.CAMERA1};
+    Cameras bestCamera = null;
+    double minAbsYaw = Double.POSITIVE_INFINITY;
+    for (Cameras camera : candidates) {
+      Optional<PhotonTrackedTarget> target = getClosestNonFiducialTarget(cameraData.get(camera));
+      if (target.isEmpty()) {
+        continue;
+      }
+      double absYaw = Math.abs(target.get().getYaw());
+      if (absYaw < minAbsYaw) {
+        minAbsYaw = absYaw;
+        bestCamera = camera;
+      }
+    }
+    return Optional.ofNullable(bestCamera);
+  }
+
+  public static FuelPalantirStep fuelPalantir(
+      Map<Cameras, Vision.CameraSnapshot> cameraData,
+      FuelPalantirState currentState,
+      FuelPalantirMode mode,
+      double elapsedSec) {
+    final double timeoutSec =
+        mode == FuelPalantirMode.CONTINUE_AFTER_30S
+            ? FUEL_PALANTIR_CONTINUE_TIMEOUT_SEC
+            : FUEL_PALANTIR_STOP_TIMEOUT_SEC;
+
+    Optional<Cameras> lockedCamera = chooseLockCamera(cameraData, currentState.lockedCamera());
+    Optional<PhotonTrackedTarget> target =
+        lockedCamera.flatMap(camera -> getClosestNonFiducialTarget(cameraData.get(camera)));
+
+    double rotation = SEARCH_ROTATION_RAD_PER_SEC;
+    double forward = 0.0;
+    boolean collectedThisCycle = false;
+
+    if (target.isPresent()) {
+      double yawDeg = target.get().getYaw();
+      rotation = calculateRotationFromYawDeg(yawDeg);
+      double area = target.get().getArea();
+      if (area >= FUEL_APPROACH_STOP_AREA) {
+        collectedThisCycle = true;
+        forward = 0.0;
+      } else {
+        double areaError = FUEL_APPROACH_STOP_AREA - area;
+        forward =
+            MathUtil.clamp(
+                areaError * 0.08, FUEL_APPROACH_MIN_FORWARD_MPS, FUEL_APPROACH_MAX_FORWARD_MPS);
+      }
+    }
+
+    int nextProxyCount =
+        currentState.proxyCollectedFuelCount() + (collectedThisCycle ? 1 : 0);
+    boolean reachedFuelTarget = hasCollectedFuelTargetCount(nextProxyCount, FUEL_TARGET_COUNT);
+    boolean timedOut = elapsedSec >= timeoutSec;
+    boolean holdAfterCompletion = mode == FuelPalantirMode.STOP_AFTER_20S && timedOut && !reachedFuelTarget;
+    boolean completed = reachedFuelTarget || timedOut;
+    String reason =
+        reachedFuelTarget ? "target_fuel_count_reached" : (timedOut ? "timeout" : "searching");
+
+    return new FuelPalantirStep(
+        new FuelPalantirState(nextProxyCount, lockedCamera, holdAfterCompletion),
+        forward,
+        rotation,
+        collectedThisCycle,
+        completed,
+        reason);
+  }
+
+  private Command holdStoppedUntilDisabled() {
+    return run(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false))
+        .until(DriverStation::isDisabled)
+        .withName("FuelPalantirHoldStoppedUntilDisabled");
+  }
+
+  public Command fuelPalantirCommand(FuelPalantirMode mode) {
+    AtomicReference<Double> startTimeSec = new AtomicReference<>(0.0);
+    AtomicReference<FuelPalantirState> state =
+        new AtomicReference<>(new FuelPalantirState(0, Optional.empty(), false));
+    AtomicReference<FuelPalantirStep> lastStep = new AtomicReference<>(null);
+
+    Command runFuelPalantir =
+        startRun(
+                () -> {
+                  startTimeSec.set(Timer.getFPGATimestamp());
+                  state.set(new FuelPalantirState(0, Optional.empty(), false));
+                  lastStep.set(null);
+                  debugAuto(
+                      String.format(
+                          "FUEL PALANTIR START mode=%s targetFuel=%d", mode, FUEL_TARGET_COUNT));
+                },
+                () -> {
+                  if (vision == null) {
+                    debugAuto("FUEL PALANTIR no vision instance available");
+                    lastStep.set(
+                        new FuelPalantirStep(
+                            state.get(), 0.0, 0.0, false, true, "vision_not_initialized"));
+                    swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
+                    return;
+                  }
+                  double elapsed = Timer.getFPGATimestamp() - startTimeSec.get();
+                  FuelPalantirStep step = fuelPalantir(vision.getCameraData(), state.get(), mode, elapsed);
+                  state.set(step.nextState());
+                  lastStep.set(step);
+                  swerveDrive.drive(
+                      new Translation2d(step.forwardMps(), 0), step.rotationRadPerSec(), false, false);
+                })
+            .until(() -> lastStep.get() != null && lastStep.get().completed())
+            .finallyDo(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false))
+            .andThen(
+                runOnce(
+                    () -> {
+                      FuelPalantirStep step = lastStep.get();
+                      String reason = step == null ? "unknown" : step.reason();
+                      debugAuto(
+                          String.format(
+                              "FUEL PALANTIR END mode=%s proxyFuel=%d elapsed=%.2fs reason=%s",
+                              mode,
+                              state.get().proxyCollectedFuelCount(),
+                              Timer.getFPGATimestamp() - startTimeSec.get(),
+                              reason));
+                    }))
+            .withName("FuelPalantirCommand-" + mode.name());
+
+    return Commands.either(
+            Commands.sequence(runFuelPalantir, holdStoppedUntilDisabled()),
+            runFuelPalantir,
+            () -> mode == FuelPalantirMode.STOP_AFTER_20S)
+        .withName("FuelPalantirCommand-" + mode.name());
+  }
+
+  public boolean resetOdometryFromAprilTags() {
+    if (vision == null) {
+      System.out.println("[PoseReset] source=APRILTAG failed=vision_not_initialized");
+      return false;
+    }
+
+    Optional<EstimatedRobotPose> bestEstimate = Optional.empty();
+    int bestTagCount = -1;
+    double bestTimestampSec = Double.NEGATIVE_INFINITY;
+
+    for (Cameras camera : Cameras.values()) {
+      Optional<EstimatedRobotPose> estimate = vision.getEstimatedGlobalPose(camera);
+      if (estimate.isEmpty()) {
+        continue;
+      }
+      int tagCount = estimate.get().targetsUsed.size();
+      double ts = estimate.get().timestampSeconds;
+      if (tagCount > bestTagCount || (tagCount == bestTagCount && ts > bestTimestampSec)) {
+        bestEstimate = estimate;
+        bestTagCount = tagCount;
+        bestTimestampSec = ts;
+      }
+    }
+
+    if (bestEstimate.isEmpty()) {
+      System.out.println("[PoseReset] source=APRILTAG failed=no_visible_tags");
+      return false;
+    }
+
+    Pose2d pose = bestEstimate.get().estimatedPose.toPose2d();
+    resetOdometry(pose);
+    System.out.printf(
+        "[PoseReset] source=APRILTAG pose=(%.3f, %.3f, %.1fdeg) tags=%d ts=%.3f%n",
+        pose.getX(), pose.getY(), pose.getRotation().getDegrees(), bestTagCount, bestTimestampSec);
+    return true;
   }
 
   // AprilTagBallShuttleAuto disabled -- uncomment to re-enable

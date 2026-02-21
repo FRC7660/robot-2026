@@ -11,6 +11,7 @@ import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.Robot;
 import java.awt.Desktop;
 import java.util.ArrayList;
@@ -75,6 +76,9 @@ public class Vision {
       int rejectedHighStd,
       int rejectedOutlier) {}
 
+  /** Per-camera raw AprilTag observation summary from the latest frame. */
+  public record CameraTagObservation(int tagId, double yawDeg, double distanceMeters, double tsSec) {}
+
   // ── Constants ─────────────────────────────────────────────────────────────
 
   /** April Tag Field Layout of the year. */
@@ -91,6 +95,11 @@ public class Vision {
   static final double MAX_STD_XY_METERS = 5.0;
   static final double MAX_STD_THETA_RAD = 10.0;
   private static final double FUSION_STATUS_LOG_PERIOD_SEC = 1.0;
+  private static final double POSE_LOG_TRANSLATION_DELTA_METERS = 0.05;
+  private static final double POSE_LOG_ROTATION_DELTA_DEG = 2.0;
+  private static final double TAG_YAW_LOG_DELTA_DEG = 1.0;
+  private static final double TAG_DISTANCE_LOG_DELTA_METERS = 0.05;
+  private static final double TAG_TIMESTAMP_LOG_DELTA_SEC = 0.1;
 
   // ── Instance state ────────────────────────────────────────────────────────
 
@@ -114,6 +123,10 @@ public class Vision {
   private int rejectedLowTagFar = 0;
   private int rejectedHighStd = 0;
   private int rejectedOutlier = 0;
+  private Pose2d lastLoggedOdomPose = null;
+  private Pose2d lastLoggedFusedPose = null;
+  private final EnumMap<Cameras, CameraTagObservation> lastLoggedCameraTagObs =
+      new EnumMap<>(Cameras.class);
 
   /**
    * Constructor for the Vision class.
@@ -375,9 +388,10 @@ public class Vision {
     SelectionResult selection =
         selectBestPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec);
     long t3 = System.nanoTime();
+    Optional<FusionCandidate> fusedCandidate = selection.bestCandidate();
 
-    if (selection.bestCandidate().isPresent()) {
-      FusionCandidate best = selection.bestCandidate().get();
+    if (fusedCandidate.isPresent()) {
+      FusionCandidate best = fusedCandidate.get();
       if (best.hasStd()) {
         swerveDrive.addVisionMeasurement(best.pose(), best.timestampSec(), best.stdDevs());
       }
@@ -406,7 +420,189 @@ public class Vision {
     rejectedHighStd += selection.rejectedHighStd();
     rejectedOutlier += selection.rejectedOutlier();
 
+    publishDashboardTelemetry(cameraData, estimations, swerveDrive.getPose(), fusedCandidate);
+    logAprilTagTelemetryOnChange(cameraData, swerveDrive.getPose(), fusedCandidate);
+
     logPipelineCycle(t0, t1, t2, t3, t4);
+  }
+
+  private Optional<CameraTagObservation> getClosestTagObservation(CameraSnapshot snapshot) {
+    if (snapshot == null || snapshot.latestResult() == null || !snapshot.latestResult().hasTargets()) {
+      return Optional.empty();
+    }
+
+    PhotonTrackedTarget closest = null;
+    double minAbsYaw = Double.POSITIVE_INFINITY;
+    for (PhotonTrackedTarget target : snapshot.latestResult().getTargets()) {
+      if (target.getFiducialId() <= 0) {
+        continue;
+      }
+      double absYaw = Math.abs(target.getYaw());
+      if (absYaw < minAbsYaw) {
+        minAbsYaw = absYaw;
+        closest = target;
+      }
+    }
+    if (closest == null) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        new CameraTagObservation(
+            closest.getFiducialId(),
+            closest.getYaw(),
+            closest.getBestCameraToTarget().getTranslation().getNorm(),
+            snapshot.latestResult().getTimestampSeconds()));
+  }
+
+  private boolean poseChanged(Pose2d previous, Pose2d current) {
+    if (previous == null || current == null) {
+      return true;
+    }
+    double translationDelta =
+        previous.getTranslation().getDistance(current.getTranslation());
+    double rotationDeltaDeg =
+        Math.abs(current.getRotation().minus(previous.getRotation()).getDegrees());
+    return translationDelta >= POSE_LOG_TRANSLATION_DELTA_METERS
+        || rotationDeltaDeg >= POSE_LOG_ROTATION_DELTA_DEG;
+  }
+
+  private boolean cameraTagObservationChanged(
+      CameraTagObservation previous, CameraTagObservation current) {
+    if (previous == null && current == null) {
+      return false;
+    }
+    if (previous == null || current == null) {
+      return true;
+    }
+    if (previous.tagId() != current.tagId()) {
+      return true;
+    }
+    return Math.abs(previous.yawDeg() - current.yawDeg()) >= TAG_YAW_LOG_DELTA_DEG
+        || Math.abs(previous.distanceMeters() - current.distanceMeters()) >= TAG_DISTANCE_LOG_DELTA_METERS
+        || Math.abs(previous.tsSec() - current.tsSec()) >= TAG_TIMESTAMP_LOG_DELTA_SEC;
+  }
+
+  private void publishPoseToDashboard(String prefix, Pose2d pose, boolean valid) {
+    SmartDashboard.putBoolean(prefix + "/Valid", valid);
+    if (valid && pose != null) {
+      SmartDashboard.putNumber(prefix + "/X", pose.getX());
+      SmartDashboard.putNumber(prefix + "/Y", pose.getY());
+      SmartDashboard.putNumber(prefix + "/HeadingDeg", pose.getRotation().getDegrees());
+    }
+  }
+
+  private void publishDashboardTelemetry(
+      Map<Cameras, CameraSnapshot> cameraData,
+      List<PoseEstimationResult> estimations,
+      Pose2d odomPose,
+      Optional<FusionCandidate> fusedCandidate) {
+    publishPoseToDashboard("Pose/Odom", odomPose, true);
+    Pose2d fusedPose = fusedCandidate.map(FusionCandidate::pose).orElse(null);
+    publishPoseToDashboard("Pose/Fused", fusedPose, fusedPose != null);
+
+    StringBuilder tagSummary = new StringBuilder();
+    for (Cameras camera : Cameras.values()) {
+      Optional<CameraTagObservation> observation = getClosestTagObservation(cameraData.get(camera));
+      String cameraKey = "Vision/" + camera.name();
+      SmartDashboard.putBoolean(cameraKey + "/TagVisible", observation.isPresent());
+      if (observation.isPresent()) {
+        CameraTagObservation obs = observation.get();
+        SmartDashboard.putNumber(cameraKey + "/TagId", obs.tagId());
+        SmartDashboard.putNumber(cameraKey + "/YawDeg", obs.yawDeg());
+        SmartDashboard.putNumber(cameraKey + "/DistanceM", obs.distanceMeters());
+        SmartDashboard.putNumber(cameraKey + "/TimestampSec", obs.tsSec());
+        if (tagSummary.length() > 0) {
+          tagSummary.append(" | ");
+        }
+        tagSummary.append(
+            String.format(
+                "%s:id=%d yaw=%.1f dist=%.2f",
+                camera.name(), obs.tagId(), obs.yawDeg(), obs.distanceMeters()));
+      }
+    }
+
+    for (PoseEstimationResult est : estimations) {
+      String cameraPoseKey = "Vision/" + est.camera().name() + "/DerivedPose";
+      Optional<EstimatedRobotPose> estimate = est.estimatedPose();
+      if (estimate.isPresent()) {
+        publishPoseToDashboard(cameraPoseKey, estimate.get().estimatedPose.toPose2d(), true);
+      } else {
+        publishPoseToDashboard(cameraPoseKey, null, false);
+      }
+    }
+
+    SmartDashboard.putString(
+        "Pose/Summary",
+        String.format(
+            "odom=(%.2f, %.2f, %.1fdeg) fused=%s tags=[%s]",
+            odomPose.getX(),
+            odomPose.getY(),
+            odomPose.getRotation().getDegrees(),
+            fusedPose == null
+                ? "none"
+                : String.format(
+                    "(%.2f, %.2f, %.1fdeg)",
+                    fusedPose.getX(), fusedPose.getY(), fusedPose.getRotation().getDegrees()),
+            tagSummary.length() == 0 ? "none" : tagSummary.toString()));
+  }
+
+  private void logAprilTagTelemetryOnChange(
+      Map<Cameras, CameraSnapshot> cameraData,
+      Pose2d odomPose,
+      Optional<FusionCandidate> fusedCandidate) {
+    EnumMap<Cameras, CameraTagObservation> currentObs = new EnumMap<>(Cameras.class);
+    boolean anyTagVisible = false;
+    boolean cameraObsChanged = false;
+    StringBuilder tagSummary = new StringBuilder();
+
+    for (Cameras camera : Cameras.values()) {
+      Optional<CameraTagObservation> obs = getClosestTagObservation(cameraData.get(camera));
+      CameraTagObservation current = obs.orElse(null);
+      currentObs.put(camera, current);
+      if (current != null) {
+        anyTagVisible = true;
+        if (tagSummary.length() > 0) {
+          tagSummary.append(" | ");
+        }
+        tagSummary.append(
+            String.format(
+                "%s:id=%d yaw=%.2f dist=%.2f ts=%.3f",
+                camera.name(),
+                current.tagId(),
+                current.yawDeg(),
+                current.distanceMeters(),
+                current.tsSec()));
+      }
+      if (cameraTagObservationChanged(lastLoggedCameraTagObs.get(camera), current)) {
+        cameraObsChanged = true;
+      }
+    }
+
+    Pose2d fusedPose = fusedCandidate.map(FusionCandidate::pose).orElse(null);
+    boolean odomChanged = poseChanged(lastLoggedOdomPose, odomPose);
+    boolean fusedChanged = fusedPose != null && poseChanged(lastLoggedFusedPose, fusedPose);
+
+    if (anyTagVisible && (odomChanged || fusedChanged || cameraObsChanged)) {
+      System.out.printf(
+          "[AprilTagTeleop] odom=(%.3f, %.3f, %.1fdeg) fused=%s tags=[%s]%n",
+          odomPose.getX(),
+          odomPose.getY(),
+          odomPose.getRotation().getDegrees(),
+          fusedPose == null
+              ? "none"
+              : String.format(
+                  "(%.3f, %.3f, %.1fdeg)",
+                  fusedPose.getX(), fusedPose.getY(), fusedPose.getRotation().getDegrees()),
+          tagSummary.toString());
+
+      lastLoggedOdomPose = odomPose;
+      if (fusedPose != null) {
+        lastLoggedFusedPose = fusedPose;
+      }
+      for (Cameras camera : Cameras.values()) {
+        lastLoggedCameraTagObs.put(camera, currentObs.get(camera));
+      }
+    }
   }
 
   /**

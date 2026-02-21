@@ -29,6 +29,7 @@ import frc.robot.autonomous.AutonomousManager;
 import frc.robot.commands.turret.DefaultCommand;
 import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
+import frc.robot.subsystems.swervedrive.SwerveSubsystem.FuelPalantirMode;
 import java.io.File;
 import java.io.IOException;
 import org.json.simple.parser.ParseException;
@@ -124,6 +125,18 @@ public class RobotContainer {
 
     // Create the NamedCommands that will be used in PathPlanner
     NamedCommands.registerCommand("test", Commands.print("I EXIST"));
+    NamedCommands.registerCommand(
+        "FuelPalantirContinue30",
+        drivebase.fuelPalantirCommand(FuelPalantirMode.CONTINUE_AFTER_30S));
+    NamedCommands.registerCommand(
+        "FuelPalantirStop20", drivebase.fuelPalantirCommand(FuelPalantirMode.STOP_AFTER_20S));
+    NamedCommands.registerCommand(
+        "ResetPoseFromAprilTags",
+        Commands.runOnce(
+            () -> {
+              boolean reset = drivebase.resetOdometryFromAprilTags();
+              System.out.printf("[PoseReset] source=APRILTAG commandResult=%s%n", reset);
+            }));
 
     autonomousManager = new AutonomousManager(drivebase);
 
@@ -209,7 +222,9 @@ public class RobotContainer {
       driverXbox.start().whileTrue(Commands.none());
       driverXbox.back().whileTrue(Commands.none());
       driverXbox.leftBumper().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
-      driverXbox.rightBumper().onTrue(Commands.none());
+      driverXbox
+          .rightBumper()
+          .onTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.CONTINUE_AFTER_30S));
 
       driverXbox.b().whileTrue(drivebase.logDetectedObjectAreaByCameraName("CAMERA0"));
 
@@ -251,9 +266,9 @@ public class RobotContainer {
     try {
       // Use the selected auto's path to get the starting pose
       Command selectedAuto = autonomousManager.getAutonomousCommand();
-      String autoName = selectedAuto != null ? selectedAuto.getName() : "path2";
-      // Extract path name from command name if possible, fall back to path2
-      String pathName = "path2";
+      String autoName = selectedAuto != null ? selectedAuto.getName() : "path_to_center";
+      // Extract path name from command name if possible, fall back to path_to_center
+      String pathName = "path_to_center";
       if (autoName.contains("PathPlanner-")) {
         int start = autoName.indexOf("PathPlanner-") + "PathPlanner-".length();
         int end = autoName.indexOf("-", start);

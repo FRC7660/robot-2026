@@ -17,14 +17,14 @@ import org.json.simple.parser.ParseException;
 
 public class AutonomousManager {
   private final SendableChooser<Command> autoChooser;
-  private final Command path2Auto;
+  private final Command pathToCenterAuto;
   private final SwerveSubsystem drivebase;
 
   public AutonomousManager(SwerveSubsystem drivebase) {
     this.drivebase = drivebase;
     autoChooser = AutoBuilder.buildAutoChooser();
-    path2Auto = buildPathPlannerPath2Command();
-    autoChooser.setDefaultOption("ToGo: path2", path2Auto);
+    pathToCenterAuto = buildPathPlannerPathToCenterCommand();
+    autoChooser.setDefaultOption("ToGo: path_to_center", pathToCenterAuto);
 
     SmartDashboard.putData("Auto Chooser", autoChooser);
   }
@@ -32,14 +32,14 @@ public class AutonomousManager {
   public Command getAutonomousCommand() {
     Command selected = autoChooser.getSelected();
     System.out.println("[AutoChooser] Selected command: " + selected);
-    return selected == null ? path2Auto : selected;
+    return selected == null ? pathToCenterAuto : selected;
   }
 
-  private Command buildPathPlannerPath2Command() {
+  private Command buildPathPlannerPathToCenterCommand() {
     return Commands.defer(
         () -> {
           try {
-            final String pathName = "path2";
+            final String pathName = "path_to_center";
             System.out.println("[AutoChooser] Loading PathPlanner path: " + pathName);
             PathPlannerPath path = PathPlannerPath.fromPathFile(pathName);
             System.out.println("[AutoChooser] Loaded PathPlanner path: " + pathName);
@@ -66,7 +66,8 @@ public class AutonomousManager {
                 .withName("PathPlanner-" + pathName + "-PathfindThenFollow");
           } catch (IOException | ParseException | FileVersionException e) {
             DriverStation.reportError(
-                "[AutoChooser] Failed to load PathPlanner path 'path2'", e.getStackTrace());
+                "[AutoChooser] Failed to load PathPlanner path 'path_to_center'",
+                e.getStackTrace());
             return Commands.none();
           }
         },
