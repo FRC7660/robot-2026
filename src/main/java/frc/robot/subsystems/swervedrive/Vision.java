@@ -14,9 +14,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import frc.robot.Robot;
 import frc.robot.lib.BufferedLogger;
-import java.awt.Desktop;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -24,10 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.photonvision.EstimatedRobotPose;
-import org.photonvision.PhotonPoseEstimator;
-import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 import org.photonvision.PhotonUtils;
-import org.photonvision.simulation.VisionSystemSim;
 import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 import swervelib.SwerveDrive;
@@ -118,9 +113,6 @@ public class Vision {
 
   // ── Instance state ────────────────────────────────────────────────────────
 
-  /** Photon Vision Simulation */
-  public VisionSystemSim visionSim;
-
   /** Current pose from the pose estimator using wheel odometry. */
   private Supplier<Pose2d> currentPose;
 
@@ -164,17 +156,6 @@ public class Vision {
     estimatorModeChooser.addOption("Off (No Pose Updates)", EstimatorMode.OFF);
     SmartDashboard.putData("Vision/EstimatorMode", estimatorModeChooser);
     SmartDashboard.putString("Vision/EstimatorMode/Selected", EstimatorMode.ADVANCED.name());
-
-    if (Robot.isSimulation()) {
-      visionSim = new VisionSystemSim("Vision");
-      visionSim.addAprilTags(fieldLayout);
-
-      for (Cameras c : Cameras.values()) {
-        c.addToVisionSim(visionSim);
-      }
-
-      openSimCameraViews();
-    }
   }
 
   // ── Pipeline Step 1: getCameraData() ──────────────────────────────────────
@@ -187,10 +168,7 @@ public class Vision {
   public Map<Cameras, CameraSnapshot> getCameraData() {
     EnumMap<Cameras, CameraSnapshot> data = new EnumMap<>(Cameras.class);
     for (Cameras camera : Cameras.values()) {
-      List<PhotonPipelineResult> results =
-          Robot.isReal()
-              ? camera.camera.getAllUnreadResults()
-              : camera.cameraSim.getCamera().getAllUnreadResults();
+      List<PhotonPipelineResult> results = camera.camera.getAllUnreadResults();
 
       PhotonPipelineResult latestResult = results.isEmpty() ? null : results.get(results.size() - 1);
 
@@ -969,24 +947,13 @@ public class Vision {
    *     create the estimate
    */
   public Optional<EstimatedRobotPose> getEstimatedGlobalPose(Cameras camera) {
-    List<PhotonPipelineResult> results =
-        Robot.isReal()
-            ? camera.camera.getAllUnreadResults()
-            : camera.cameraSim.getCamera().getAllUnreadResults();
+    List<PhotonPipelineResult> results = camera.camera.getAllUnreadResults();
 
     Optional<EstimatedRobotPose> poseEst = Optional.empty();
     for (PhotonPipelineResult result : results) {
       poseEst = camera.poseEstimator.update(result);
     }
 
-    if (Robot.isSimulation()) {
-      Field2d debugField = visionSim.getDebugField();
-      poseEst.ifPresentOrElse(
-          est -> debugField.getObject("VisionEstimation").setPose(est.estimatedPose.toPose2d()),
-          () -> {
-            debugField.getObject("VisionEstimation").setPoses();
-          });
-    }
     return poseEst;
   }
 
@@ -1024,25 +991,6 @@ public class Vision {
       }
     }
     return null;
-  }
-
-  /**
-   * Vision simulation.
-   *
-   * @return Vision Simulation
-   */
-  public VisionSystemSim getVisionSim() {
-    return visionSim;
-  }
-
-  /**
-   * Open up the photon vision camera streams on the localhost, assumes running photon vision on
-   * localhost.
-   */
-  private void openSimCameraViews() {
-    if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-      // Camera views disabled in code
-    }
   }
 
   /** Update the {@link Field2d} to include tracked targets. */
