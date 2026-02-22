@@ -157,7 +157,9 @@ public final class BufferedLogger {
     }
   }
 
-  /** @return the absolute path of the current log file */
+  /**
+   * @return the absolute path of the current log file
+   */
   public String getLogFilePath() {
     return logFilePath;
   }

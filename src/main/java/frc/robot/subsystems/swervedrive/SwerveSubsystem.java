@@ -28,6 +28,8 @@ import edu.wpi.first.math.trajectory.Trajectory;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -94,6 +96,9 @@ public class SwerveSubsystem extends SubsystemBase {
   /** PhotonVision class to keep an accurate odometry. */
   private Vision vision;
 
+  private final SendableChooser<Vision.EstimatorMode> visionEstimatorModeChooser;
+  private final SendableChooser<Boolean> visionDebugTelemetryChooser;
+
   private int currentAutoRunId = -1;
 
   /**
@@ -120,9 +125,7 @@ public class SwerveSubsystem extends SubsystemBase {
       System.out.println("[BootTrace] SwerveSubsystem creating SwerveDrive from parser");
       System.out.printf(
           "[BootTrace] SwerveSubsystem parser input pose=(%.3f, %.3f, %.1fdeg)%n",
-          startingPose.getX(),
-          startingPose.getY(),
-          startingPose.getRotation().getDegrees());
+          startingPose.getX(), startingPose.getY(), startingPose.getRotation().getDegrees());
       swerveDrive =
           new SwerveParser(directory).createSwerveDrive(Constants.MAX_SPEED, startingPose);
       System.out.println("[BootTrace] SwerveSubsystem created SwerveDrive");
@@ -150,6 +153,17 @@ public class SwerveSubsystem extends SubsystemBase {
     // swerveDrive.pushOffsetsToEncoders(); // Set the absolute encoder to be used
     // over the internal
     // encoder and push the offsets onto it. Throws warning if not possible
+    visionEstimatorModeChooser = new SendableChooser<>();
+    visionEstimatorModeChooser.setDefaultOption(
+        "Advanced (Default)", Vision.EstimatorMode.ADVANCED);
+    visionEstimatorModeChooser.addOption("Basic", Vision.EstimatorMode.BASIC);
+    visionEstimatorModeChooser.addOption("Off (No Pose Updates)", Vision.EstimatorMode.OFF);
+    SmartDashboard.putData("Vision/EstimatorMode", visionEstimatorModeChooser);
+    visionDebugTelemetryChooser = new SendableChooser<>();
+    visionDebugTelemetryChooser.setDefaultOption("Off (Default)", false);
+    visionDebugTelemetryChooser.addOption("On", true);
+    SmartDashboard.putData("Vision/DebugTelemetry", visionDebugTelemetryChooser);
+
     if (visionDriveTest) {
       System.out.println("[BootTrace] SwerveSubsystem setupPhotonVision start");
       setupPhotonVision();
@@ -171,6 +185,16 @@ public class SwerveSubsystem extends SubsystemBase {
    */
   public SwerveSubsystem(
       SwerveDriveConfiguration driveCfg, SwerveControllerConfiguration controllerCfg) {
+    visionEstimatorModeChooser = new SendableChooser<>();
+    visionEstimatorModeChooser.setDefaultOption(
+        "Advanced (Default)", Vision.EstimatorMode.ADVANCED);
+    visionEstimatorModeChooser.addOption("Basic", Vision.EstimatorMode.BASIC);
+    visionEstimatorModeChooser.addOption("Off (No Pose Updates)", Vision.EstimatorMode.OFF);
+    SmartDashboard.putData("Vision/EstimatorMode", visionEstimatorModeChooser);
+    visionDebugTelemetryChooser = new SendableChooser<>();
+    visionDebugTelemetryChooser.setDefaultOption("Off (Default)", false);
+    visionDebugTelemetryChooser.addOption("On", true);
+    SmartDashboard.putData("Vision/DebugTelemetry", visionDebugTelemetryChooser);
     swerveDrive =
         new SwerveDrive(
             driveCfg,
@@ -181,7 +205,12 @@ public class SwerveSubsystem extends SubsystemBase {
 
   /** Setup the photon vision class. */
   public void setupPhotonVision() {
-    vision = new Vision(swerveDrive::getPose, swerveDrive.field);
+    vision =
+        new Vision(
+            swerveDrive::getPose,
+            swerveDrive.field,
+            visionEstimatorModeChooser::getSelected,
+            visionDebugTelemetryChooser::getSelected);
   }
 
   @Override
@@ -572,8 +601,7 @@ public class SwerveSubsystem extends SubsystemBase {
 
   private void debugAuto(String message) {
     String runId = currentAutoRunId > 0 ? String.format("RUN-%04d", currentAutoRunId) : "RUN-none";
-    BufferedLogger.getInstance()
-        .printf("[AutoShuttle][%s] %s", runId, message);
+    BufferedLogger.getInstance().printf("[AutoShuttle][%s] %s", runId, message);
   }
 
   private boolean shouldDebugLog(AtomicReference<Double> lastLogTimeSec, double periodSec) {
@@ -1303,7 +1331,8 @@ public class SwerveSubsystem extends SubsystemBase {
                   startRun(
                           () -> {
                             startTimeSec.set(Timer.getFPGATimestamp());
-                            state.set(new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
+                            state.set(
+                                new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
                             lastStep.set(null);
                             debugAuto(
                                 String.format(
@@ -1315,18 +1344,24 @@ public class SwerveSubsystem extends SubsystemBase {
                               debugAuto("FUEL PALANTIR no vision instance available");
                               lastStep.set(
                                   new FuelPalantir.FuelPalantirStep(
-                                      state.get(), 0.0, 0.0, false, true, "vision_not_initialized"));
+                                      state.get(),
+                                      0.0,
+                                      0.0,
+                                      false,
+                                      true,
+                                      "vision_not_initialized"));
                               swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
                               return;
                             }
                             double elapsed = Timer.getFPGATimestamp() - startTimeSec.get();
-                            Map<Cameras, Vision.CameraSnapshot> cameraData = vision.getLatestCameraData();
+                            Map<Cameras, Vision.CameraSnapshot> cameraData =
+                                vision.getLatestCameraData();
                             FuelPalantir.FuelPalantirStep step =
-                                FuelPalantir.fuelPalantir(
-                                    cameraData, state.get(), mode, elapsed);
+                                FuelPalantir.fuelPalantir(cameraData, state.get(), mode, elapsed);
                             state.set(step.nextState());
                             lastStep.set(step);
-                            Optional<Cameras> lockedCameraForDrive = step.nextState().lockedCamera();
+                            Optional<Cameras> lockedCameraForDrive =
+                                step.nextState().lockedCamera();
                             double commandedForwardMps = step.forwardMps();
                             if (lockedCameraForDrive.isPresent()
                                 && lockedCameraForDrive.get() == Cameras.BACK_CAMERA) {
@@ -1365,8 +1400,12 @@ public class SwerveSubsystem extends SubsystemBase {
                                       lockedCamera.map(Enum::name).orElse("none"),
                                       backCameraTarget.isPresent(),
                                       frontCameraTarget.isPresent(),
-                                      lockedTarget.map(PhotonTrackedTarget::getYaw).orElse(Double.NaN),
-                                      lockedTarget.map(PhotonTrackedTarget::getArea).orElse(Double.NaN),
+                                      lockedTarget
+                                          .map(PhotonTrackedTarget::getYaw)
+                                          .orElse(Double.NaN),
+                                      lockedTarget
+                                          .map(PhotonTrackedTarget::getArea)
+                                          .orElse(Double.NaN),
                                       commandedForwardMps,
                                       step.rotationRadPerSec(),
                                       step.fuelCollectedThisCycle(),

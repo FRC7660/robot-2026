@@ -12,7 +12,6 @@ import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.lib.BufferedLogger;
 import java.util.ArrayList;
@@ -104,12 +103,22 @@ public class Vision {
   static final double MAX_SINGLE_TAG_AMBIGUITY = 0.25;
   static final int CONSECUTIVE_OUTLIER_OVERRIDE_COUNT = 15;
   private static final double FUSION_STATUS_LOG_PERIOD_SEC = 1.0;
+  private static final double PIPELINE_STATS_LOG_PERIOD_SEC = 5.0;
+  private static final double FETCH_DEBUG_THRESHOLD_MS = 8.0;
+  private static final double FETCH_DEBUG_LOG_PERIOD_SEC = 0.5;
   private static final double POSE_LOG_TRANSLATION_DELTA_METERS = 0.05;
   private static final double POSE_LOG_ROTATION_DELTA_DEG = 2.0;
   private static final double TAG_YAW_LOG_DELTA_DEG = 1.0;
   private static final double TAG_DISTANCE_LOG_DELTA_METERS = 0.05;
   private static final double TAG_TIMESTAMP_LOG_DELTA_SEC = 0.1;
   private static final double TELEOP_TAG_RECORD_PERIOD_SEC = 0.25;
+  private static final int PIPELINE_STEP_COUNT = 5;
+  private static final int STEP_FETCH = 0;
+  private static final int STEP_EST = 1;
+  private static final int STEP_SELECT = 2;
+  private static final int STEP_APPLY = 3;
+  private static final int STEP_TOTAL = 4;
+  private static final String[] PIPELINE_STEP_LABELS = {"fetch", "est", "select", "apply", "total"};
 
   // ── Instance state ────────────────────────────────────────────────────────
 
@@ -119,9 +128,12 @@ public class Vision {
   /** Field from {@link swervelib.SwerveDrive#field} */
   private Field2d field2d;
 
+  private final Supplier<EstimatorMode> estimatorModeInput;
+  private final Supplier<Boolean> debugTelemetryEnabledInput;
   private final EnumMap<Cameras, Double> lastFusedTimestampSec = new EnumMap<>(Cameras.class);
-  private final SendableChooser<EstimatorMode> estimatorModeChooser = new SendableChooser<>();
   private double lastFusionStatusLogSec = Double.NEGATIVE_INFINITY;
+  private double lastPipelineStatsLogSec = Double.NEGATIVE_INFINITY;
+  private double lastFetchDebugLogSec = Double.NEGATIVE_INFINITY;
   private int acceptedUpdates = 0;
   private int rejectedNoEstimate = 0;
   private int rejectedStale = 0;
@@ -131,6 +143,10 @@ public class Vision {
   private int rejectedAmbiguity = 0;
   private int rejectedOutOfField = 0;
   private int consecutiveOutlierCount = 0;
+  private final double[] pipelineStepMinMs = new double[PIPELINE_STEP_COUNT];
+  private final double[] pipelineStepMaxMs = new double[PIPELINE_STEP_COUNT];
+  private final double[] pipelineStepSumMs = new double[PIPELINE_STEP_COUNT];
+  private final long[] pipelineStepCount = new long[PIPELINE_STEP_COUNT];
   private Pose2d lastLoggedOdomPose = null;
   private Pose2d lastLoggedFusedPose = null;
   private final EnumMap<Cameras, CameraTagObservation> lastLoggedCameraTagObs =
@@ -143,19 +159,28 @@ public class Vision {
    *
    * @param currentPose Current pose supplier, should reference {@link SwerveDrive#getPose()}
    * @param field Current field, should be {@link SwerveDrive#field}
+   * @param estimatorModeInput user-selected estimator mode supplier
+   * @param debugTelemetryEnabledInput user-selected debug telemetry enabled supplier
    */
-  public Vision(Supplier<Pose2d> currentPose, Field2d field) {
+  public Vision(
+      Supplier<Pose2d> currentPose,
+      Field2d field,
+      Supplier<EstimatorMode> estimatorModeInput,
+      Supplier<Boolean> debugTelemetryEnabledInput) {
     this.currentPose = currentPose;
     this.field2d = field;
+    this.estimatorModeInput = estimatorModeInput;
+    this.debugTelemetryEnabledInput = debugTelemetryEnabledInput;
 
     for (Cameras camera : Cameras.values()) {
       lastFusedTimestampSec.put(camera, Double.NEGATIVE_INFINITY);
     }
-    estimatorModeChooser.setDefaultOption("Advanced (Default)", EstimatorMode.ADVANCED);
-    estimatorModeChooser.addOption("Basic", EstimatorMode.BASIC);
-    estimatorModeChooser.addOption("Off (No Pose Updates)", EstimatorMode.OFF);
-    SmartDashboard.putData("Vision/EstimatorMode", estimatorModeChooser);
-    SmartDashboard.putString("Vision/EstimatorMode/Selected", EstimatorMode.ADVANCED.name());
+    for (int i = 0; i < PIPELINE_STEP_COUNT; i++) {
+      pipelineStepMinMs[i] = Double.POSITIVE_INFINITY;
+      pipelineStepMaxMs[i] = Double.NEGATIVE_INFINITY;
+      pipelineStepSumMs[i] = 0.0;
+      pipelineStepCount[i] = 0;
+    }
   }
 
   // ── Pipeline Step 1: getCameraData() ──────────────────────────────────────
@@ -170,7 +195,8 @@ public class Vision {
     for (Cameras camera : Cameras.values()) {
       List<PhotonPipelineResult> results = camera.camera.getAllUnreadResults();
 
-      PhotonPipelineResult latestResult = results.isEmpty() ? null : results.get(results.size() - 1);
+      PhotonPipelineResult latestResult =
+          results.isEmpty() ? null : results.get(results.size() - 1);
 
       data.put(camera, new CameraSnapshot(camera, results, latestResult));
     }
@@ -481,21 +507,17 @@ public class Vision {
    */
   public SelectionResult selectBestPose(
       List<PoseEstimationResult> estimations, SwerveDrive swerveDrive) {
-    EstimatorMode selectedMode = estimatorModeChooser.getSelected();
+    EstimatorMode selectedMode = estimatorModeInput == null ? null : estimatorModeInput.get();
     if (selectedMode == null) {
       selectedMode = EstimatorMode.ADVANCED;
     }
-    SmartDashboard.putString("Vision/EstimatorMode/Selected", selectedMode.name());
     if (selectedMode == EstimatorMode.OFF) {
       return new SelectionResult(Optional.empty(), 0, 0, 0, 0, 0, 0, 0);
     }
     return selectedMode == EstimatorMode.BASIC
         ? selectBasicPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec)
         : selectAdvancedPose(
-            estimations,
-            swerveDrive.getPose(),
-            lastFusedTimestampSec,
-            consecutiveOutlierCount);
+            estimations, swerveDrive.getPose(), lastFusedTimestampSec, consecutiveOutlierCount);
   }
 
   // ── Pipeline: setVisionMeasurement ─────────────────────────────────────
@@ -577,15 +599,68 @@ public class Vision {
     setVisionMeasurement(swerveDrive, selection);
     long t4 = System.nanoTime();
 
-    publishDashboardTelemetry(
-        cameraData,
-        rawLatestPoseByCamera,
-        estimations,
-        swerveDrive.getPose(),
-        selection.bestCandidate());
+    boolean debugTelemetryEnabled =
+        debugTelemetryEnabledInput != null && Boolean.TRUE.equals(debugTelemetryEnabledInput.get());
+    if (debugTelemetryEnabled) {
+      publishDashboardTelemetry(
+          cameraData,
+          rawLatestPoseByCamera,
+          estimations,
+          swerveDrive.getPose(),
+          selection.bestCandidate());
+    }
     logAprilTagTelemetryOnChange(cameraData, swerveDrive.getPose(), selection.bestCandidate());
     logTeleopAprilTagRecord(cameraData, estimations);
     logPipelineCycle(t0, t1, t2, t3, t4);
+  }
+
+  private void maybeLogSlowFetch(
+      Map<Cameras, CameraSnapshot> cameraData,
+      Map<Cameras, Optional<EstimatedRobotPose>> rawLatestPoseByCamera,
+      long fetchStartNs,
+      long fetchAfterCameraDataNs,
+      long fetchAfterRawPoseNs) {
+    double fetchCameraDataMs = (fetchAfterCameraDataNs - fetchStartNs) / 1e6;
+    double fetchRawPoseMs = (fetchAfterRawPoseNs - fetchAfterCameraDataNs) / 1e6;
+    double fetchTotalMs = (fetchAfterRawPoseNs - fetchStartNs) / 1e6;
+
+    if (fetchTotalMs < FETCH_DEBUG_THRESHOLD_MS) {
+      return;
+    }
+
+    double now = Timer.getFPGATimestamp();
+    if (now - lastFetchDebugLogSec < FETCH_DEBUG_LOG_PERIOD_SEC) {
+      return;
+    }
+    lastFetchDebugLogSec = now;
+
+    StringBuilder perCamera = new StringBuilder();
+    for (Cameras camera : Cameras.values()) {
+      CameraSnapshot snapshot = cameraData.get(camera);
+      int unreadCount =
+          snapshot == null || snapshot.aprilTagResults() == null
+              ? 0
+              : snapshot.aprilTagResults().size();
+      PhotonPipelineResult latest = snapshot == null ? null : snapshot.latestResult();
+      boolean hasLatest = latest != null;
+      boolean hasTargets = hasLatest && latest.hasTargets();
+      double latestTs = hasLatest ? latest.getTimestampSeconds() : Double.NaN;
+      double ageMs = hasLatest ? Math.max(0.0, (now - latestTs) * 1000.0) : Double.NaN;
+      boolean rawPosePresent =
+          rawLatestPoseByCamera.getOrDefault(camera, Optional.empty()).isPresent();
+
+      if (perCamera.length() > 0) {
+        perCamera.append(" | ");
+      }
+      perCamera.append(
+          String.format(
+              "%s{unread=%d hasTargets=%s latestAgeMs=%.1f rawPose=%s}",
+              camera.name(), unreadCount, hasTargets, ageMs, rawPosePresent));
+    }
+
+    System.out.printf(
+        "[VisionPipeline] FETCH-SLOW fetch=%.1fms cameraData=%.1fms rawPose=%.1fms detail=[%s]%n",
+        fetchTotalMs, fetchCameraDataMs, fetchRawPoseMs, perCamera.toString());
   }
 
   private Optional<CameraTagObservation> getClosestTagObservation(CameraSnapshot snapshot) {
@@ -661,7 +736,8 @@ public class Vision {
       SmartDashboard.putNumber(prefix + "/X", pose.getX());
       SmartDashboard.putNumber(prefix + "/Y", pose.getY());
       SmartDashboard.putNumber(prefix + "/Z", pose.getZ());
-      SmartDashboard.putNumber(prefix + "/HeadingDeg", pose.getRotation().toRotation2d().getDegrees());
+      SmartDashboard.putNumber(
+          prefix + "/HeadingDeg", pose.getRotation().toRotation2d().getDegrees());
     }
   }
 
@@ -696,7 +772,8 @@ public class Vision {
       }
 
       String rawPoseKey = "Vision/" + camera.name() + "/RawLatestPose";
-      Optional<EstimatedRobotPose> rawPose = rawLatestPoseByCamera.getOrDefault(camera, Optional.empty());
+      Optional<EstimatedRobotPose> rawPose =
+          rawLatestPoseByCamera.getOrDefault(camera, Optional.empty());
       if (rawPose.isPresent()) {
         publishPose3dToDashboard(rawPoseKey, rawPose.get().estimatedPose, true);
       } else {
@@ -805,7 +882,9 @@ public class Vision {
 
     for (Cameras camera : Cameras.values()) {
       CameraSnapshot snapshot = cameraData.get(camera);
-      if (snapshot == null || snapshot.latestResult() == null || !snapshot.latestResult().hasTargets()) {
+      if (snapshot == null
+          || snapshot.latestResult() == null
+          || !snapshot.latestResult().hasTargets()) {
         continue;
       }
 
@@ -822,16 +901,15 @@ public class Vision {
             tagPose.isPresent()
                 ? String.format(
                     "(x=%.2f,y=%.2f,z=%.2f)",
-                    tagPose.get().getX(),
-                    tagPose.get().getY(),
-                    tagPose.get().getZ())
+                    tagPose.get().getX(), tagPose.get().getY(), tagPose.get().getZ())
                 : "(unknown)";
         if (camTags.length() > 0) {
           camTags.append(", ");
         }
         camTags.append(
             String.format(
-                "id=%d yaw=%.1f dist=%.2f fieldPose=%s", tagId, target.getYaw(), dist, tagPoseText));
+                "id=%d yaw=%.1f dist=%.2f fieldPose=%s",
+                tagId, target.getYaw(), dist, tagPoseText));
       }
 
       if (camTags.length() == 0) {
@@ -859,7 +937,8 @@ public class Vision {
         sb.append(" | ");
       }
       sb.append(
-          String.format("%s robotPose=%s tags=[%s]", camera.name(), robotPoseText, camTags.toString()));
+          String.format(
+              "%s robotPose=%s tags=[%s]", camera.name(), robotPoseText, camTags.toString()));
     }
 
     if (sawAnyTag) {
@@ -883,6 +962,11 @@ public class Vision {
     double selectMs = (t3 - t2) / 1e6;
     double applyMs = (t4 - t3) / 1e6;
     double totalMs = (t4 - t0) / 1e6;
+    recordPipelineStepTiming(STEP_FETCH, fetchMs);
+    recordPipelineStepTiming(STEP_EST, estMs);
+    recordPipelineStepTiming(STEP_SELECT, selectMs);
+    recordPipelineStepTiming(STEP_APPLY, applyMs);
+    recordPipelineStepTiming(STEP_TOTAL, totalMs);
 
     if (totalMs > 5.0) {
       BufferedLogger.getInstance()
@@ -907,6 +991,36 @@ public class Vision {
               rejectedOutlier,
               consecutiveOutlierCount);
     }
+
+    if (now - lastPipelineStatsLogSec >= PIPELINE_STATS_LOG_PERIOD_SEC) {
+      lastPipelineStatsLogSec = now;
+      System.out.printf("[VisionPipeline] stats %s%n", formatPipelineStepStats());
+    }
+  }
+
+  private void recordPipelineStepTiming(int stepIndex, double ms) {
+    pipelineStepMinMs[stepIndex] = Math.min(pipelineStepMinMs[stepIndex], ms);
+    pipelineStepMaxMs[stepIndex] = Math.max(pipelineStepMaxMs[stepIndex], ms);
+    pipelineStepSumMs[stepIndex] += ms;
+    pipelineStepCount[stepIndex]++;
+  }
+
+  private String formatPipelineStepStats() {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < PIPELINE_STEP_COUNT; i++) {
+      if (i > 0) {
+        sb.append(" ");
+      }
+      long count = pipelineStepCount[i];
+      double minMs = count > 0 ? pipelineStepMinMs[i] : Double.NaN;
+      double maxMs = count > 0 ? pipelineStepMaxMs[i] : Double.NaN;
+      double avgMs = count > 0 ? (pipelineStepSumMs[i] / count) : Double.NaN;
+      sb.append(
+          String.format(
+              "%s={min=%.2fms max=%.2fms avg=%.2fms count=%d}",
+              PIPELINE_STEP_LABELS[i], minMs, maxMs, avgMs, count));
+    }
+    return sb.toString();
   }
 
   /**
@@ -998,7 +1112,9 @@ public class Vision {
     List<PhotonTrackedTarget> targets = new ArrayList<PhotonTrackedTarget>();
     for (Cameras c : Cameras.values()) {
       CameraSnapshot snapshot = latestCameraData.get(c);
-      if (snapshot != null && snapshot.latestResult() != null && snapshot.latestResult().hasTargets()) {
+      if (snapshot != null
+          && snapshot.latestResult() != null
+          && snapshot.latestResult().hasTargets()) {
         targets.addAll(snapshot.latestResult().targets);
       }
     }
