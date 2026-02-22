@@ -7,14 +7,15 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * High-performance buffered logger that writes timestamped log files to local disk.
  *
- * <p>A new log file is created each time the robot program starts. Messages are buffered in memory
- * and flushed to disk either when the buffer reaches a line-count threshold or on a timed schedule
- * via {@link #periodic()}. Output is also mirrored to {@code System.out} so it remains visible in
- * the Driver Station console.
+ * <p>A new log file is created each time the robot program starts. Messages are queued lock-free
+ * from the main robot thread and written to disk by a dedicated background thread, so disk I/O
+ * never blocks the 50Hz control loop. Output is also mirrored to {@code System.out} so it remains
+ * visible in the Driver Station console.
  *
  * <p>Usage:
  *
@@ -22,12 +23,9 @@ import java.time.format.DateTimeFormatter;
  * // In robotInit():
  * BufferedLogger.getInstance();
  *
- * // In robotPeriodic():
- * BufferedLogger.getInstance().periodic();
- *
  * // Anywhere you previously used System.out.println / printf:
  * BufferedLogger.getInstance().println("[MyTag] something happened");
- * BufferedLogger.getInstance().printf("[MyTag] value=%d%n", 42);
+ * BufferedLogger.getInstance().printf("[MyTag] value=%d", 42);
  * }</pre>
  */
 public final class BufferedLogger {
@@ -36,14 +34,13 @@ public final class BufferedLogger {
 
   private static final String LOG_DIR = "/home/lvuser/logs";
   private static final int BUFFER_CAPACITY = 8192;
-  private static final int FLUSH_LINE_THRESHOLD = 50;
-  private static final double FLUSH_PERIOD_SEC = 0.5;
+  private static final long FLUSH_INTERVAL_MS = 500;
 
-  private final StringBuilder buffer = new StringBuilder(BUFFER_CAPACITY);
+  private final ConcurrentLinkedQueue<String> queue = new ConcurrentLinkedQueue<>();
   private final BufferedWriter writer;
   private final String logFilePath;
-  private int lineCount;
-  private double lastFlushSec;
+  private final Thread writerThread;
+  private volatile boolean running = true;
 
   private BufferedLogger() {
     String timestamp =
@@ -61,6 +58,10 @@ public final class BufferedLogger {
     System.out.println("========================================");
     System.out.println("[BufferedLogger] Log file: " + logFilePath);
     System.out.println("========================================");
+
+    writerThread = new Thread(this::writerLoop, "BufferedLogger");
+    writerThread.setDaemon(true);
+    writerThread.start();
   }
 
   /** Get the singleton instance, creating it (and the log file) on first call. */
@@ -72,18 +73,15 @@ public final class BufferedLogger {
   }
 
   /**
-   * Log a single line. A FPGA-timestamp prefix is prepended automatically.
+   * Log a single line. A FPGA-timestamp prefix is prepended automatically. This method is lock-free
+   * and safe to call from the main robot thread.
    *
    * @param message the message to log
    */
   public void println(String message) {
     String line = String.format("[%.3f] %s", Timer.getFPGATimestamp(), message);
-    buffer.append(line).append('\n');
-    lineCount++;
+    queue.add(line);
     System.out.println(line);
-    if (lineCount >= FLUSH_LINE_THRESHOLD) {
-      flush();
-    }
   }
 
   /**
@@ -100,44 +98,56 @@ public final class BufferedLogger {
       formatted = formatted.substring(0, formatted.length() - 1);
     }
     String line = String.format("[%.3f] %s", Timer.getFPGATimestamp(), formatted);
-    buffer.append(line).append('\n');
-    lineCount++;
+    queue.add(line);
     System.out.println(line);
-    if (lineCount >= FLUSH_LINE_THRESHOLD) {
-      flush();
-    }
   }
 
-  /**
-   * Call from {@code robotPeriodic()} to flush buffered messages on a timed schedule. This ensures
-   * messages reach disk even during low-activity periods without blocking every loop iteration.
-   */
-  public void periodic() {
-    double now = Timer.getFPGATimestamp();
-    if (lineCount > 0 && now - lastFlushSec >= FLUSH_PERIOD_SEC) {
-      flush();
-      lastFlushSec = now;
+  /** Background loop that drains the queue and writes to disk. */
+  private void writerLoop() {
+    StringBuilder batch = new StringBuilder(BUFFER_CAPACITY);
+    while (running) {
+      try {
+        Thread.sleep(FLUSH_INTERVAL_MS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        break;
+      }
+      drainTo(batch);
     }
+    // Final drain on shutdown
+    drainTo(batch);
   }
 
-  /** Flush all buffered messages to disk immediately. */
-  public void flush() {
-    if (writer == null || lineCount == 0) {
+  /** Drain all queued messages into the writer. */
+  private void drainTo(StringBuilder batch) {
+    if (writer == null) {
+      queue.clear();
+      return;
+    }
+    batch.setLength(0);
+    String line;
+    while ((line = queue.poll()) != null) {
+      batch.append(line).append('\n');
+    }
+    if (batch.length() == 0) {
       return;
     }
     try {
-      writer.write(buffer.toString());
+      writer.write(batch.toString());
       writer.flush();
     } catch (IOException e) {
       System.err.println("[BufferedLogger] Flush failed: " + e.getMessage());
     }
-    buffer.setLength(0);
-    lineCount = 0;
   }
 
   /** Flush and close the underlying file writer. Call on robot shutdown if possible. */
   public void close() {
-    flush();
+    running = false;
+    try {
+      writerThread.join(2000);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
     try {
       if (writer != null) {
         writer.close();
