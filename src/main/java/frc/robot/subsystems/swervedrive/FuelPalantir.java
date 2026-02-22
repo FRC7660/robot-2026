@@ -13,6 +13,7 @@ public class FuelPalantir {
   static final double FUEL_APPROACH_STOP_AREA = 4.5;
   static final double FUEL_APPROACH_MIN_FORWARD_MPS = 0.10;
   static final double FUEL_APPROACH_MAX_FORWARD_MPS = 0.35;
+  static final double FUEL_APPROACH_AREA_P_GAIN = 0.08;
   static final double FUEL_APPROACH_TIMEOUT_SEC = 10.0;
   static final int FUEL_TARGET_COUNT = 8;
   static final double FUEL_PALANTIR_CONTINUE_TIMEOUT_SEC = 30.0;
@@ -25,8 +26,7 @@ public class FuelPalantir {
     STOP_AFTER_20S
   }
 
-  public record FuelPalantirState(
-      int proxyCollectedFuelCount, Optional<Cameras> lockedCamera, boolean holdAfterCompletion) {}
+  public record FuelPalantirState(int proxyCollectedFuelCount, Optional<Cameras> lockedCamera) {}
 
   public record FuelPalantirStep(
       FuelPalantirState nextState,
@@ -67,7 +67,12 @@ public class FuelPalantir {
   static Optional<Cameras> chooseLockCamera(
       Map<Cameras, Vision.CameraSnapshot> cameraData, Optional<Cameras> currentlyLocked) {
     if (currentlyLocked.isPresent()) {
-      return currentlyLocked;
+      Optional<PhotonTrackedTarget> lockedTarget =
+          getClosestNonFiducialTarget(cameraData.get(currentlyLocked.get()));
+      if (lockedTarget.isPresent()) {
+        return currentlyLocked;
+      }
+      // Lock released: locked camera no longer sees any fuel
     }
     Cameras[] candidates = {Cameras.CAMERA0, Cameras.CAMERA1};
     Cameras bestCamera = null;
@@ -110,6 +115,9 @@ public class FuelPalantir {
       double yawDeg = target.get().getYaw();
       rotation = SwerveSubsystem.calculateRotationFromYawDeg(yawDeg);
       double area = target.get().getArea();
+      // TODO: Double-counting risk -- if area >= threshold persists across multiple cycles,
+      // proxyCollectedFuelCount increments each cycle for the same piece. Add edge detection
+      // (only count transition from below-threshold to above-threshold).
       if (area >= FUEL_APPROACH_STOP_AREA) {
         collectedThisCycle = true;
         forward = 0.0;
@@ -117,21 +125,21 @@ public class FuelPalantir {
         double areaError = FUEL_APPROACH_STOP_AREA - area;
         forward =
             MathUtil.clamp(
-                areaError * 0.08, FUEL_APPROACH_MIN_FORWARD_MPS, FUEL_APPROACH_MAX_FORWARD_MPS);
+                areaError * FUEL_APPROACH_AREA_P_GAIN,
+                FUEL_APPROACH_MIN_FORWARD_MPS,
+                FUEL_APPROACH_MAX_FORWARD_MPS);
       }
     }
 
     int nextProxyCount = currentState.proxyCollectedFuelCount() + (collectedThisCycle ? 1 : 0);
     boolean reachedFuelTarget = hasCollectedFuelTargetCount(nextProxyCount, FUEL_TARGET_COUNT);
     boolean timedOut = elapsedSec >= timeoutSec;
-    boolean holdAfterCompletion =
-        mode == FuelPalantirMode.STOP_AFTER_20S && timedOut && !reachedFuelTarget;
     boolean completed = reachedFuelTarget || timedOut;
     String reason =
         reachedFuelTarget ? "target_fuel_count_reached" : (timedOut ? "timeout" : "searching");
 
     return new FuelPalantirStep(
-        new FuelPalantirState(nextProxyCount, lockedCamera, holdAfterCompletion),
+        new FuelPalantirState(nextProxyCount, lockedCamera),
         forward,
         rotation,
         collectedThisCycle,

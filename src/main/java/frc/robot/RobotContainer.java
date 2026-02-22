@@ -188,7 +188,8 @@ public class RobotContainer {
             () -> {
               boolean reset = drivebase.resetOdometryFromAprilTags();
               System.out.printf("[PoseReset] source=APRILTAG commandResult=%s%n", reset);
-            }));
+            },
+            drivebase));
 
     System.out.println("[BootTrace] AutonomousManager create start");
     autonomousManager = new AutonomousManager(drivebase);
@@ -280,7 +281,9 @@ public class RobotContainer {
       driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
       driverXbox.back().whileTrue(drivebase.centerModulesCommand());
       driverXbox.leftBumper().whileTrue(new YAGSLPitCheck(drivebase));
-      driverXbox.rightBumper().onTrue(drivebase.trackDetectedObjectByCameraName("CAMERA0", 3.0));
+      driverXbox
+          .rightBumper()
+          .whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.CONTINUE_AFTER_30S));
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
@@ -289,9 +292,9 @@ public class RobotContainer {
       driverXbox.leftBumper().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
       driverXbox
           .rightBumper()
-          .onTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.CONTINUE_AFTER_30S));
+          .whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.CONTINUE_AFTER_30S));
 
-      driverXbox.b().whileTrue(drivebase.logDetectedObjectAreaByCameraName("CAMERA0"));
+      driverXbox.b().whileTrue(drivebase.logDetectedObjectAreaByCameraName("BACK_CAMERA"));
 
       driverXbox.y().whileTrue(drivebase.sysIdDriveMotorCommand());
     }
