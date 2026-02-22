@@ -85,7 +85,9 @@ public class Vision {
       int rejectedStale,
       int rejectedLowTagFar,
       int rejectedHighStd,
-      int rejectedOutlier) {}
+      int rejectedOutlier,
+      int rejectedAmbiguity,
+      int rejectedOutOfField) {}
 
   /** Per-camera raw AprilTag observation summary from the latest frame. */
   public record CameraTagObservation(
@@ -99,10 +101,13 @@ public class Vision {
 
   static final double STALE_TIMESTAMP_EPSILON_SEC = 1e-4;
   static final int MIN_TAGS_FOR_DIRECT_ACCEPT = 2;
-  static final double MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS = 0.8;
+  static final double MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS = 1.2;
   static final double MAX_TRANSLATION_OUTLIER_METERS = 1.5;
+  static final double MAX_MULTI_TAG_TRANSLATION_OUTLIER_METERS = 3.0;
   static final double MAX_STD_XY_METERS = 5.0;
   static final double MAX_STD_THETA_RAD = 10.0;
+  static final double MAX_SINGLE_TAG_AMBIGUITY = 0.25;
+  static final int CONSECUTIVE_OUTLIER_OVERRIDE_COUNT = 15;
   private static final double FUSION_STATUS_LOG_PERIOD_SEC = 1.0;
   private static final double POSE_LOG_TRANSLATION_DELTA_METERS = 0.05;
   private static final double POSE_LOG_ROTATION_DELTA_DEG = 2.0;
@@ -131,6 +136,9 @@ public class Vision {
   private int rejectedLowTagFar = 0;
   private int rejectedHighStd = 0;
   private int rejectedOutlier = 0;
+  private int rejectedAmbiguity = 0;
+  private int rejectedOutOfField = 0;
+  private int consecutiveOutlierCount = 0;
   private Pose2d lastLoggedOdomPose = null;
   private Pose2d lastLoggedFusedPose = null;
   private final EnumMap<Cameras, CameraTagObservation> lastLoggedCameraTagObs =
@@ -285,27 +293,48 @@ public class Vision {
     return estStdDevs;
   }
 
-  // ── Pipeline Step 3: selectAdvancedPose() (pure static) ──────────────────
+  // ── Pipeline Step 3: selectAdvancedPose() ─────────────────────────────────
 
   /**
    * Filter and score pose estimation results using advanced rejection filters, selecting the best
    * candidate.
    *
+   * <p>Rejection filters applied in order:
+   *
+   * <ol>
+   *   <li>No estimate available
+   *   <li>Stale timestamp (already fused)
+   *   <li>Out of field bounds
+   *   <li>High ambiguity on single-tag estimates
+   *   <li>Single tag + far from odometry
+   *   <li>Standard deviations too high
+   *   <li>Translation outlier (with consecutive-outlier override and multi-tag leniency)
+   * </ol>
+   *
    * @param estimations results from {@link #updateAprilTagError}
    * @param currentPose the current robot pose from odometry
    * @param lastFusedTimestamps last fused timestamp per camera
+   * @param consecutiveOutliers number of consecutive cycles where all candidates were rejected as
+   *     outliers; used to force-accept after {@link #CONSECUTIVE_OUTLIER_OVERRIDE_COUNT}
    * @return selection result with best candidate and rejection counts
    */
   static SelectionResult selectAdvancedPose(
       List<PoseEstimationResult> estimations,
       Pose2d currentPose,
-      Map<Cameras, Double> lastFusedTimestamps) {
+      Map<Cameras, Double> lastFusedTimestamps,
+      int consecutiveOutliers) {
     int rejNoEst = 0;
     int rejStale = 0;
     int rejLowTagFar = 0;
     int rejHighStd = 0;
     int rejOutlier = 0;
+    int rejAmbiguity = 0;
+    int rejOutOfField = 0;
     FusionCandidate best = null;
+
+    double fieldLength = fieldLayout.getFieldLength();
+    double fieldWidth = fieldLayout.getFieldWidth();
+    boolean forceAcceptOutlier = consecutiveOutliers >= CONSECUTIVE_OUTLIER_OVERRIDE_COUNT;
 
     for (PoseEstimationResult est : estimations) {
       if (est.estimatedPose().isEmpty()) {
@@ -322,7 +351,31 @@ public class Vision {
         continue;
       }
 
+      // Reject poses outside the field
+      double x = pose2d.getX();
+      double y = pose2d.getY();
+      if (x < 0 || x > fieldLength || y < 0 || y > fieldWidth) {
+        rejOutOfField++;
+        continue;
+      }
+
       int tagCount = pose.targetsUsed.size();
+
+      // Reject high-ambiguity single-tag estimates
+      if (tagCount < MIN_TAGS_FOR_DIRECT_ACCEPT) {
+        double worstAmbiguity = 0;
+        for (var target : pose.targetsUsed) {
+          double ambiguity = target.getPoseAmbiguity();
+          if (ambiguity != -1 && ambiguity > worstAmbiguity) {
+            worstAmbiguity = ambiguity;
+          }
+        }
+        if (worstAmbiguity > MAX_SINGLE_TAG_AMBIGUITY) {
+          rejAmbiguity++;
+          continue;
+        }
+      }
+
       double translationError = currentPose.getTranslation().getDistance(pose2d.getTranslation());
       if (tagCount < MIN_TAGS_FOR_DIRECT_ACCEPT
           && translationError > MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS) {
@@ -343,7 +396,13 @@ public class Vision {
         continue;
       }
 
-      if (translationError > MAX_TRANSLATION_OUTLIER_METERS) {
+      // Outlier check: multi-tag gets a more generous threshold, and consecutive
+      // outlier override allows recovery when odometry has drifted significantly
+      double outlierThreshold =
+          tagCount >= MIN_TAGS_FOR_DIRECT_ACCEPT
+              ? MAX_MULTI_TAG_TRANSLATION_OUTLIER_METERS
+              : MAX_TRANSLATION_OUTLIER_METERS;
+      if (translationError > outlierThreshold && !forceAcceptOutlier) {
         rejOutlier++;
         continue;
       }
@@ -368,7 +427,14 @@ public class Vision {
     }
 
     return new SelectionResult(
-        Optional.ofNullable(best), rejNoEst, rejStale, rejLowTagFar, rejHighStd, rejOutlier);
+        Optional.ofNullable(best),
+        rejNoEst,
+        rejStale,
+        rejLowTagFar,
+        rejHighStd,
+        rejOutlier,
+        rejAmbiguity,
+        rejOutOfField);
   }
 
   static SelectionResult selectBasicPose(
@@ -423,7 +489,7 @@ public class Vision {
       }
     }
 
-    return new SelectionResult(Optional.ofNullable(best), rejNoEst, rejStale, 0, 0, 0);
+    return new SelectionResult(Optional.ofNullable(best), rejNoEst, rejStale, 0, 0, 0, 0, 0);
   }
 
   // ── Pipeline: selectBestPose (instance) ──────────────────────────────────
@@ -443,11 +509,15 @@ public class Vision {
     }
     SmartDashboard.putString("Vision/EstimatorMode/Selected", selectedMode.name());
     if (selectedMode == EstimatorMode.OFF) {
-      return new SelectionResult(Optional.empty(), 0, 0, 0, 0, 0);
+      return new SelectionResult(Optional.empty(), 0, 0, 0, 0, 0, 0, 0);
     }
     return selectedMode == EstimatorMode.BASIC
         ? selectBasicPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec)
-        : selectAdvancedPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec);
+        : selectAdvancedPose(
+            estimations,
+            swerveDrive.getPose(),
+            lastFusedTimestampSec,
+            consecutiveOutlierCount);
   }
 
   // ── Pipeline: setVisionMeasurement ─────────────────────────────────────
@@ -481,12 +551,21 @@ public class Vision {
               best.stdTheta());
     }
 
+    // Track consecutive outlier rejections for override logic
+    if (fusedCandidate.isPresent()) {
+      consecutiveOutlierCount = 0;
+    } else if (selection.rejectedOutlier() > 0) {
+      consecutiveOutlierCount++;
+    }
+
     // Accumulate rejection counters
     rejectedNoEstimate += selection.rejectedNoEstimate();
     rejectedStale += selection.rejectedStale();
     rejectedLowTagFar += selection.rejectedLowTagFar();
     rejectedHighStd += selection.rejectedHighStd();
     rejectedOutlier += selection.rejectedOutlier();
+    rejectedAmbiguity += selection.rejectedAmbiguity();
+    rejectedOutOfField += selection.rejectedOutOfField();
   }
 
   // ── Pipeline Orchestrator ─────────────────────────────────────────────────
@@ -839,13 +918,16 @@ public class Vision {
       lastFusionStatusLogSec = now;
       BufferedLogger.getInstance()
           .printf(
-              "[VisionPipeline] accepted=%d rejected={noEst=%d stale=%d lowTagFar=%d highStd=%d outlier=%d}",
+              "[VisionPipeline] accepted=%d rejected={noEst=%d stale=%d outOfField=%d ambiguity=%d lowTagFar=%d highStd=%d outlier=%d} consecutiveOutlier=%d",
               acceptedUpdates,
               rejectedNoEstimate,
               rejectedStale,
+              rejectedOutOfField,
+              rejectedAmbiguity,
               rejectedLowTagFar,
               rejectedHighStd,
-              rejectedOutlier);
+              rejectedOutlier,
+              consecutiveOutlierCount);
     }
   }
 
