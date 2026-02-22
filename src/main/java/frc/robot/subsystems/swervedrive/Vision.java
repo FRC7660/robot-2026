@@ -189,12 +189,11 @@ public class Vision {
           Robot.isReal()
               ? camera.camera.getAllUnreadResults()
               : camera.cameraSim.getCamera().getAllUnreadResults();
-      results.sort((a, b) -> Double.compare(a.getTimestampSeconds(), b.getTimestampSeconds()));
 
       // Update backward-compat cache
       camera.resultsList = results;
 
-      PhotonPipelineResult latestResult = camera.camera.getLatestResult();
+      PhotonPipelineResult latestResult = results.isEmpty() ? null : results.get(results.size() - 1);
 
       data.put(camera, new CameraSnapshot(camera, results, latestResult));
     }
@@ -516,13 +515,15 @@ public class Vision {
 
     // Fetch raw camera frames
     Map<Cameras, CameraSnapshot> cameraData = getCameraData();
-    Map<Cameras, Optional<EstimatedRobotPose>> rawLatestPoseByCamera =
-        estimateRawLatestPoseFromCameraData(cameraData);
     latestCameraData = cameraData;
     long t1 = System.nanoTime();
 
     // Run pose estimation on each camera
     List<PoseEstimationResult> estimations = updateAprilTagError(cameraData);
+    Map<Cameras, Optional<EstimatedRobotPose>> rawLatestPoseByCamera = new EnumMap<>(Cameras.class);
+    for (PoseEstimationResult est : estimations) {
+      rawLatestPoseByCamera.put(est.camera(), est.estimatedPose());
+    }
     long t2 = System.nanoTime();
 
     // Select the best pose candidate
@@ -683,24 +684,6 @@ public class Vision {
                     "(%.2f, %.2f, %.1fdeg)",
                     fusedPose.getX(), fusedPose.getY(), fusedPose.getRotation().getDegrees()),
             tagSummary.length() == 0 ? "none" : tagSummary.toString()));
-  }
-
-  private Map<Cameras, Optional<EstimatedRobotPose>> estimateRawLatestPoseFromCameraData(
-      Map<Cameras, CameraSnapshot> cameraData) {
-    EnumMap<Cameras, Optional<EstimatedRobotPose>> raw = new EnumMap<>(Cameras.class);
-    for (Cameras camera : Cameras.values()) {
-      CameraSnapshot snapshot = cameraData.get(camera);
-      if (snapshot == null || snapshot.latestResult() == null || !snapshot.latestResult().hasTargets()) {
-        raw.put(camera, Optional.empty());
-        continue;
-      }
-
-      PhotonPoseEstimator tempEstimator =
-          new PhotonPoseEstimator(fieldLayout, PoseStrategy.MULTI_TAG_PNP_ON_COPROCESSOR, camera.robotToCamTransform);
-      tempEstimator.setMultiTagFallbackStrategy(PoseStrategy.LOWEST_AMBIGUITY);
-      raw.put(camera, tempEstimator.update(snapshot.latestResult()));
-    }
-    return raw;
   }
 
   private void logAprilTagTelemetryOnChange(
