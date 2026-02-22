@@ -189,12 +189,11 @@ public class Vision {
           Robot.isReal()
               ? camera.camera.getAllUnreadResults()
               : camera.cameraSim.getCamera().getAllUnreadResults();
-      results.sort((a, b) -> Double.compare(a.getTimestampSeconds(), b.getTimestampSeconds()));
 
       // Update backward-compat cache
       camera.resultsList = results;
 
-      PhotonPipelineResult latestResult = camera.camera.getLatestResult();
+      PhotonPipelineResult latestResult = results.isEmpty() ? null : results.get(results.size() - 1);
 
       data.put(camera, new CameraSnapshot(camera, results, latestResult));
     }
