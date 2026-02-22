@@ -83,7 +83,8 @@ public class RobotContainer {
 
   private double getRightXCorrected() {
     double base = driverXbox.getRightX();
-    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
+    if (DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue)
+        != DriverStation.Alliance.Red) {
       base *= -1;
     }
     return base;
@@ -91,7 +92,8 @@ public class RobotContainer {
 
   private double getRightYCorrected() {
     double base = driverXbox.getRightY();
-    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
+    if (DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue)
+        != DriverStation.Alliance.Red) {
       base *= -1;
     }
     return base;
