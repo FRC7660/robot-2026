@@ -62,6 +62,7 @@ public final class BufferedLogger {
     writerThread = new Thread(this::writerLoop, "BufferedLogger");
     writerThread.setDaemon(true);
     writerThread.start();
+    Runtime.getRuntime().addShutdownHook(new Thread(this::close, "BufferedLogger-shutdown"));
   }
 
   /** Get the singleton instance, creating it (and the log file) on first call. */
