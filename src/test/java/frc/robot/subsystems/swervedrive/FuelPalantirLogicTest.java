@@ -56,7 +56,7 @@ class FuelPalantirLogicTest {
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
             data,
-            new FuelPalantir.FuelPalantirState(0, Optional.empty()),
+            new FuelPalantir.FuelPalantirState(0, Optional.empty(), false),
             FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
             1.0);
 
@@ -75,7 +75,7 @@ class FuelPalantirLogicTest {
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
             data,
-            new FuelPalantir.FuelPalantirState(2, Optional.of(Cameras.CAMERA0)),
+            new FuelPalantir.FuelPalantirState(2, Optional.of(Cameras.CAMERA0), false),
             FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
             2.0);
 
@@ -89,7 +89,7 @@ class FuelPalantirLogicTest {
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
             baseCameraData(),
-            new FuelPalantir.FuelPalantirState(0, Optional.empty()),
+            new FuelPalantir.FuelPalantirState(0, Optional.empty(), false),
             FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
             30.0);
 
@@ -102,7 +102,7 @@ class FuelPalantirLogicTest {
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
             baseCameraData(),
-            new FuelPalantir.FuelPalantirState(0, Optional.empty()),
+            new FuelPalantir.FuelPalantirState(0, Optional.empty(), false),
             FuelPalantir.FuelPalantirMode.STOP_AFTER_20S,
             20.0);
 
@@ -118,13 +118,42 @@ class FuelPalantirLogicTest {
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
             data,
-            new FuelPalantir.FuelPalantirState(7, Optional.of(Cameras.CAMERA0)),
+            new FuelPalantir.FuelPalantirState(7, Optional.of(Cameras.CAMERA0), false),
             FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
             5.0);
 
     assertTrue(step.completed());
     assertEquals("target_fuel_count_reached", step.reason());
     assertEquals(8, step.nextState().proxyCollectedFuelCount());
+  }
+
+  @Test
+  void fuelPalantir_doesNotDoubleCountWhenAreaStaysAboveThreshold() {
+    // First cycle: was below → now above → counts as 1 collection
+    Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
+    data.put(Cameras.CAMERA0, snapshotWithTarget(-1, 0.0, 5.0, 1.0));
+
+    FuelPalantir.FuelPalantirStep step1 =
+        FuelPalantir.fuelPalantir(
+            data,
+            new FuelPalantir.FuelPalantirState(0, Optional.of(Cameras.CAMERA0), false),
+            FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
+            1.0);
+
+    assertTrue(step1.fuelCollectedThisCycle());
+    assertEquals(1, step1.nextState().proxyCollectedFuelCount());
+    assertTrue(step1.nextState().wasAboveAreaThreshold());
+
+    // Second cycle: still above threshold with same piece — must NOT count again
+    FuelPalantir.FuelPalantirStep step2 =
+        FuelPalantir.fuelPalantir(
+            data,
+            step1.nextState(),
+            FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
+            1.02);
+
+    assertFalse(step2.fuelCollectedThisCycle());
+    assertEquals(1, step2.nextState().proxyCollectedFuelCount());
   }
 
   @Test
