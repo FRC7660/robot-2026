@@ -144,7 +144,7 @@ public final class BufferedLogger {
   public void close() {
     running = false;
     try {
-      writerThread.join(2000);
+      writerThread.join(5000);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }
