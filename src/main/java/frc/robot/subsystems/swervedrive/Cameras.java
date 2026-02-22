@@ -16,6 +16,7 @@ import edu.wpi.first.networktables.NetworkTablesJNI;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import frc.robot.Robot;
+import frc.robot.lib.BufferedLogger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -244,9 +245,10 @@ public enum Cameras {
             double conf = t.getDetectedObjectConfidence();
             double yaw = t.getYaw();
             double pitch = t.getPitch();
-            System.out.printf(
-                "%s detected: classId=%d conf=%.3f yaw=%.3f pitch=%.3f%n",
-                camera.getName(), classId, conf, yaw, pitch);
+            BufferedLogger.getInstance()
+                .printf(
+                    "%s detected: classId=%d conf=%.3f yaw=%.3f pitch=%.3f",
+                    camera.getName(), classId, conf, yaw, pitch);
           } catch (NoSuchMethodError | UnsupportedOperationException e) {
             // Ignore unsupported object-detection fields on non-object pipelines.
           }
