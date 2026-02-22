@@ -1,12 +1,9 @@
 package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Amps;
-import static edu.wpi.first.units.Units.DegreesPerSecond;
-import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Pounds;
 import static edu.wpi.first.units.Units.RPM;
-import static edu.wpi.first.units.Units.RevolutionsPerSecond;
 import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Seconds;
 
@@ -41,13 +38,14 @@ public class Launch extends SubsystemBase {
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
           // Feedback Constants (PID Constants)
-          .withClosedLoopController(
-              0, 0, 0, RPM.of(6700), RPM.per(Second).of(6700*2))
-          .withSimClosedLoopController(
-              0, 0, 0, RPM.of(6700), RPM.per(Second).of(6700*2))
+          // kP units: V per RPS of error. Max accel set above physical max (~246 RPS/s at 55A)
+          // so MAXMotion does not artificially constrain spin-up.
+          .withClosedLoopController(0.0002, 0, 0, RPM.of(6700), RPM.per(Second).of(6700 * 55))
+          .withSimClosedLoopController(0.02, 0.02, 0, RPM.of(6700), RPM.per(Second).of(6700 * 55))
           // Feedforward Constants
-          .withFeedforward(new SimpleMotorFeedforward(0.115, 6.5, 3))
-          .withSimFeedforward(new SimpleMotorFeedforward(0.115, 6.5, 3))
+          // kV = (12V - kS) / (6700 RPM / 60) ~= 0.106 V/RPS. kA from flywheel inertia (4in, 1lb).
+          .withFeedforward(new SimpleMotorFeedforward(0.15, 0.106, 0.015))
+          .withSimFeedforward(new SimpleMotorFeedforward(0.0, 0.11, 0.0005))
           // Telemetry name and verbosity level
           .withTelemetry("ShooterMotor", TelemetryVerbosity.HIGH)
           // Launch motors are 1:1 with fly wheel
@@ -55,9 +53,9 @@ public class Launch extends SubsystemBase {
           // Motor properties to prevent over currenting.
           .withMotorInverted(false)
           .withIdleMode(MotorMode.COAST)
-          .withStatorCurrentLimit(Amps.of(40))
-          .withClosedLoopRampRate(Seconds.of(0.25))
-          .withOpenLoopRampRate(Seconds.of(0.25))
+          .withStatorCurrentLimit(Amps.of(55))
+          .withClosedLoopRampRate(Seconds.of(0.0))
+          .withOpenLoopRampRate(Seconds.of(0.0))
           .withFollowers(Pair.of(motor2, true));
 
   // Vendor motor controller object
@@ -99,8 +97,7 @@ public class Launch extends SubsystemBase {
   }
 
   /**
-   * Set the shooter velocity.
-   * Speed should be POSITIVE.
+   * Set the shooter velocity. Speed should be POSITIVE.
    *
    * @param speed Speed to set.
    * @return {@link edu.wpi.first.wpilibj2.command.RunCommand}
@@ -110,7 +107,7 @@ public class Launch extends SubsystemBase {
     AngularVelocity velocity = RPM.of(absSpeed);
     return shooter.run(velocity);
   }
-    
+
   public void stop() {
     shooter.run(RPM.of(0));
   }

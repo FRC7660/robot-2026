@@ -56,15 +56,15 @@ public class Intake extends SubsystemBase {
           .withFeedforward(new ArmFeedforward(0.02, 0.005, 0.0))
           // sim
           .withSimClosedLoopController(
-              175.0, 0, 20.0, DegreesPerSecond.of(720), DegreesPerSecondPerSecond.of(360))
-          .withSimFeedforward(new ArmFeedforward(0.02, 0.005, 0.0))
+              70.0, 5, 8.0, DegreesPerSecond.of(9999.9), DegreesPerSecondPerSecond.of(9999.9))
+          .withSimFeedforward(new ArmFeedforward(0.0, 0.07, 13.0))
           .withTelemetry("LiftMotor", TelemetryVerbosity.HIGH)
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(5, 5, 3.333)))
           .withMotorInverted(true)
           .withIdleMode(MotorMode.COAST)
-          .withStatorCurrentLimit(Amps.of(40))
-          .withClosedLoopRampRate(Seconds.of(0.25))
-          .withOpenLoopRampRate(Seconds.of(0.25));
+          .withStatorCurrentLimit(Amps.of(50))
+          .withClosedLoopRampRate(Seconds.of(0.0))
+          .withOpenLoopRampRate(Seconds.of(0.0));
 
   // Create our SmartMotorController from our Spark and config with the NEO.
   private SmartMotorController liftSmartMotorController =
