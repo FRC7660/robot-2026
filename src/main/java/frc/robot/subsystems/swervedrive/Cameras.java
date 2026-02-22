@@ -2,7 +2,6 @@ package frc.robot.subsystems.swervedrive;
 
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.VecBuilder;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
@@ -11,13 +10,9 @@ import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
-import frc.robot.Robot;
 import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonPoseEstimator;
 import org.photonvision.PhotonPoseEstimator.PoseStrategy;
-import org.photonvision.simulation.PhotonCameraSim;
-import org.photonvision.simulation.SimCameraProperties;
-import org.photonvision.simulation.VisionSystemSim;
 
 /** Camera Enum to select each camera */
 public enum Cameras {
@@ -81,9 +76,6 @@ public enum Cameras {
   /** Transform of the camera rotation and translation relative to the center of the robot */
   final Transform3d robotToCamTransform;
 
-  /** Simulated camera instance which only exists during simulations. */
-  public PhotonCameraSim cameraSim;
-
   /**
    * Construct a Photon Camera class with help. Standard deviations are fake values, experiment and
    * determine estimation noise on an actual robot.
@@ -116,35 +108,6 @@ public enum Cameras {
 
     this.singleTagStdDevs = singleTagStdDevs;
     this.multiTagStdDevs = multiTagStdDevsMatrix;
-
-    if (Robot.isSimulation()) {
-      SimCameraProperties cameraProp = new SimCameraProperties();
-      // A 640 x 480 camera with a 100 degree diagonal FOV.
-      cameraProp.setCalibration(960, 720, Rotation2d.fromDegrees(100));
-      // Approximate detection noise with average and standard deviation error in
-      // pixels.
-      cameraProp.setCalibError(0.25, 0.08);
-      // Set the camera image capture framerate (Note: this is limited by robot loop
-      // rate).
-      cameraProp.setFPS(30);
-      // The average and standard deviation in milliseconds of image data latency.
-      cameraProp.setAvgLatencyMs(35);
-      cameraProp.setLatencyStdDevMs(5);
-
-      cameraSim = new PhotonCameraSim(camera, cameraProp);
-      cameraSim.enableDrawWireframe(true);
-    }
-  }
-
-  /**
-   * Add camera to {@link VisionSystemSim} for simulated photon vision.
-   *
-   * @param systemSim {@link VisionSystemSim} to use.
-   */
-  public void addToVisionSim(VisionSystemSim systemSim) {
-    if (Robot.isSimulation()) {
-      systemSim.addCamera(cameraSim, robotToCamTransform);
-    }
   }
 
   /** Get the single-tag standard deviations for this camera. */
