@@ -58,7 +58,9 @@ public final class BufferedLogger {
       System.err.println("[BufferedLogger] Failed to open log file: " + e.getMessage());
     }
     writer = w;
-    System.out.println("[BufferedLogger] Logging to " + logFilePath);
+    System.out.println("========================================");
+    System.out.println("[BufferedLogger] Log file: " + logFilePath);
+    System.out.println("========================================");
   }
 
   /** Get the singleton instance, creating it (and the log file) on first call. */
