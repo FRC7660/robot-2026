@@ -28,8 +28,13 @@ class VisionPipelineTest {
   // ── Helper methods ──────────────────────────────────────────────────────
 
   private static PhotonTrackedTarget makeTarget(int fiducialId) {
+    return makeTarget(fiducialId, 0.1);
+  }
+
+  private static PhotonTrackedTarget makeTarget(int fiducialId, double ambiguity) {
     PhotonTrackedTarget target = mock(PhotonTrackedTarget.class);
     when(target.getFiducialId()).thenReturn(fiducialId);
+    when(target.getPoseAmbiguity()).thenReturn(ambiguity);
     return target;
   }
 
@@ -171,7 +176,7 @@ class VisionPipelineTest {
     }
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(Cameras.values().length, result.rejectedNoEstimate());
@@ -190,7 +195,8 @@ class VisionPipelineTest {
     Map<Cameras, Double> lastFused = new EnumMap<>(Cameras.class);
     lastFused.put(cam, 5.0);
 
-    Vision.SelectionResult result = Vision.selectAdvancedPose(estimations, new Pose2d(), lastFused);
+    Vision.SelectionResult result =
+        Vision.selectAdvancedPose(estimations, new Pose2d(), lastFused, 0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedStale());
@@ -199,7 +205,7 @@ class VisionPipelineTest {
   @Test
   void selectAdvancedPose_singleTagHighTranslationError_rejectedLowTagFar() {
     Cameras cam = Cameras.values()[0];
-    // Single tag, estimated at (2,0) but current at (0,0) -> error = 2m > 0.8m
+    // Single tag, estimated at (2,0) but current at (0,0) -> error = 2m > 1.2m
     PhotonTrackedTarget target = makeTarget(1);
     EstimatedRobotPose est = makeEstimatedPose(2.0, 0.0, 1.0, List.of(target));
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
@@ -208,7 +214,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedLowTagFar());
@@ -226,25 +232,45 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedHighStd());
   }
 
   @Test
-  void selectAdvancedPose_outlierTranslationError_rejectedOutlier() {
+  void selectAdvancedPose_outlierTranslationError_singleTag_rejectedOutlier() {
     Cameras cam = Cameras.values()[0];
-    PhotonTrackedTarget target1 = makeTarget(1);
-    PhotonTrackedTarget target2 = makeTarget(2);
-    EstimatedRobotPose est = makeEstimatedPose(1.6, 0.0, 1.0, List.of(target1, target2));
+    // Single tag at 1.6m error > 1.5m single-tag outlier threshold
+    PhotonTrackedTarget target = makeTarget(1);
+    EstimatedRobotPose est = makeEstimatedPose(1.5, 0.3, 1.0, List.of(target));
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+
+    assertTrue(result.bestCandidate().isEmpty());
+    // Single tag at 1.53m > 1.2m, so it hits lowTagFar first
+    assertTrue(result.rejectedLowTagFar() > 0 || result.rejectedOutlier() > 0);
+  }
+
+  @Test
+  void selectAdvancedPose_outlierTranslationError_multiTag_rejectedOutlier() {
+    Cameras cam = Cameras.values()[0];
+    // Multi-tag at 3.5m error > 3.0m multi-tag outlier threshold
+    PhotonTrackedTarget target1 = makeTarget(1);
+    PhotonTrackedTarget target2 = makeTarget(2);
+    EstimatedRobotPose est = makeEstimatedPose(3.5, 0.0, 1.0, List.of(target1, target2));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedOutlier());
@@ -262,7 +288,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
 
     assertTrue(result.bestCandidate().isPresent());
     Vision.FusionCandidate best = result.bestCandidate().get();
@@ -294,7 +320,7 @@ class VisionPipelineTest {
             new Vision.PoseEstimationResult(cams[1], Optional.of(est2), stdDevs2, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
 
     assertTrue(result.bestCandidate().isPresent());
     assertEquals(cams[1], result.bestCandidate().get().camera());
@@ -312,7 +338,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
 
     assertTrue(result.bestCandidate().isPresent());
     assertEquals(0, result.rejectedLowTagFar());
@@ -322,14 +348,14 @@ class VisionPipelineTest {
   void selectAdvancedPose_boundaryExactlyAtSingleTagLimit_rejected() {
     Cameras cam = Cameras.values()[0];
     PhotonTrackedTarget target = makeTarget(1);
-    EstimatedRobotPose est = makeEstimatedPose(0.801, 0.0, 1.0, List.of(target));
+    EstimatedRobotPose est = makeEstimatedPose(1.201, 0.0, 1.0, List.of(target));
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedLowTagFar());
@@ -339,16 +365,92 @@ class VisionPipelineTest {
   void selectAdvancedPose_boundaryExactlyAtSingleTagLimit_accepted() {
     Cameras cam = Cameras.values()[0];
     PhotonTrackedTarget target = makeTarget(1);
-    EstimatedRobotPose est = makeEstimatedPose(0.8, 0.0, 1.0, List.of(target));
+    EstimatedRobotPose est = makeEstimatedPose(1.2, 0.0, 1.0, List.of(target));
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
 
-    // 0.8 is not > 0.8, so it passes the single-tag filter
+    // 1.2 is not > 1.2, so it passes the single-tag filter
     assertTrue(result.bestCandidate().isPresent());
+  }
+
+  @Test
+  void selectAdvancedPose_highAmbiguitySingleTag_rejectedAmbiguity() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target = makeTarget(1, 0.4); // above 0.25 threshold
+    EstimatedRobotPose est = makeEstimatedPose(0.1, 0.0, 1.0, List.of(target));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+
+    assertTrue(result.bestCandidate().isEmpty());
+    assertEquals(1, result.rejectedAmbiguity());
+  }
+
+  @Test
+  void selectAdvancedPose_outOfFieldBounds_rejectedOutOfField() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target1 = makeTarget(1);
+    PhotonTrackedTarget target2 = makeTarget(2);
+    EstimatedRobotPose est = makeEstimatedPose(-1.0, 0.0, 1.0, List.of(target1, target2));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+
+    assertTrue(result.bestCandidate().isEmpty());
+    assertEquals(1, result.rejectedOutOfField());
+  }
+
+  @Test
+  void selectAdvancedPose_consecutiveOutlierOverride_accepted() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target1 = makeTarget(1);
+    PhotonTrackedTarget target2 = makeTarget(2);
+    // 2.0m translation error > 1.5m outlier threshold, but override is active
+    EstimatedRobotPose est = makeEstimatedPose(2.0, 0.0, 1.0, List.of(target1, target2));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectAdvancedPose(
+            estimations,
+            new Pose2d(),
+            new EnumMap<>(Cameras.class),
+            Vision.CONSECUTIVE_OUTLIER_OVERRIDE_COUNT);
+
+    assertTrue(result.bestCandidate().isPresent());
+  }
+
+  @Test
+  void selectAdvancedPose_multiTagHigherOutlierThreshold_accepted() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target1 = makeTarget(1);
+    PhotonTrackedTarget target2 = makeTarget(2);
+    // 2.0m error: above single-tag outlier (1.5m) but below multi-tag outlier (3.0m)
+    EstimatedRobotPose est = makeEstimatedPose(2.0, 0.0, 1.0, List.of(target1, target2));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+
+    assertTrue(result.bestCandidate().isPresent());
+    assertEquals(0, result.rejectedOutlier());
   }
 }

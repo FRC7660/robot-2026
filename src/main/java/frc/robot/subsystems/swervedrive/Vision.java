@@ -14,9 +14,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import frc.robot.Robot;
 import frc.robot.lib.BufferedLogger;
-import java.awt.Desktop;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -24,10 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.photonvision.EstimatedRobotPose;
-import org.photonvision.PhotonPoseEstimator;
-import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 import org.photonvision.PhotonUtils;
-import org.photonvision.simulation.VisionSystemSim;
 import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 import swervelib.SwerveDrive;
@@ -85,7 +80,9 @@ public class Vision {
       int rejectedStale,
       int rejectedLowTagFar,
       int rejectedHighStd,
-      int rejectedOutlier) {}
+      int rejectedOutlier,
+      int rejectedAmbiguity,
+      int rejectedOutOfField) {}
 
   /** Per-camera raw AprilTag observation summary from the latest frame. */
   public record CameraTagObservation(
@@ -97,15 +94,15 @@ public class Vision {
   public static final AprilTagFieldLayout fieldLayout =
       AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded);
 
-  /** Ambiguity defined as a value between (0,1). Used in {@link Vision#filterPose}. */
-  private final double maximumAmbiguity = 0.25;
-
   static final double STALE_TIMESTAMP_EPSILON_SEC = 1e-4;
   static final int MIN_TAGS_FOR_DIRECT_ACCEPT = 2;
-  static final double MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS = 0.8;
+  static final double MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS = 1.2;
   static final double MAX_TRANSLATION_OUTLIER_METERS = 1.5;
+  static final double MAX_MULTI_TAG_TRANSLATION_OUTLIER_METERS = 3.0;
   static final double MAX_STD_XY_METERS = 5.0;
   static final double MAX_STD_THETA_RAD = 10.0;
+  static final double MAX_SINGLE_TAG_AMBIGUITY = 0.25;
+  static final int CONSECUTIVE_OUTLIER_OVERRIDE_COUNT = 15;
   private static final double FUSION_STATUS_LOG_PERIOD_SEC = 1.0;
   private static final double POSE_LOG_TRANSLATION_DELTA_METERS = 0.05;
   private static final double POSE_LOG_ROTATION_DELTA_DEG = 2.0;
@@ -115,12 +112,6 @@ public class Vision {
   private static final double TELEOP_TAG_RECORD_PERIOD_SEC = 0.25;
 
   // ── Instance state ────────────────────────────────────────────────────────
-
-  /** Photon Vision Simulation */
-  public VisionSystemSim visionSim;
-
-  /** Count of times that the odom thinks we're more than 10meters away from the april tag. */
-  private double longDistangePoseEstimationCount = 0;
 
   /** Current pose from the pose estimator using wheel odometry. */
   private Supplier<Pose2d> currentPose;
@@ -137,6 +128,9 @@ public class Vision {
   private int rejectedLowTagFar = 0;
   private int rejectedHighStd = 0;
   private int rejectedOutlier = 0;
+  private int rejectedAmbiguity = 0;
+  private int rejectedOutOfField = 0;
+  private int consecutiveOutlierCount = 0;
   private Pose2d lastLoggedOdomPose = null;
   private Pose2d lastLoggedFusedPose = null;
   private final EnumMap<Cameras, CameraTagObservation> lastLoggedCameraTagObs =
@@ -162,37 +156,19 @@ public class Vision {
     estimatorModeChooser.addOption("Off (No Pose Updates)", EstimatorMode.OFF);
     SmartDashboard.putData("Vision/EstimatorMode", estimatorModeChooser);
     SmartDashboard.putString("Vision/EstimatorMode/Selected", EstimatorMode.ADVANCED.name());
-
-    if (Robot.isSimulation()) {
-      visionSim = new VisionSystemSim("Vision");
-      visionSim.addAprilTags(fieldLayout);
-
-      for (Cameras c : Cameras.values()) {
-        c.addToVisionSim(visionSim);
-      }
-
-      openSimCameraViews();
-    }
   }
 
   // ── Pipeline Step 1: getCameraData() ──────────────────────────────────────
 
   /**
-   * Fetch raw results from all cameras. Updates each camera's resultsList for backward
-   * compatibility with {@link #getTargetFromId} and {@link #updateVisionField}.
+   * Fetch raw results from all cameras.
    *
    * @return a map of camera to snapshot
    */
   public Map<Cameras, CameraSnapshot> getCameraData() {
     EnumMap<Cameras, CameraSnapshot> data = new EnumMap<>(Cameras.class);
     for (Cameras camera : Cameras.values()) {
-      List<PhotonPipelineResult> results =
-          Robot.isReal()
-              ? camera.camera.getAllUnreadResults()
-              : camera.cameraSim.getCamera().getAllUnreadResults();
-
-      // Update backward-compat cache
-      camera.resultsList = results;
+      List<PhotonPipelineResult> results = camera.camera.getAllUnreadResults();
 
       PhotonPipelineResult latestResult = results.isEmpty() ? null : results.get(results.size() - 1);
 
@@ -204,8 +180,7 @@ public class Vision {
   // ── Pipeline Step 2: updateAprilTagError() ────────────────────────────────
 
   /**
-   * Run pose estimation on each camera's results. Updates each camera's curStdDevs and
-   * estimatedRobotPose for backward compatibility.
+   * Run pose estimation on each camera's results.
    *
    * @param cameraData the snapshots from {@link #getCameraData()}
    * @return list of pose estimation results
@@ -235,10 +210,6 @@ public class Vision {
         processedCount++;
       }
 
-      // Update backward-compat fields
-      camera.curStdDevs = stdDevs;
-      camera.estimatedRobotPose = visionEst;
-
       results.add(new PoseEstimationResult(camera, visionEst, stdDevs, processedCount));
     }
     return results;
@@ -247,8 +218,7 @@ public class Vision {
   // ── Pipeline Step 2b: computeStdDevs() (pure static) ─────────────────────
 
   /**
-   * Compute standard deviations for a pose estimate. This is a pure function extracted from {@link
-   * Cameras#updateEstimationStdDevs}.
+   * Compute standard deviations for a pose estimate.
    *
    * @param estimatedPose the estimated pose (may be empty)
    * @param targets all targets in this camera frame
@@ -301,27 +271,48 @@ public class Vision {
     return estStdDevs;
   }
 
-  // ── Pipeline Step 3: selectAdvancedPose() (pure static) ──────────────────
+  // ── Pipeline Step 3: selectAdvancedPose() ─────────────────────────────────
 
   /**
    * Filter and score pose estimation results using advanced rejection filters, selecting the best
    * candidate.
    *
+   * <p>Rejection filters applied in order:
+   *
+   * <ol>
+   *   <li>No estimate available
+   *   <li>Stale timestamp (already fused)
+   *   <li>Out of field bounds
+   *   <li>High ambiguity on single-tag estimates
+   *   <li>Single tag + far from odometry
+   *   <li>Standard deviations too high
+   *   <li>Translation outlier (with consecutive-outlier override and multi-tag leniency)
+   * </ol>
+   *
    * @param estimations results from {@link #updateAprilTagError}
    * @param currentPose the current robot pose from odometry
    * @param lastFusedTimestamps last fused timestamp per camera
+   * @param consecutiveOutliers number of consecutive cycles where all candidates were rejected as
+   *     outliers; used to force-accept after {@link #CONSECUTIVE_OUTLIER_OVERRIDE_COUNT}
    * @return selection result with best candidate and rejection counts
    */
   static SelectionResult selectAdvancedPose(
       List<PoseEstimationResult> estimations,
       Pose2d currentPose,
-      Map<Cameras, Double> lastFusedTimestamps) {
+      Map<Cameras, Double> lastFusedTimestamps,
+      int consecutiveOutliers) {
     int rejNoEst = 0;
     int rejStale = 0;
     int rejLowTagFar = 0;
     int rejHighStd = 0;
     int rejOutlier = 0;
+    int rejAmbiguity = 0;
+    int rejOutOfField = 0;
     FusionCandidate best = null;
+
+    double fieldLength = fieldLayout.getFieldLength();
+    double fieldWidth = fieldLayout.getFieldWidth();
+    boolean forceAcceptOutlier = consecutiveOutliers >= CONSECUTIVE_OUTLIER_OVERRIDE_COUNT;
 
     for (PoseEstimationResult est : estimations) {
       if (est.estimatedPose().isEmpty()) {
@@ -338,7 +329,31 @@ public class Vision {
         continue;
       }
 
+      // Reject poses outside the field
+      double x = pose2d.getX();
+      double y = pose2d.getY();
+      if (x < 0 || x > fieldLength || y < 0 || y > fieldWidth) {
+        rejOutOfField++;
+        continue;
+      }
+
       int tagCount = pose.targetsUsed.size();
+
+      // Reject high-ambiguity single-tag estimates
+      if (tagCount < MIN_TAGS_FOR_DIRECT_ACCEPT) {
+        double worstAmbiguity = 0;
+        for (var target : pose.targetsUsed) {
+          double ambiguity = target.getPoseAmbiguity();
+          if (ambiguity != -1 && ambiguity > worstAmbiguity) {
+            worstAmbiguity = ambiguity;
+          }
+        }
+        if (worstAmbiguity > MAX_SINGLE_TAG_AMBIGUITY) {
+          rejAmbiguity++;
+          continue;
+        }
+      }
+
       double translationError = currentPose.getTranslation().getDistance(pose2d.getTranslation());
       if (tagCount < MIN_TAGS_FOR_DIRECT_ACCEPT
           && translationError > MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS) {
@@ -359,7 +374,13 @@ public class Vision {
         continue;
       }
 
-      if (translationError > MAX_TRANSLATION_OUTLIER_METERS) {
+      // Outlier check: multi-tag gets a more generous threshold, and consecutive
+      // outlier override allows recovery when odometry has drifted significantly
+      double outlierThreshold =
+          tagCount >= MIN_TAGS_FOR_DIRECT_ACCEPT
+              ? MAX_MULTI_TAG_TRANSLATION_OUTLIER_METERS
+              : MAX_TRANSLATION_OUTLIER_METERS;
+      if (translationError > outlierThreshold && !forceAcceptOutlier) {
         rejOutlier++;
         continue;
       }
@@ -384,7 +405,14 @@ public class Vision {
     }
 
     return new SelectionResult(
-        Optional.ofNullable(best), rejNoEst, rejStale, rejLowTagFar, rejHighStd, rejOutlier);
+        Optional.ofNullable(best),
+        rejNoEst,
+        rejStale,
+        rejLowTagFar,
+        rejHighStd,
+        rejOutlier,
+        rejAmbiguity,
+        rejOutOfField);
   }
 
   static SelectionResult selectBasicPose(
@@ -439,7 +467,7 @@ public class Vision {
       }
     }
 
-    return new SelectionResult(Optional.ofNullable(best), rejNoEst, rejStale, 0, 0, 0);
+    return new SelectionResult(Optional.ofNullable(best), rejNoEst, rejStale, 0, 0, 0, 0, 0);
   }
 
   // ── Pipeline: selectBestPose (instance) ──────────────────────────────────
@@ -459,11 +487,15 @@ public class Vision {
     }
     SmartDashboard.putString("Vision/EstimatorMode/Selected", selectedMode.name());
     if (selectedMode == EstimatorMode.OFF) {
-      return new SelectionResult(Optional.empty(), 0, 0, 0, 0, 0);
+      return new SelectionResult(Optional.empty(), 0, 0, 0, 0, 0, 0, 0);
     }
     return selectedMode == EstimatorMode.BASIC
         ? selectBasicPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec)
-        : selectAdvancedPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec);
+        : selectAdvancedPose(
+            estimations,
+            swerveDrive.getPose(),
+            lastFusedTimestampSec,
+            consecutiveOutlierCount);
   }
 
   // ── Pipeline: setVisionMeasurement ─────────────────────────────────────
@@ -497,12 +529,21 @@ public class Vision {
               best.stdTheta());
     }
 
+    // Track consecutive outlier rejections for override logic
+    if (fusedCandidate.isPresent()) {
+      consecutiveOutlierCount = 0;
+    } else if (selection.rejectedOutlier() > 0) {
+      consecutiveOutlierCount++;
+    }
+
     // Accumulate rejection counters
     rejectedNoEstimate += selection.rejectedNoEstimate();
     rejectedStale += selection.rejectedStale();
     rejectedLowTagFar += selection.rejectedLowTagFar();
     rejectedHighStd += selection.rejectedHighStd();
     rejectedOutlier += selection.rejectedOutlier();
+    rejectedAmbiguity += selection.rejectedAmbiguity();
+    rejectedOutOfField += selection.rejectedOutOfField();
   }
 
   // ── Pipeline Orchestrator ─────────────────────────────────────────────────
@@ -855,13 +896,16 @@ public class Vision {
       lastFusionStatusLogSec = now;
       BufferedLogger.getInstance()
           .printf(
-              "[VisionPipeline] accepted=%d rejected={noEst=%d stale=%d lowTagFar=%d highStd=%d outlier=%d}",
+              "[VisionPipeline] accepted=%d rejected={noEst=%d stale=%d outOfField=%d ambiguity=%d lowTagFar=%d highStd=%d outlier=%d} consecutiveOutlier=%d",
               acceptedUpdates,
               rejectedNoEstimate,
               rejectedStale,
+              rejectedOutOfField,
+              rejectedAmbiguity,
               rejectedLowTagFar,
               rejectedHighStd,
-              rejectedOutlier);
+              rejectedOutlier,
+              consecutiveOutlierCount);
     }
   }
 
@@ -895,58 +939,22 @@ public class Vision {
   }
 
   /**
-   * Generates the estimated robot pose. Returns empty if no accurate pose estimate could be
-   * generated. Used by {@code SwerveSubsystem.setInitialPoseFromAprilTags()}.
+   * Generates the estimated robot pose by fetching fresh results from a camera and running pose
+   * estimation. Returns empty if no accurate pose estimate could be generated.
    *
+   * @param camera the camera to query
    * @return an {@link EstimatedRobotPose} with an estimated pose, timestamp, and targets used to
    *     create the estimate
    */
   public Optional<EstimatedRobotPose> getEstimatedGlobalPose(Cameras camera) {
-    Optional<EstimatedRobotPose> poseEst = camera.getEstimatedGlobalPose();
-    if (Robot.isSimulation()) {
-      Field2d debugField = visionSim.getDebugField();
-      poseEst.ifPresentOrElse(
-          est -> debugField.getObject("VisionEstimation").setPose(est.estimatedPose.toPose2d()),
-          () -> {
-            debugField.getObject("VisionEstimation").setPoses();
-          });
+    List<PhotonPipelineResult> results = camera.camera.getAllUnreadResults();
+
+    Optional<EstimatedRobotPose> poseEst = Optional.empty();
+    for (PhotonPipelineResult result : results) {
+      poseEst = camera.poseEstimator.update(result);
     }
+
     return poseEst;
-  }
-
-  /**
-   * Filter pose via the ambiguity and find best estimate between all of the camera's throwing out
-   * distances more than 10m for a short amount of time.
-   *
-   * @param pose Estimated robot pose.
-   * @return Could be empty if there isn't a good reading.
-   */
-  @Deprecated(since = "2024", forRemoval = true)
-  private Optional<EstimatedRobotPose> filterPose(Optional<EstimatedRobotPose> pose) {
-    if (pose.isPresent()) {
-      double bestTargetAmbiguity = 1; // 1 is max ambiguity
-      for (PhotonTrackedTarget target : pose.get().targetsUsed) {
-        double ambiguity = target.getPoseAmbiguity();
-        if (ambiguity != -1 && ambiguity < bestTargetAmbiguity) {
-          bestTargetAmbiguity = ambiguity;
-        }
-      }
-      if (bestTargetAmbiguity > maximumAmbiguity) {
-        return Optional.empty();
-      }
-
-      if (PhotonUtils.getDistanceToPose(currentPose.get(), pose.get().estimatedPose.toPose2d())
-          > 1) {
-        longDistangePoseEstimationCount++;
-        if (longDistangePoseEstimationCount < 10) {
-          return Optional.empty();
-        }
-      } else {
-        longDistangePoseEstimationCount = 0;
-      }
-      return pose;
-    }
-    return Optional.empty();
   }
 
   /**
@@ -969,8 +977,11 @@ public class Vision {
    * @return Tracked target.
    */
   public PhotonTrackedTarget getTargetFromId(int id, Cameras camera) {
-    PhotonTrackedTarget target = null;
-    for (PhotonPipelineResult result : camera.resultsList) {
+    CameraSnapshot snapshot = latestCameraData.get(camera);
+    if (snapshot == null) {
+      return null;
+    }
+    for (PhotonPipelineResult result : snapshot.aprilTagResults()) {
       if (result.hasTargets()) {
         for (PhotonTrackedTarget i : result.getTargets()) {
           if (i.getFiducialId() == id) {
@@ -979,37 +990,16 @@ public class Vision {
         }
       }
     }
-    return target;
-  }
-
-  /**
-   * Vision simulation.
-   *
-   * @return Vision Simulation
-   */
-  public VisionSystemSim getVisionSim() {
-    return visionSim;
-  }
-
-  /**
-   * Open up the photon vision camera streams on the localhost, assumes running photon vision on
-   * localhost.
-   */
-  private void openSimCameraViews() {
-    if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-      // Camera views disabled in code
-    }
+    return null;
   }
 
   /** Update the {@link Field2d} to include tracked targets. */
   public void updateVisionField() {
     List<PhotonTrackedTarget> targets = new ArrayList<PhotonTrackedTarget>();
     for (Cameras c : Cameras.values()) {
-      if (!c.resultsList.isEmpty()) {
-        PhotonPipelineResult latest = c.resultsList.get(0);
-        if (latest.hasTargets()) {
-          targets.addAll(latest.targets);
-        }
+      CameraSnapshot snapshot = latestCameraData.get(c);
+      if (snapshot != null && snapshot.latestResult() != null && snapshot.latestResult().hasTargets()) {
+        targets.addAll(snapshot.latestResult().targets);
       }
     }
 
