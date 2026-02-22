@@ -26,7 +26,10 @@ public class FuelPalantir {
     STOP_AFTER_20S
   }
 
-  public record FuelPalantirState(int proxyCollectedFuelCount, Optional<Cameras> lockedCamera) {}
+  public record FuelPalantirState(
+      int proxyCollectedFuelCount,
+      Optional<Cameras> lockedCamera,
+      boolean wasAboveAreaThreshold) {}
 
   public record FuelPalantirStep(
       FuelPalantirState nextState,
@@ -109,17 +112,18 @@ public class FuelPalantir {
 
     double rotation = SwerveSubsystem.SEARCH_ROTATION_RAD_PER_SEC;
     double forward = 0.0;
+    boolean aboveThreshold = false;
     boolean collectedThisCycle = false;
 
     if (target.isPresent()) {
       double yawDeg = target.get().getYaw();
       rotation = SwerveSubsystem.calculateRotationFromYawDeg(yawDeg);
       double area = target.get().getArea();
-      // TODO: Double-counting risk -- if area >= threshold persists across multiple cycles,
-      // proxyCollectedFuelCount increments each cycle for the same piece. Add edge detection
-      // (only count transition from below-threshold to above-threshold).
-      if (area >= FUEL_APPROACH_STOP_AREA) {
-        collectedThisCycle = true;
+      aboveThreshold = area >= FUEL_APPROACH_STOP_AREA;
+      if (aboveThreshold) {
+        // Rising-edge detection: only count a collection on the first cycle the area
+        // crosses the threshold, not on every subsequent cycle while the piece lingers.
+        collectedThisCycle = !currentState.wasAboveAreaThreshold();
         forward = 0.0;
       } else {
         double areaError = FUEL_APPROACH_STOP_AREA - area;
@@ -139,7 +143,7 @@ public class FuelPalantir {
         reachedFuelTarget ? "target_fuel_count_reached" : (timedOut ? "timeout" : "searching");
 
     return new FuelPalantirStep(
-        new FuelPalantirState(nextProxyCount, lockedCamera),
+        new FuelPalantirState(nextProxyCount, lockedCamera, aboveThreshold),
         forward,
         rotation,
         collectedThisCycle,

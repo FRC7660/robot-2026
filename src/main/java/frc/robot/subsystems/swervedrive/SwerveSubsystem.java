@@ -379,7 +379,6 @@ public class SwerveSubsystem extends SubsystemBase {
           }
 
           // Drive: field-relative forward (x) while rotating to aim. Open-loop false
-          System.out.println(forwardMps + ": " + rotationRadPerSec);
           swerveDrive.drive(
               new edu.wpi.first.math.geometry.Translation2d(forwardMps, 0.0),
               rotationRadPerSec,
@@ -403,7 +402,6 @@ public class SwerveSubsystem extends SubsystemBase {
    * @return the tracking {@link Command} or {@link Commands#none()} if the name is invalid
    */
   public Command trackDetectedObjectByCameraName(String cameraEnumName, double durationSeconds) {
-    System.out.println("  trackDetectedObjectByCameraName ");
     try {
       Cameras cam = Cameras.valueOf(cameraEnumName);
       return trackDetectedObject(cam, durationSeconds);
@@ -884,7 +882,9 @@ public class SwerveSubsystem extends SubsystemBase {
                     MathUtil.clamp(
                         distanceError * 0.9, APPROACH_MIN_FORWARD_MPS, APPROACH_MAX_FORWARD_MPS);
               }
-              double cameraForwardSign = observation.get().camera() == Cameras.CAMERA1 ? -1.0 : 1.0;
+              // FRONT_CAMERA (CAMERA1) faces +X: after yaw alignment the tag is ahead → drive
+              // forward (+1). BACK_CAMERA (CAMERA0) faces -X: tag is behind → drive backward (-1).
+              double cameraForwardSign = observation.get().camera() == Cameras.CAMERA1 ? 1.0 : -1.0;
               double commandedForward = cameraForwardSign * forwardSpeed;
               swerveDrive.drive(new Translation2d(commandedForward, 0), rotation, false, false);
               boolean noProgressLongEnough =
@@ -1071,7 +1071,8 @@ public class SwerveSubsystem extends SubsystemBase {
             () -> {
               AtomicReference<Double> startTimeSec = new AtomicReference<>(0.0);
               AtomicReference<FuelPalantir.FuelPalantirState> state =
-                  new AtomicReference<>(new FuelPalantir.FuelPalantirState(0, Optional.empty()));
+                  new AtomicReference<>(
+                      new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
               AtomicReference<FuelPalantir.FuelPalantirStep> lastStep = new AtomicReference<>(null);
               AtomicReference<Double> lastStatusLogTimeSec =
                   new AtomicReference<>(Double.NEGATIVE_INFINITY);
@@ -1080,7 +1081,7 @@ public class SwerveSubsystem extends SubsystemBase {
                   startRun(
                           () -> {
                             startTimeSec.set(Timer.getFPGATimestamp());
-                            state.set(new FuelPalantir.FuelPalantirState(0, Optional.empty()));
+                            state.set(new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
                             lastStep.set(null);
                             debugAuto(
                                 String.format(

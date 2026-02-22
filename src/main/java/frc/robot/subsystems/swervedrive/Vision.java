@@ -152,7 +152,8 @@ public class Vision {
   private Pose2d lastLoggedFusedPose = null;
   private final EnumMap<Cameras, CameraTagObservation> lastLoggedCameraTagObs =
       new EnumMap<>(Cameras.class);
-  private Map<Cameras, CameraSnapshot> latestCameraData = new EnumMap<>(Cameras.class);
+  // volatile: defensive guard so any future move of process() to a background thread stays safe.
+  private volatile Map<Cameras, CameraSnapshot> latestCameraData = new EnumMap<>(Cameras.class);
   private double lastTeleopTagRecordLogSec = Double.NEGATIVE_INFINITY;
 
   /**
@@ -223,6 +224,9 @@ public class Vision {
       Matrix<N3, N1> stdDevs = camera.getSingleTagStdDevs();
       int processedCount = 0;
 
+      // Feed every unread frame to the estimator so its internal timestamp tracking stays
+      // accurate. Only the final (most recent) estimate is surfaced; intermediate estimates
+      // are intentionally discarded because the latest frame has the freshest geometry.
       for (PhotonPipelineResult result : aprilTagResults) {
         visionEst = camera.poseEstimator.update(result);
         List<PhotonTrackedTarget> targets =
