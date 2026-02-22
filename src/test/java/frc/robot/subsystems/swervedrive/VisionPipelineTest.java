@@ -98,8 +98,8 @@ class VisionPipelineTest {
             MULTI_TAG_STD,
             makeMockFieldLayout());
 
-    // avgDist = 1.0m, scale = 1 + (1*1/30) = 1.0333...
-    double expectedScale = 1 + (1.0 * 1.0 / 30);
+    // avgDist = 1.0m, scale = 1 + (1.0/5) = 1.2
+    double expectedScale = 1 + (1.0 / 5);
     assertEquals(SINGLE_TAG_STD.get(0, 0) * expectedScale, result.get(0, 0), 1e-6);
     assertEquals(SINGLE_TAG_STD.get(1, 0) * expectedScale, result.get(1, 0), 1e-6);
     assertEquals(SINGLE_TAG_STD.get(2, 0) * expectedScale, result.get(2, 0), 1e-6);
@@ -140,8 +140,8 @@ class VisionPipelineTest {
             MULTI_TAG_STD,
             makeMockFieldLayout());
 
-    // avgDist = 1.5, scale = 1 + (1.5*1.5/30) = 1.075
-    double expectedScale = 1 + (1.5 * 1.5 / 30);
+    // avgDist = 1.5, scale = 1 + (1.5/5) = 1.3
+    double expectedScale = 1 + (1.5 / 5);
     assertEquals(MULTI_TAG_STD.get(0, 0) * expectedScale, result.get(0, 0), 1e-6);
     assertEquals(MULTI_TAG_STD.get(1, 0) * expectedScale, result.get(1, 0), 1e-6);
     assertEquals(MULTI_TAG_STD.get(2, 0) * expectedScale, result.get(2, 0), 1e-6);
