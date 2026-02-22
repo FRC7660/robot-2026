@@ -33,6 +33,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Config;
 import frc.robot.Constants;
+import frc.robot.lib.BufferedLogger;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -574,7 +575,8 @@ public class SwerveSubsystem extends SubsystemBase {
 
   private void debugAuto(String message) {
     String runId = currentAutoRunId > 0 ? String.format("RUN-%04d", currentAutoRunId) : "RUN-none";
-    System.out.printf("[AutoShuttle][%s][%.2f] %s%n", runId, Timer.getFPGATimestamp(), message);
+    BufferedLogger.getInstance()
+        .printf("[AutoShuttle][%s] %s", runId, message);
   }
 
   private boolean shouldDebugLog(AtomicReference<Double> lastLogTimeSec, double periodSec) {
