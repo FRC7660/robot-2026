@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
@@ -75,7 +74,7 @@ public class SwerveSubsystem extends SubsystemBase {
   private static final double TAG_CENTER_NEAR_HOLD_SEC = 0.7;
   private static final double BALL_CENTER_TOLERANCE_DEG = 8.0;
   private static final double APPROACH_MAX_FORWARD_MPS = 0.35;
-  private static final double APPROACH_MIN_FORWARD_MPS = 0.35;
+  private static final double APPROACH_MIN_FORWARD_MPS = 0.10;
   private static final double APPROACH_DISTANCE_TOLERANCE_METERS = 0.20;
   private static final double APPROACH_STALL_DISTANCE_DELTA_METERS = 0.02;
   private static final double APPROACH_STALL_TIME_SEC = 1.8;
@@ -96,8 +95,8 @@ public class SwerveSubsystem extends SubsystemBase {
   /** PhotonVision class to keep an accurate odometry. */
   private Vision vision;
 
-  private final SendableChooser<Vision.EstimatorMode> visionEstimatorModeChooser;
-  private final SendableChooser<Boolean> visionDebugTelemetryChooser;
+  private SendableChooser<Vision.EstimatorMode> visionEstimatorModeChooser;
+  private SendableChooser<Boolean> visionDebugTelemetryChooser;
 
   private int currentAutoRunId = -1;
 
@@ -153,16 +152,7 @@ public class SwerveSubsystem extends SubsystemBase {
     // swerveDrive.pushOffsetsToEncoders(); // Set the absolute encoder to be used
     // over the internal
     // encoder and push the offsets onto it. Throws warning if not possible
-    visionEstimatorModeChooser = new SendableChooser<>();
-    visionEstimatorModeChooser.setDefaultOption(
-        "Advanced (Default)", Vision.EstimatorMode.ADVANCED);
-    visionEstimatorModeChooser.addOption("Basic", Vision.EstimatorMode.BASIC);
-    visionEstimatorModeChooser.addOption("Off (No Pose Updates)", Vision.EstimatorMode.OFF);
-    SmartDashboard.putData("Vision/EstimatorMode", visionEstimatorModeChooser);
-    visionDebugTelemetryChooser = new SendableChooser<>();
-    visionDebugTelemetryChooser.setDefaultOption("Off (Default)", false);
-    visionDebugTelemetryChooser.addOption("On", true);
-    SmartDashboard.putData("Vision/DebugTelemetry", visionDebugTelemetryChooser);
+    initVisionChoosers();
 
     if (visionDriveTest) {
       System.out.println("[BootTrace] SwerveSubsystem setupPhotonVision start");
@@ -185,6 +175,16 @@ public class SwerveSubsystem extends SubsystemBase {
    */
   public SwerveSubsystem(
       SwerveDriveConfiguration driveCfg, SwerveControllerConfiguration controllerCfg) {
+    initVisionChoosers();
+    swerveDrive =
+        new SwerveDrive(
+            driveCfg,
+            controllerCfg,
+            Constants.MAX_SPEED,
+            new Pose2d(new Translation2d(Meter.of(2), Meter.of(0)), Rotation2d.fromDegrees(0)));
+  }
+
+  private void initVisionChoosers() {
     visionEstimatorModeChooser = new SendableChooser<>();
     visionEstimatorModeChooser.setDefaultOption(
         "Advanced (Default)", Vision.EstimatorMode.ADVANCED);
@@ -195,12 +195,6 @@ public class SwerveSubsystem extends SubsystemBase {
     visionDebugTelemetryChooser.setDefaultOption("Off (Default)", false);
     visionDebugTelemetryChooser.addOption("On", true);
     SmartDashboard.putData("Vision/DebugTelemetry", visionDebugTelemetryChooser);
-    swerveDrive =
-        new SwerveDrive(
-            driveCfg,
-            controllerCfg,
-            Constants.MAX_SPEED,
-            new Pose2d(new Translation2d(Meter.of(2), Meter.of(0)), Rotation2d.fromDegrees(0)));
   }
 
   /** Setup the photon vision class. */
@@ -520,49 +514,6 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
-   * Lightweight object-detection observation suitable for autonomous logic outside this package.
-   */
-  public record DetectedObjectObservation(String cameraName, double yawDeg, double area) {}
-
-  /**
-   * Get the most centered non-fiducial object across camera0 and camera1.
-   *
-   * @return optional observation with camera name, yaw, and area
-   */
-  public Optional<DetectedObjectObservation> getBestDetectedObjectAnyCamera() {
-    Cameras[] fuelCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
-    PhotonTrackedTarget mostCentered = null;
-    Cameras sourceCamera = null;
-    double minAbsYaw = Double.POSITIVE_INFINITY;
-
-    for (Cameras camera : fuelCameras) {
-      var latest = camera.camera.getLatestResult();
-      if (!latest.hasTargets()) {
-        continue;
-      }
-      for (PhotonTrackedTarget target : latest.getTargets()) {
-        if (target.getFiducialId() > 0) {
-          continue;
-        }
-        double absYaw = Math.abs(target.getYaw());
-        if (absYaw < minAbsYaw) {
-          minAbsYaw = absYaw;
-          mostCentered = target;
-          sourceCamera = camera;
-        }
-      }
-    }
-
-    if (mostCentered == null || sourceCamera == null) {
-      return Optional.empty();
-    }
-
-    return Optional.of(
-        new DetectedObjectObservation(
-            sourceCamera.name(), mostCentered.getYaw(), mostCentered.getArea()));
-  }
-
-  /**
    * Get the path follower with events.
    *
    * @param pathName PathPlanner path name.
@@ -640,73 +591,6 @@ public class SwerveSubsystem extends SubsystemBase {
 
   private Command playFuelFoundSound() {
     return playMotorChirp(2, "FUEL");
-  }
-
-  private Optional<PhotonTrackedTarget> getClosestDetectedObject() {
-    var latest = Cameras.CAMERA0.camera.getLatestResult();
-    if (!latest.hasTargets()) {
-      return Optional.empty();
-    }
-
-    PhotonTrackedTarget mostCentered = null;
-    double minAbsYaw = Double.POSITIVE_INFINITY;
-    for (PhotonTrackedTarget target : latest.getTargets()) {
-      if (target.getFiducialId() > 0) {
-        continue;
-      }
-      double absYaw = Math.abs(target.getYaw());
-      if (absYaw < minAbsYaw) {
-        minAbsYaw = absYaw;
-        mostCentered = target;
-      }
-    }
-    return Optional.ofNullable(mostCentered);
-  }
-
-  private Optional<PhotonTrackedTarget> getClosestDetectedObjectAnyCamera() {
-    Cameras[] fuelCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
-    PhotonTrackedTarget mostCentered = null;
-    double minAbsYaw = Double.POSITIVE_INFINITY;
-    for (Cameras camera : fuelCameras) {
-      var latest = camera.camera.getLatestResult();
-      if (!latest.hasTargets()) {
-        continue;
-      }
-      for (PhotonTrackedTarget target : latest.getTargets()) {
-        if (target.getFiducialId() > 0) {
-          continue;
-        }
-        double absYaw = Math.abs(target.getYaw());
-        if (absYaw < minAbsYaw) {
-          minAbsYaw = absYaw;
-          mostCentered = target;
-        }
-      }
-    }
-    return Optional.ofNullable(mostCentered);
-  }
-
-  private Optional<TargetObservation> getClosestDetectedObjectObservationAnyCamera() {
-    Cameras[] fuelCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
-    TargetObservation mostCentered = null;
-    double minAbsYaw = Double.POSITIVE_INFINITY;
-    for (Cameras camera : fuelCameras) {
-      var latest = camera.camera.getLatestResult();
-      if (!latest.hasTargets()) {
-        continue;
-      }
-      for (PhotonTrackedTarget target : latest.getTargets()) {
-        if (target.getFiducialId() > 0) {
-          continue;
-        }
-        double absYaw = Math.abs(target.getYaw());
-        if (absYaw < minAbsYaw) {
-          minAbsYaw = absYaw;
-          mostCentered = new TargetObservation(camera, target);
-        }
-      }
-    }
-    return Optional.ofNullable(mostCentered);
   }
 
   private double getTargetPlanarDistanceMeters(PhotonTrackedTarget target) {
@@ -1176,140 +1060,6 @@ public class SwerveSubsystem extends SubsystemBase {
             () -> debugAuto(String.format("CENTER TAG END tagId=%d", tagIdRef.get()))));
   }
 
-  private Command findAndApproachFuelWithAnyCamera(AtomicBoolean fuelFound) {
-    AtomicReference<Double> lastHeadingRad = new AtomicReference<>(0.0);
-    AtomicReference<Double> rotatedRad = new AtomicReference<>(0.0);
-    AtomicReference<Double> lastLogTimeSec = new AtomicReference<>(Double.NEGATIVE_INFINITY);
-    AtomicReference<Double> startTimeSec = new AtomicReference<>(0.0);
-    AtomicReference<Cameras> lockedFuelCamera = new AtomicReference<>(null);
-
-    return startRun(
-            () -> {
-              fuelFound.set(false);
-              lastHeadingRad.set(getHeading().getRadians());
-              rotatedRad.set(0.0);
-              lastLogTimeSec.set(Double.NEGATIVE_INFINITY);
-              startTimeSec.set(Timer.getFPGATimestamp());
-              lockedFuelCamera.set(null);
-              debugAuto(
-                  String.format(
-                      "FUEL ACQUIRE START fuelSeenAny=%s fuelSeenFront=%s max=%.1fdeg",
-                      getClosestDetectedObjectAnyCamera().isPresent(),
-                      getClosestDetectedObject().isPresent(),
-                      Math.toDegrees(TAG_SEARCH_MAX_RADIANS)));
-            },
-            () -> {
-              double currentHeading = getHeading().getRadians();
-              double delta = MathUtil.angleModulus(currentHeading - lastHeadingRad.get());
-              rotatedRad.set(rotatedRad.get() + Math.abs(delta));
-              lastHeadingRad.set(currentHeading);
-
-              if (lockedFuelCamera.get() == null) {
-                Optional<TargetObservation> firstSeen =
-                    getClosestDetectedObjectObservationAnyCamera();
-                if (firstSeen.isPresent()) {
-                  lockedFuelCamera.set(firstSeen.get().camera());
-                  debugAuto(
-                      String.format(
-                          "FUEL LOCK firstSeen camera=%s yaw=%.2f area=%.3f",
-                          firstSeen.get().camera().name(),
-                          firstSeen.get().target().getYaw(),
-                          firstSeen.get().target().getArea()));
-                }
-              }
-
-              Optional<PhotonTrackedTarget> fuelFront = getClosestDetectedObject();
-              boolean canApproachFront =
-                  fuelFront.isPresent()
-                      && (lockedFuelCamera.get() == Cameras.CAMERA0
-                          || lockedFuelCamera.get() == Cameras.CAMERA1);
-              if (canApproachFront) {
-                double yawDeg = fuelFront.get().getYaw();
-                double rotation = calculateRotationFromYawDeg(yawDeg);
-                double area = fuelFront.get().getArea();
-                double forward = 0.0;
-                if (area >= FuelPalantir.FUEL_APPROACH_STOP_AREA) {
-                  fuelFound.set(true);
-                } else {
-                  double areaError = FuelPalantir.FUEL_APPROACH_STOP_AREA - area;
-                  forward =
-                      MathUtil.clamp(
-                          areaError * 0.08,
-                          FuelPalantir.FUEL_APPROACH_MIN_FORWARD_MPS,
-                          FuelPalantir.FUEL_APPROACH_MAX_FORWARD_MPS);
-                }
-                swerveDrive.drive(new Translation2d(forward, 0), rotation, false, false);
-                if (forward > 0.0 && shouldDebugLog(lastLogTimeSec, DEBUG_LOG_PERIOD_SEC)) {
-                  debugAuto(
-                      String.format(
-                          "FUEL DRIVE front area=%.3f yaw=%.2fdeg fwd=%.2f rot=%.2f",
-                          area, yawDeg, forward, rotation));
-                }
-                if (shouldDebugLog(lastLogTimeSec, DEBUG_LOG_PERIOD_SEC)) {
-                  debugAuto(
-                      String.format(
-                          "FUEL ACQUIRE front yaw=%.2fdeg area=%.3f fwd=%.2f centered=%s reached=%s rotated=%.1fdeg",
-                          yawDeg,
-                          area,
-                          forward,
-                          true,
-                          fuelFound.get(),
-                          Math.toDegrees(rotatedRad.get())));
-                }
-              } else {
-                double spin = SEARCH_ROTATION_RAD_PER_SEC;
-                swerveDrive.drive(new Translation2d(0, 0), spin, false, false);
-                if (shouldDebugLog(lastLogTimeSec, DEBUG_LOG_PERIOD_SEC)) {
-                  debugAuto(
-                      String.format(
-                          "FUEL ACQUIRE no front fuel rotated=%.1fdeg lockedCamera=%s",
-                          Math.toDegrees(rotatedRad.get()),
-                          lockedFuelCamera.get() == null ? "none" : lockedFuelCamera.get().name()));
-                }
-              }
-            })
-        .until(
-            () ->
-                fuelFound.get()
-                    || rotatedRad.get() >= TAG_SEARCH_MAX_RADIANS
-                    || (Timer.getFPGATimestamp() - startTimeSec.get())
-                        >= FuelPalantir.FUEL_APPROACH_TIMEOUT_SEC)
-        .finallyDo(
-            () -> {
-              debugAuto(
-                  String.format(
-                      "FUEL ACQUIRE END fuelFound=%s rotated=%.1fdeg elapsed=%.2fs",
-                      fuelFound.get(),
-                      Math.toDegrees(rotatedRad.get()),
-                      Timer.getFPGATimestamp() - startTimeSec.get()));
-              swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
-            });
-  }
-
-  private Command findFuelForKnownTag(AtomicInteger activeTagId, AtomicBoolean fuelFound) {
-    return Commands.sequence(
-        Commands.runOnce(
-            () -> debugAuto(String.format("FUEL ROUTINE START tagId=%d", activeTagId.get()))),
-        centerOnKnownTag(activeTagId),
-        findAndApproachFuelWithAnyCamera(fuelFound),
-        Commands.either(playFuelFoundSound(), Commands.none(), fuelFound::get),
-        Commands.runOnce(
-            () -> {
-              if (!fuelFound.get()) {
-                debugAuto(
-                    String.format(
-                        "FUEL ROUTINE no fuel found after spin search tagId=%d, continuing",
-                        activeTagId.get()));
-              }
-            }),
-        Commands.runOnce(
-            () ->
-                debugAuto(
-                    String.format(
-                        "FUEL ROUTINE END tagId=%d fuelFound=%s",
-                        activeTagId.get(), fuelFound.get()))));
-  }
-
   private Command holdStoppedUntilDisabled() {
     return run(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false))
         .until(DriverStation::isDisabled)
@@ -1321,8 +1071,7 @@ public class SwerveSubsystem extends SubsystemBase {
             () -> {
               AtomicReference<Double> startTimeSec = new AtomicReference<>(0.0);
               AtomicReference<FuelPalantir.FuelPalantirState> state =
-                  new AtomicReference<>(
-                      new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
+                  new AtomicReference<>(new FuelPalantir.FuelPalantirState(0, Optional.empty()));
               AtomicReference<FuelPalantir.FuelPalantirStep> lastStep = new AtomicReference<>(null);
               AtomicReference<Double> lastStatusLogTimeSec =
                   new AtomicReference<>(Double.NEGATIVE_INFINITY);
@@ -1331,8 +1080,7 @@ public class SwerveSubsystem extends SubsystemBase {
                   startRun(
                           () -> {
                             startTimeSec.set(Timer.getFPGATimestamp());
-                            state.set(
-                                new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
+                            state.set(new FuelPalantir.FuelPalantirState(0, Optional.empty()));
                             lastStep.set(null);
                             debugAuto(
                                 String.format(
@@ -1445,19 +1193,25 @@ public class SwerveSubsystem extends SubsystemBase {
       return false;
     }
 
+    Map<Cameras, Vision.CameraSnapshot> cameraData = vision.getLatestCameraData();
+    if (cameraData == null || cameraData.isEmpty()) {
+      System.out.println("[PoseReset] source=APRILTAG failed=no_camera_data");
+      return false;
+    }
+
+    List<Vision.PoseEstimationResult> estimations = vision.updateAprilTagError(cameraData);
     Optional<EstimatedRobotPose> bestEstimate = Optional.empty();
     int bestTagCount = -1;
     double bestTimestampSec = Double.NEGATIVE_INFINITY;
 
-    for (Cameras camera : Cameras.values()) {
-      Optional<EstimatedRobotPose> estimate = vision.getEstimatedGlobalPose(camera);
-      if (estimate.isEmpty()) {
+    for (Vision.PoseEstimationResult est : estimations) {
+      if (est.estimatedPose().isEmpty()) {
         continue;
       }
-      int tagCount = estimate.get().targetsUsed.size();
-      double ts = estimate.get().timestampSeconds;
+      int tagCount = est.estimatedPose().get().targetsUsed.size();
+      double ts = est.estimatedPose().get().timestampSeconds;
       if (tagCount > bestTagCount || (tagCount == bestTagCount && ts > bestTimestampSec)) {
-        bestEstimate = estimate;
+        bestEstimate = est.estimatedPose();
         bestTagCount = tagCount;
         bestTimestampSec = ts;
       }
