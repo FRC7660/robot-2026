@@ -93,7 +93,8 @@ public class RobotContainer {
       return driverXbox.getRawAxis(3) * -1;
     }
     double base = driverXbox.getRightX();
-    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
+    if (DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue)
+        != DriverStation.Alliance.Red) {
       base *= -1;
     }
     return base;
@@ -104,7 +105,8 @@ public class RobotContainer {
       return driverXbox.getRawAxis(4) * -1;
     }
     double base = driverXbox.getRightY();
-    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
+    if (DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue)
+        != DriverStation.Alliance.Red) {
       base *= -1;
     }
     return base;
