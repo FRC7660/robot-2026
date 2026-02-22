@@ -25,7 +25,7 @@ PhotonVision-based AprilTag vision system for correcting swerve drive odometry u
 ### Standard Deviation Heuristic (`computeStdDevs`)
 - Multi-tag detections get tighter std devs than single-tag
 - Single tag at >4m distance is rejected entirely (`Double.MAX_VALUE`)
-- Std devs scale with `1 + (avgDist^2 / 30)`
+- Std devs scale linearly with `1 + (avgDist / 5)`
 
 ### Advanced Pose Selection (`selectAdvancedPose`)
 - Applies a multi-stage rejection pipeline:
@@ -75,7 +75,7 @@ Cameras(
 
 2. **`robotToCamRotation`** - A `Rotation3d` describing how the camera is rotated relative to the robot center. The three components are roll, pitch, yaw in radians. For example, `BACK_CAMERA` has `Math.toRadians(180)` yaw because it faces backward, and `Math.toRadians(5)` pitch because it's tilted slightly upward.
 
-3. **`robotToCamTranslation`** - A `Translation3d` describing where the camera is physically mounted relative to the robot center, in meters (converted from inches). The three components are X (forward/back), Y (left/right), Z (up/down). For example, `FRONT_CAMERA` is 14 inches forward and 4 inches above center, while `BACK_CAMERA` is 14 inches behind center and 4 inches up.
+3. **`robotToCamTranslation`** - A `Translation3d` describing where the camera is physically mounted relative to the robot center, in meters (converted from inches). The three components are X (forward/back), Y (left/right), Z (up/down). For example, `FRONT_CAMERA` is 14.5 inches forward and 6.25 inches above center, while `BACK_CAMERA` is 15.5 inches behind center and 5.5 inches up.
 
 4. **`singleTagStdDevs`** - A 3x1 matrix of standard deviations `[x, y, theta]` used when only one AprilTag is visible. Higher values = less trust in the measurement. The `(4, 4, 8)` means: 4m std dev in X, 4m in Y, 8 rad in theta -- so single-tag readings are treated with low confidence.
 
@@ -124,10 +124,10 @@ You'll find that error grows with distance and shrinks with more tags -- which i
 The base values `(4, 4, 8)` and `(0.5, 0.5, 1)` are just starting points. The heuristic then scales them in real time:
 
 ```java
-estStdDevs = estStdDevs.times(1 + (avgDist * avgDist / 30));
+estStdDevs = estStdDevs.times(1 + (avgDist / 5));
 ```
 
-So at 3m away, the multiplier is `1 + 9/30 = 1.3x`. At 6m, it's `1 + 36/30 = 2.2x`. This approximates the real-world behavior where error grows roughly quadratically with distance.
+So at 3m away, the multiplier is `1 + 3/5 = 1.6x`. At 6m, it's `1 + 6/5 = 2.2x`. This linear scaling is simpler and avoids over-penalizing mid-range measurements.
 
 ### Practical tuning approach
 
@@ -168,9 +168,9 @@ The logic flows like this:
 
 5. **Distance scaling** (applied in cases 3 and 4):
    ```java
-   estStdDevs = estStdDevs.times(1 + (avgDist * avgDist / 30));
+   estStdDevs = estStdDevs.times(1 + (avgDist / 5));
    ```
-   Computes the average distance to all visible tags, then inflates the std devs quadratically. Closer = tighter = more trust.
+   Computes the average distance to all visible tags, then inflates the std devs linearly. Closer = tighter = more trust.
 
 The result is stored in `curStdDevs`, which then gets read by `updatePoseEstimation()` when deciding whether to accept or reject the measurement and what confidence to pass to the Kalman filter.
 
@@ -198,7 +198,7 @@ The flow is:
 
 3. Then scales it by distance:
    ```java
-   estStdDevs = estStdDevs.times(1 + (avgDist * avgDist / 30));
+   estStdDevs = estStdDevs.times(1 + (avgDist / 5));
    ```
 
 4. Stores the final result in `curStdDevs`
@@ -211,7 +211,7 @@ Right now both cameras have identical base values `(4,4,8)` and `(0.5,0.5,1)`. B
 
 ## Q: Camera translation values -- what X, Y, Z should the camera enums be for our robot?
 
-Our robot is a 28-inch square. The cameras are mounted at the base (4 inches off the ground) in the center of the front and back sides.
+Our robot is a 28-inch square. The front camera is mounted 6.25 inches off the ground and the back camera is 5.5 inches off the ground, both centered on their respective sides.
 
 Using WPILib's robot coordinate system:
 - **X** = forward/back (positive = toward front)

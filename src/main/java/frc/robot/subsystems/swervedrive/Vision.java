@@ -95,17 +95,19 @@ public class Vision {
 
   static final double STALE_TIMESTAMP_EPSILON_SEC = 1e-4;
   static final int MIN_TAGS_FOR_DIRECT_ACCEPT = 2;
+  static final double SINGLE_TAG_MAX_TRUSTED_DISTANCE_METERS = 4.0;
   static final double MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS = 1.2;
   static final double MAX_TRANSLATION_OUTLIER_METERS = 1.5;
   static final double MAX_MULTI_TAG_TRANSLATION_OUTLIER_METERS = 3.0;
   static final double MAX_STD_XY_METERS = 5.0;
-  static final double MAX_STD_THETA_RAD = 10.0;
+
+  /** Maximum acceptable heading standard deviation (~115 degrees). */
+  static final double MAX_STD_THETA_RAD = 2.0;
+
   static final double MAX_SINGLE_TAG_AMBIGUITY = 0.25;
   static final int CONSECUTIVE_OUTLIER_OVERRIDE_COUNT = 15;
   private static final double FUSION_STATUS_LOG_PERIOD_SEC = 1.0;
   private static final double PIPELINE_STATS_LOG_PERIOD_SEC = 5.0;
-  private static final double FETCH_DEBUG_THRESHOLD_MS = 8.0;
-  private static final double FETCH_DEBUG_LOG_PERIOD_SEC = 0.5;
   private static final double POSE_LOG_TRANSLATION_DELTA_METERS = 0.05;
   private static final double POSE_LOG_ROTATION_DELTA_DEG = 2.0;
   private static final double TAG_YAW_LOG_DELTA_DEG = 1.0;
@@ -133,7 +135,6 @@ public class Vision {
   private final EnumMap<Cameras, Double> lastFusedTimestampSec = new EnumMap<>(Cameras.class);
   private double lastFusionStatusLogSec = Double.NEGATIVE_INFINITY;
   private double lastPipelineStatsLogSec = Double.NEGATIVE_INFINITY;
-  private double lastFetchDebugLogSec = Double.NEGATIVE_INFINITY;
   private int acceptedUpdates = 0;
   private int rejectedNoEstimate = 0;
   private int rejectedStale = 0;
@@ -289,7 +290,7 @@ public class Vision {
     if (numTags > 1) {
       estStdDevs = multiTagStdDevs;
     }
-    if (numTags == 1 && avgDist > 4) {
+    if (numTags == 1 && avgDist > SINGLE_TAG_MAX_TRUSTED_DISTANCE_METERS) {
       estStdDevs = VecBuilder.fill(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE);
     } else {
       estStdDevs = estStdDevs.times(1 + (avgDist / 5));
@@ -512,12 +513,15 @@ public class Vision {
       selectedMode = EstimatorMode.ADVANCED;
     }
     if (selectedMode == EstimatorMode.OFF) {
+      consecutiveOutlierCount = 0;
       return new SelectionResult(Optional.empty(), 0, 0, 0, 0, 0, 0, 0);
     }
-    return selectedMode == EstimatorMode.BASIC
-        ? selectBasicPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec)
-        : selectAdvancedPose(
-            estimations, swerveDrive.getPose(), lastFusedTimestampSec, consecutiveOutlierCount);
+    if (selectedMode == EstimatorMode.BASIC) {
+      consecutiveOutlierCount = 0;
+      return selectBasicPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec);
+    }
+    return selectAdvancedPose(
+        estimations, swerveDrive.getPose(), lastFusedTimestampSec, consecutiveOutlierCount);
   }
 
   // ── Pipeline: setVisionMeasurement ─────────────────────────────────────
@@ -612,55 +616,6 @@ public class Vision {
     logAprilTagTelemetryOnChange(cameraData, swerveDrive.getPose(), selection.bestCandidate());
     logTeleopAprilTagRecord(cameraData, estimations);
     logPipelineCycle(t0, t1, t2, t3, t4);
-  }
-
-  private void maybeLogSlowFetch(
-      Map<Cameras, CameraSnapshot> cameraData,
-      Map<Cameras, Optional<EstimatedRobotPose>> rawLatestPoseByCamera,
-      long fetchStartNs,
-      long fetchAfterCameraDataNs,
-      long fetchAfterRawPoseNs) {
-    double fetchCameraDataMs = (fetchAfterCameraDataNs - fetchStartNs) / 1e6;
-    double fetchRawPoseMs = (fetchAfterRawPoseNs - fetchAfterCameraDataNs) / 1e6;
-    double fetchTotalMs = (fetchAfterRawPoseNs - fetchStartNs) / 1e6;
-
-    if (fetchTotalMs < FETCH_DEBUG_THRESHOLD_MS) {
-      return;
-    }
-
-    double now = Timer.getFPGATimestamp();
-    if (now - lastFetchDebugLogSec < FETCH_DEBUG_LOG_PERIOD_SEC) {
-      return;
-    }
-    lastFetchDebugLogSec = now;
-
-    StringBuilder perCamera = new StringBuilder();
-    for (Cameras camera : Cameras.values()) {
-      CameraSnapshot snapshot = cameraData.get(camera);
-      int unreadCount =
-          snapshot == null || snapshot.aprilTagResults() == null
-              ? 0
-              : snapshot.aprilTagResults().size();
-      PhotonPipelineResult latest = snapshot == null ? null : snapshot.latestResult();
-      boolean hasLatest = latest != null;
-      boolean hasTargets = hasLatest && latest.hasTargets();
-      double latestTs = hasLatest ? latest.getTimestampSeconds() : Double.NaN;
-      double ageMs = hasLatest ? Math.max(0.0, (now - latestTs) * 1000.0) : Double.NaN;
-      boolean rawPosePresent =
-          rawLatestPoseByCamera.getOrDefault(camera, Optional.empty()).isPresent();
-
-      if (perCamera.length() > 0) {
-        perCamera.append(" | ");
-      }
-      perCamera.append(
-          String.format(
-              "%s{unread=%d hasTargets=%s latestAgeMs=%.1f rawPose=%s}",
-              camera.name(), unreadCount, hasTargets, ageMs, rawPosePresent));
-    }
-
-    System.out.printf(
-        "[VisionPipeline] FETCH-SLOW fetch=%.1fms cameraData=%.1fms rawPose=%.1fms detail=[%s]%n",
-        fetchTotalMs, fetchCameraDataMs, fetchRawPoseMs, perCamera.toString());
   }
 
   private Optional<CameraTagObservation> getClosestTagObservation(CameraSnapshot snapshot) {
@@ -1050,25 +1005,6 @@ public class Vision {
       throw new RuntimeException(
           "Cannot get AprilTag " + aprilTag + " from field " + fieldLayout.toString());
     }
-  }
-
-  /**
-   * Generates the estimated robot pose by fetching fresh results from a camera and running pose
-   * estimation. Returns empty if no accurate pose estimate could be generated.
-   *
-   * @param camera the camera to query
-   * @return an {@link EstimatedRobotPose} with an estimated pose, timestamp, and targets used to
-   *     create the estimate
-   */
-  public Optional<EstimatedRobotPose> getEstimatedGlobalPose(Cameras camera) {
-    List<PhotonPipelineResult> results = camera.camera.getAllUnreadResults();
-
-    Optional<EstimatedRobotPose> poseEst = Optional.empty();
-    for (PhotonPipelineResult result : results) {
-      poseEst = camera.poseEstimator.update(result);
-    }
-
-    return poseEst;
   }
 
   /**

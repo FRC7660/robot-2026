@@ -435,6 +435,119 @@ class VisionPipelineTest {
     assertTrue(result.bestCandidate().isPresent());
   }
 
+  // ── selectBasicPose tests ────────────────────────────────────────────────
+
+  @Test
+  void selectBasicPose_allCamerasEmpty_rejectedNoEstimate() {
+    List<Vision.PoseEstimationResult> estimations = new ArrayList<>();
+    for (Cameras cam : Cameras.values()) {
+      estimations.add(new Vision.PoseEstimationResult(cam, Optional.empty(), SINGLE_TAG_STD, 0));
+    }
+
+    Vision.SelectionResult result =
+        Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+
+    assertTrue(result.bestCandidate().isEmpty());
+    assertEquals(Cameras.values().length, result.rejectedNoEstimate());
+  }
+
+  @Test
+  void selectBasicPose_staleTimestamp_rejected() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target = makeTarget(1);
+    EstimatedRobotPose est = makeEstimatedPose(0.0, 0.0, 5.0, List.of(target));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Map<Cameras, Double> lastFused = new EnumMap<>(Cameras.class);
+    lastFused.put(cam, 5.0);
+
+    Vision.SelectionResult result = Vision.selectBasicPose(estimations, new Pose2d(), lastFused);
+
+    assertTrue(result.bestCandidate().isEmpty());
+    assertEquals(1, result.rejectedStale());
+  }
+
+  @Test
+  void selectBasicPose_singleValidCamera_accepted() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target = makeTarget(1);
+    EstimatedRobotPose est = makeEstimatedPose(0.5, 0.0, 1.0, List.of(target));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+
+    assertTrue(result.bestCandidate().isPresent());
+    // score = translationError = 0.5
+    assertEquals(0.5, result.bestCandidate().get().score(), 1e-6);
+  }
+
+  @Test
+  void selectBasicPose_twoValidCameras_lowestTranslationErrorWins() {
+    Cameras[] cams = Cameras.values();
+    assertTrue(cams.length >= 2);
+
+    PhotonTrackedTarget t1 = makeTarget(1);
+    EstimatedRobotPose est1 = makeEstimatedPose(2.0, 0.0, 1.0, List.of(t1));
+    Matrix<N3, N1> stdDevs1 = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    PhotonTrackedTarget t2 = makeTarget(1);
+    EstimatedRobotPose est2 = makeEstimatedPose(0.3, 0.0, 2.0, List.of(t2));
+    Matrix<N3, N1> stdDevs2 = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(
+            new Vision.PoseEstimationResult(cams[0], Optional.of(est1), stdDevs1, 1),
+            new Vision.PoseEstimationResult(cams[1], Optional.of(est2), stdDevs2, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+
+    assertTrue(result.bestCandidate().isPresent());
+    assertEquals(cams[1], result.bestCandidate().get().camera());
+  }
+
+  @Test
+  void selectBasicPose_nullStdDevs_rejectedNoEstimate() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target = makeTarget(1);
+    EstimatedRobotPose est = makeEstimatedPose(0.0, 0.0, 1.0, List.of(target));
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), null, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+
+    assertTrue(result.bestCandidate().isEmpty());
+    assertEquals(1, result.rejectedNoEstimate());
+  }
+
+  @Test
+  void selectBasicPose_acceptsHighTranslationError() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target = makeTarget(1);
+    // 5m translation error -- basic mode has no outlier/distance filter
+    EstimatedRobotPose est = makeEstimatedPose(5.0, 0.0, 1.0, List.of(target));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
+
+    Vision.SelectionResult result =
+        Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+
+    assertTrue(result.bestCandidate().isPresent());
+  }
+
+  // ── selectAdvancedPose tests (continued) ──────────────────────────────────
+
   @Test
   void selectAdvancedPose_multiTagHigherOutlierThreshold_accepted() {
     Cameras cam = Cameras.values()[0];
