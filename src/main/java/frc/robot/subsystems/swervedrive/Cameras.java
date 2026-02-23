@@ -54,14 +54,8 @@ public enum Cameras {
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1));
 
-  /** Latency alert to use when high latency is detected. */
-  public final Alert latencyAlert;
-
-  /** Camera instance for comms. */
-  public final PhotonCamera camera;
-
-  /** Pose estimator for camera. */
-  public final PhotonPoseEstimator poseEstimator;
+  /** Name used to look up the PhotonVision camera. */
+  private final String name;
 
   /** Standard Deviation for single tag readings for pose estimation. */
   private final Matrix<N3, N1> singleTagStdDevs;
@@ -71,6 +65,11 @@ public enum Cameras {
 
   /** Transform of the camera rotation and translation relative to the center of the robot */
   final Transform3d robotToCamTransform;
+
+  // Lazily initialized hardware fields (require native libraries)
+  private Alert latencyAlert;
+  private PhotonCamera camera;
+  private PhotonPoseEstimator poseEstimator;
 
   /**
    * Construct a Photon Camera class with help. Standard deviations are fake values, experiment and
@@ -89,21 +88,43 @@ public enum Cameras {
       Translation3d robotToCamTranslation,
       Matrix<N3, N1> singleTagStdDevs,
       Matrix<N3, N1> multiTagStdDevsMatrix) {
-    latencyAlert =
-        new Alert("'" + name + "' Camera is experiencing high latency.", AlertType.kWarning);
-
-    camera = new PhotonCamera(name);
+    this.name = name;
 
     // https://docs.wpilib.org/en/stable/docs/software/basic-programming/coordinate-system.html
     robotToCamTransform = new Transform3d(robotToCamTranslation, robotToCamRotation);
 
-    poseEstimator =
-        new PhotonPoseEstimator(
-            Vision.fieldLayout, PoseStrategy.MULTI_TAG_PNP_ON_COPROCESSOR, robotToCamTransform);
-    poseEstimator.setMultiTagFallbackStrategy(PoseStrategy.LOWEST_AMBIGUITY);
-
     this.singleTagStdDevs = singleTagStdDevs;
     this.multiTagStdDevs = multiTagStdDevsMatrix;
+  }
+
+  private synchronized void ensureInitialized() {
+    if (camera == null) {
+      latencyAlert =
+          new Alert("'" + name + "' Camera is experiencing high latency.", AlertType.kWarning);
+      camera = new PhotonCamera(name);
+      poseEstimator =
+          new PhotonPoseEstimator(
+              Vision.fieldLayout, PoseStrategy.MULTI_TAG_PNP_ON_COPROCESSOR, robotToCamTransform);
+      poseEstimator.setMultiTagFallbackStrategy(PoseStrategy.LOWEST_AMBIGUITY);
+    }
+  }
+
+  /** Get the latency alert for this camera. */
+  public Alert getLatencyAlert() {
+    ensureInitialized();
+    return latencyAlert;
+  }
+
+  /** Get the PhotonCamera instance. */
+  public PhotonCamera getCamera() {
+    ensureInitialized();
+    return camera;
+  }
+
+  /** Get the pose estimator for this camera. */
+  public PhotonPoseEstimator getPoseEstimator() {
+    ensureInitialized();
+    return poseEstimator;
   }
 
   /** Get the single-tag standard deviations for this camera. */
