@@ -140,7 +140,7 @@ public class SwerveSubsystem extends SubsystemBase {
     swerveDrive.setHeadingCorrection(
         false); // Heading correction should only be used while controlling the robot via angle.
     swerveDrive.setCosineCompensator(
-        false); // !SwerveDriveTelemetry.isSimulation); // Disables cosine compensation for
+        true); // Keep enabled on real robot for better tracking during rapid module angle changes.
     // simulations since it causes discrepancies not seen in real life.
     swerveDrive.setAngularVelocityCompensation(
         true, true,
@@ -232,9 +232,9 @@ public class SwerveSubsystem extends SubsystemBase {
       AutoBuilder.configure(
           this::getPose,
           // Robot pose supplier
-          this::resetOdometry,
+          this::resetPose,
           // Method to reset odometry (will be called if your auto has a starting pose)
-          this::getRobotVelocity,
+          this::getRobotRelativeSpeeds,
           // ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
           (speedsRobotRelative, moduleFeedForwards) -> {
             if (enableFeedforward) {
@@ -1169,6 +1169,7 @@ public class SwerveSubsystem extends SubsystemBase {
 
     List<Vision.PoseEstimationResult> estimations = vision.updateAprilTagError(cameraData);
     Optional<EstimatedRobotPose> bestEstimate = Optional.empty();
+    Vision.PoseEstimationResult bestResult = null;
     int bestTagCount = -1;
     double bestTimestampSec = Double.NEGATIVE_INFINITY;
 
@@ -1180,6 +1181,7 @@ public class SwerveSubsystem extends SubsystemBase {
       double ts = est.estimatedPose().get().timestampSeconds;
       if (tagCount > bestTagCount || (tagCount == bestTagCount && ts > bestTimestampSec)) {
         bestEstimate = est.estimatedPose();
+        bestResult = est;
         bestTagCount = tagCount;
         bestTimestampSec = ts;
       }
@@ -1191,9 +1193,9 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     Pose2d pose = bestEstimate.get().estimatedPose.toPose2d();
-    resetOdometry(pose);
+    swerveDrive.addVisionMeasurement(pose, bestTimestampSec, bestResult.stdDevs());
     System.out.printf(
-        "[PoseReset] source=APRILTAG pose=(%.3f, %.3f, %.1fdeg) tags=%d ts=%.3f%n",
+        "[PoseReset] source=APRILTAG fused_pose=(%.3f, %.3f, %.1fdeg) tags=%d ts=%.3f%n",
         pose.getX(), pose.getY(), pose.getRotation().getDegrees(), bestTagCount, bestTimestampSec);
     return true;
   }
@@ -1450,6 +1452,11 @@ public class SwerveSubsystem extends SubsystemBase {
     swerveDrive.resetOdometry(initialHolonomicPose);
   }
 
+  /** PathPlanner-style alias for pose reset. */
+  public void resetPose(Pose2d pose) {
+    resetOdometry(pose);
+  }
+
   /**
    * Gets the current pose (position and rotation) of the robot, as reported by odometry.
    *
@@ -1588,6 +1595,11 @@ public class SwerveSubsystem extends SubsystemBase {
    */
   public ChassisSpeeds getRobotVelocity() {
     return swerveDrive.getRobotVelocity();
+  }
+
+  /** PathPlanner-style alias for robot-relative speed supplier. */
+  public ChassisSpeeds getRobotRelativeSpeeds() {
+    return getRobotVelocity();
   }
 
   /**
