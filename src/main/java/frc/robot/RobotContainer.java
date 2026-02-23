@@ -230,7 +230,20 @@ public class RobotContainer {
       driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
       driverXbox.back().whileTrue(drivebase.centerModulesCommand());
       driverXbox.leftBumper().whileTrue(new YAGSLPitCheck(drivebase));
-      driverXbox.rightBumper().whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.TELEOP));
+      driverXbox.rightBumper().onTrue(Commands.runOnce(misalignCorrection::execute));
+      driverXbox.b().whileTrue(Commands.runOnce(() -> indexSystem.setfunnel(0.1)));
+      driverXbox
+          .y()
+          .whileTrue(
+              intakeSystem.runCommand(
+                  () -> {
+                    return .99;
+                  }));
+      driverXbox.a().onTrue(intakeSystem.setAngle(-25.0));
+      driverXbox.x().onTrue(intakeSystem.setAngle(110.0));
+      driverXbox
+          .rightTrigger(0.5)
+          .whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.TELEOP));
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
@@ -238,6 +251,12 @@ public class RobotContainer {
       driverXbox.back().whileTrue(Commands.none());
       driverXbox.leftBumper().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
       driverXbox.rightBumper().whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.TELEOP));
+
+      driverXbox
+          .b()
+          .whileTrue(
+              drivebase.driveToPose(
+                  new Pose2d(new Translation2d(14, 4), Rotation2d.fromDegrees(0))));
 
       driverXbox.y().whileTrue(drivebase.sysIdDriveMotorCommand());
     }
