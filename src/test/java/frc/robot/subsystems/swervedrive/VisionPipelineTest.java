@@ -176,7 +176,7 @@ class VisionPipelineTest {
     }
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(Cameras.values().length, result.rejectedNoEstimate());
@@ -196,7 +196,7 @@ class VisionPipelineTest {
     lastFused.put(cam, 5.0);
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), lastFused, 0);
+        Vision.selectAdvancedPose(estimations, new Pose2d(), lastFused, 0, 0.0, 0.0, 0.0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedStale());
@@ -214,7 +214,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedLowTagFar());
@@ -232,7 +232,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedHighStd());
@@ -250,7 +250,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
 
     assertTrue(result.bestCandidate().isEmpty());
     // Single tag at 1.53m > 1.2m, so it hits lowTagFar first
@@ -270,7 +270,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedOutlier());
@@ -288,7 +288,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
 
     assertTrue(result.bestCandidate().isPresent());
     Vision.FusionCandidate best = result.bestCandidate().get();
@@ -320,7 +320,7 @@ class VisionPipelineTest {
             new Vision.PoseEstimationResult(cams[1], Optional.of(est2), stdDevs2, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
 
     assertTrue(result.bestCandidate().isPresent());
     assertEquals(cams[1], result.bestCandidate().get().camera());
@@ -338,7 +338,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
 
     assertTrue(result.bestCandidate().isPresent());
     assertEquals(0, result.rejectedLowTagFar());
@@ -355,7 +355,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedLowTagFar());
@@ -372,7 +372,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
 
     // 1.2 is not > 1.2, so it passes the single-tag filter
     assertTrue(result.bestCandidate().isPresent());
@@ -389,7 +389,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedAmbiguity());
@@ -407,7 +407,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedOutOfField());
@@ -430,7 +430,10 @@ class VisionPipelineTest {
             estimations,
             new Pose2d(),
             new EnumMap<>(Cameras.class),
-            Vision.CONSECUTIVE_OUTLIER_OVERRIDE_COUNT);
+            Vision.CONSECUTIVE_OUTLIER_OVERRIDE_COUNT,
+            0.0,
+            0.0,
+            0.0);
 
     assertTrue(result.bestCandidate().isPresent());
   }
@@ -445,7 +448,7 @@ class VisionPipelineTest {
     }
 
     Vision.SelectionResult result =
-        Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0.0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(Cameras.values().length, result.rejectedNoEstimate());
@@ -464,7 +467,7 @@ class VisionPipelineTest {
     Map<Cameras, Double> lastFused = new EnumMap<>(Cameras.class);
     lastFused.put(cam, 5.0);
 
-    Vision.SelectionResult result = Vision.selectBasicPose(estimations, new Pose2d(), lastFused);
+    Vision.SelectionResult result = Vision.selectBasicPose(estimations, new Pose2d(), lastFused, 0.0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedStale());
@@ -481,7 +484,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0.0);
 
     assertTrue(result.bestCandidate().isPresent());
     // score = translationError = 0.5
@@ -507,7 +510,7 @@ class VisionPipelineTest {
             new Vision.PoseEstimationResult(cams[1], Optional.of(est2), stdDevs2, 1));
 
     Vision.SelectionResult result =
-        Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0.0);
 
     assertTrue(result.bestCandidate().isPresent());
     assertEquals(cams[1], result.bestCandidate().get().camera());
@@ -523,7 +526,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), null, 1));
 
     Vision.SelectionResult result =
-        Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0.0);
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedNoEstimate());
@@ -541,7 +544,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class));
+        Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0.0);
 
     assertTrue(result.bestCandidate().isPresent());
   }
@@ -561,7 +564,7 @@ class VisionPipelineTest {
         List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1));
 
     Vision.SelectionResult result =
-        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0);
+        Vision.selectAdvancedPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
 
     assertTrue(result.bestCandidate().isPresent());
     assertEquals(0, result.rejectedOutlier());
