@@ -30,7 +30,7 @@ class FuelPalantirLogicTest {
 
   private static Vision.CameraSnapshot snapshotWithTarget(
       int fiducialId, double yawDeg, double area, double timestampSec) {
-    return snapshotWithTarget(Cameras.CAMERA0, fiducialId, yawDeg, area, timestampSec);
+    return snapshotWithTarget(Cameras.BACK_CAMERA, fiducialId, yawDeg, area, timestampSec);
   }
 
   private static Vision.CameraSnapshot emptySnapshot(Cameras camera) {
@@ -43,15 +43,15 @@ class FuelPalantirLogicTest {
 
   private static Map<Cameras, Vision.CameraSnapshot> baseCameraData() {
     Map<Cameras, Vision.CameraSnapshot> map = new EnumMap<>(Cameras.class);
-    map.put(Cameras.CAMERA0, emptySnapshot(Cameras.CAMERA0));
-    map.put(Cameras.CAMERA1, emptySnapshot(Cameras.CAMERA1));
+    map.put(Cameras.BACK_CAMERA, emptySnapshot(Cameras.BACK_CAMERA));
+    map.put(Cameras.FRONT_CAMERA, emptySnapshot(Cameras.FRONT_CAMERA));
     return map;
   }
 
   @Test
   void fuelPalantir_locksCameraAndCommandsMotionWhenFuelSeen() {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
-    data.put(Cameras.CAMERA0, snapshotWithTarget(-1, 10.0, 1.0, 1.0));
+    data.put(Cameras.BACK_CAMERA, snapshotWithTarget(-1, 10.0, 1.0, 1.0));
 
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
@@ -61,7 +61,7 @@ class FuelPalantirLogicTest {
             1.0);
 
     assertTrue(step.nextState().lockedCamera().isPresent());
-    assertEquals(Cameras.CAMERA0, step.nextState().lockedCamera().get());
+    assertEquals(Cameras.BACK_CAMERA, step.nextState().lockedCamera().get());
     assertTrue(step.forwardMps() > 0.0);
     assertFalse(step.fuelCollectedThisCycle());
     assertFalse(step.completed());
@@ -70,12 +70,12 @@ class FuelPalantirLogicTest {
   @Test
   void fuelPalantir_incrementsProxyCountWhenTargetAreaReached() {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
-    data.put(Cameras.CAMERA0, snapshotWithTarget(-1, 1.0, 5.0, 1.0));
+    data.put(Cameras.BACK_CAMERA, snapshotWithTarget(-1, 1.0, 5.0, 1.0));
 
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
             data,
-            new FuelPalantir.FuelPalantirState(2, Optional.of(Cameras.CAMERA0), false),
+            new FuelPalantir.FuelPalantirState(2, Optional.of(Cameras.BACK_CAMERA), false),
             FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
             2.0);
 
@@ -113,12 +113,12 @@ class FuelPalantirLogicTest {
   @Test
   void fuelPalantir_completesWhenProxyFuelTargetReached() {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
-    data.put(Cameras.CAMERA0, snapshotWithTarget(-1, 0.0, 6.0, 1.0));
+    data.put(Cameras.BACK_CAMERA, snapshotWithTarget(-1, 0.0, 6.0, 1.0));
 
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
             data,
-            new FuelPalantir.FuelPalantirState(7, Optional.of(Cameras.CAMERA0), false),
+            new FuelPalantir.FuelPalantirState(7, Optional.of(Cameras.BACK_CAMERA), false),
             FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
             5.0);
 
@@ -131,12 +131,12 @@ class FuelPalantirLogicTest {
   void fuelPalantir_doesNotDoubleCountWhenAreaStaysAboveThreshold() {
     // First cycle: was below → now above → counts as 1 collection
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
-    data.put(Cameras.CAMERA0, snapshotWithTarget(-1, 0.0, 5.0, 1.0));
+    data.put(Cameras.BACK_CAMERA, snapshotWithTarget(-1, 0.0, 5.0, 1.0));
 
     FuelPalantir.FuelPalantirStep step1 =
         FuelPalantir.fuelPalantir(
             data,
-            new FuelPalantir.FuelPalantirState(0, Optional.of(Cameras.CAMERA0), false),
+            new FuelPalantir.FuelPalantirState(0, Optional.of(Cameras.BACK_CAMERA), false),
             FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
             1.0);
 
@@ -147,10 +147,7 @@ class FuelPalantirLogicTest {
     // Second cycle: still above threshold with same piece — must NOT count again
     FuelPalantir.FuelPalantirStep step2 =
         FuelPalantir.fuelPalantir(
-            data,
-            step1.nextState(),
-            FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
-            1.02);
+            data, step1.nextState(), FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S, 1.02);
 
     assertFalse(step2.fuelCollectedThisCycle());
     assertEquals(1, step2.nextState().proxyCollectedFuelCount());
@@ -159,24 +156,26 @@ class FuelPalantirLogicTest {
   @Test
   void chooseLockCamera_releasesLockWhenLockedCameraLosesTarget() {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
-    // CAMERA0 is locked but has no targets; CAMERA1 has a fuel target
-    data.put(Cameras.CAMERA1, snapshotWithTarget(Cameras.CAMERA1, -1, 5.0, 1.0, 1.0));
+    // BACK_CAMERA is locked but has no targets; FRONT_CAMERA has a fuel target
+    data.put(Cameras.FRONT_CAMERA, snapshotWithTarget(Cameras.FRONT_CAMERA, -1, 5.0, 1.0, 1.0));
 
-    Optional<Cameras> result = FuelPalantir.chooseLockCamera(data, Optional.of(Cameras.CAMERA0));
+    Optional<Cameras> result =
+        FuelPalantir.chooseLockCamera(data, Optional.of(Cameras.BACK_CAMERA));
 
     assertTrue(result.isPresent());
-    assertEquals(Cameras.CAMERA1, result.get());
+    assertEquals(Cameras.FRONT_CAMERA, result.get());
   }
 
   @Test
   void chooseLockCamera_keepsLockWhenLockedCameraStillSeesFuel() {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
-    data.put(Cameras.CAMERA0, snapshotWithTarget(Cameras.CAMERA0, -1, 3.0, 2.0, 1.0));
-    data.put(Cameras.CAMERA1, snapshotWithTarget(Cameras.CAMERA1, -1, 1.0, 3.0, 1.0));
+    data.put(Cameras.BACK_CAMERA, snapshotWithTarget(Cameras.BACK_CAMERA, -1, 3.0, 2.0, 1.0));
+    data.put(Cameras.FRONT_CAMERA, snapshotWithTarget(Cameras.FRONT_CAMERA, -1, 1.0, 3.0, 1.0));
 
-    Optional<Cameras> result = FuelPalantir.chooseLockCamera(data, Optional.of(Cameras.CAMERA0));
+    Optional<Cameras> result =
+        FuelPalantir.chooseLockCamera(data, Optional.of(Cameras.BACK_CAMERA));
 
     assertTrue(result.isPresent());
-    assertEquals(Cameras.CAMERA0, result.get());
+    assertEquals(Cameras.BACK_CAMERA, result.get());
   }
 }
