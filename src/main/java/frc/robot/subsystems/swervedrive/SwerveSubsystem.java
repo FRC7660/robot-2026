@@ -397,7 +397,7 @@ public class SwerveSubsystem extends SubsystemBase {
    * outside the package that cannot reference the package-private {@code Vision.Cameras} type.
    *
    * @param cameraEnumName the enum constant name from {@code Vision.Cameras}, e.g. "CENTER_CAM" or
-   *     "CAMERA1"
+   *     "FRONT_CAMERA"
    * @param durationSeconds timeout for the tracking command
    * @return the tracking {@link Command} or {@link Commands#none()} if the name is invalid
    */
@@ -499,7 +499,7 @@ public class SwerveSubsystem extends SubsystemBase {
   /**
    * String-name wrapper for {@link #logDetectedObjectArea(Cameras)}.
    *
-   * @param cameraEnumName enum constant from {@code Vision.Cameras}, e.g. "CAMERA0"
+   * @param cameraEnumName enum constant from {@code Vision.Cameras}, e.g. "BACK_CAMERA"
    * @return command that logs object area, or {@link Commands#none()} if camera is invalid
    */
   public Command logDetectedObjectAreaByCameraName(String cameraEnumName) {
@@ -600,7 +600,7 @@ public class SwerveSubsystem extends SubsystemBase {
   private Optional<TargetObservation> getClosestVisibleAprilTagObservation(int excludedTagId) {
     TargetObservation closest = null;
     double closestDistance = Double.POSITIVE_INFINITY;
-    Cameras[] tagCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
+    Cameras[] tagCameras = {Cameras.BACK_CAMERA, Cameras.FRONT_CAMERA};
 
     for (Cameras camera : tagCameras) {
       var latest = camera.camera.getLatestResult();
@@ -628,7 +628,7 @@ public class SwerveSubsystem extends SubsystemBase {
     }
     TargetObservation closest = null;
     double closestDistance = Double.POSITIVE_INFINITY;
-    Cameras[] tagCameras = {Cameras.CAMERA0, Cameras.CAMERA1};
+    Cameras[] tagCameras = {Cameras.BACK_CAMERA, Cameras.FRONT_CAMERA};
 
     for (Cameras camera : tagCameras) {
       var latest = camera.camera.getLatestResult();
@@ -675,7 +675,7 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   private String buildTagVisibilitySummary(int excludedTagId) {
-    Cameras[] cameras = {Cameras.CAMERA0, Cameras.CAMERA1};
+    Cameras[] cameras = {Cameras.BACK_CAMERA, Cameras.FRONT_CAMERA};
     StringBuilder sb = new StringBuilder();
     for (Cameras cam : cameras) {
       var latest = cam.camera.getLatestResult();
@@ -882,9 +882,10 @@ public class SwerveSubsystem extends SubsystemBase {
                     MathUtil.clamp(
                         distanceError * 0.9, APPROACH_MIN_FORWARD_MPS, APPROACH_MAX_FORWARD_MPS);
               }
-              // FRONT_CAMERA (CAMERA1) faces +X: after yaw alignment the tag is ahead → drive
-              // forward (+1). BACK_CAMERA (CAMERA0) faces -X: tag is behind → drive backward (-1).
-              double cameraForwardSign = observation.get().camera() == Cameras.CAMERA1 ? 1.0 : -1.0;
+              // FRONT_CAMERA faces +X: after yaw alignment the tag is ahead → drive
+              // forward (+1). BACK_CAMERA faces -X: tag is behind → drive backward (-1).
+              double cameraForwardSign =
+                  observation.get().camera() == Cameras.FRONT_CAMERA ? 1.0 : -1.0;
               double commandedForward = cameraForwardSign * forwardSpeed;
               swerveDrive.drive(new Translation2d(commandedForward, 0), rotation, false, false);
               boolean noProgressLongEnough =
@@ -1081,7 +1082,8 @@ public class SwerveSubsystem extends SubsystemBase {
                   startRun(
                           () -> {
                             startTimeSec.set(Timer.getFPGATimestamp());
-                            state.set(new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
+                            state.set(
+                                new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
                             lastStep.set(null);
                             debugAuto(
                                 String.format(
