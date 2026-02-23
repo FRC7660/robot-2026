@@ -131,7 +131,7 @@ public class Robot extends TimedRobot {
   public void autonomousInit() {
     System.out.printf("[RobotDebug][%.2f] autonomousInit%n", Timer.getFPGATimestamp());
     m_robotContainer.setMotorBrake(true);
-    m_robotContainer.resetPoseFromChooser();
+    m_robotContainer.prepareAutonomous();
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
 
     // Print the selected autonomous command upon autonomous init

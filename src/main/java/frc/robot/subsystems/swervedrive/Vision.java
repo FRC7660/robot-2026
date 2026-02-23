@@ -15,6 +15,7 @@ import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.lib.BufferedLogger;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +76,7 @@ public class Vision {
   /** Output of the selection step. */
   public record SelectionResult(
       Optional<FusionCandidate> bestCandidate,
+      List<FusionCandidate> acceptedCandidates,
       int rejectedNoEstimate,
       int rejectedStale,
       int rejectedLowTagFar,
@@ -106,6 +108,10 @@ public class Vision {
 
   static final double MAX_SINGLE_TAG_AMBIGUITY = 0.25;
   static final int CONSECUTIVE_OUTLIER_OVERRIDE_COUNT = 15;
+  static final double MAX_VISION_MEASUREMENT_AGE_SEC = 0.30;
+  static final double MAX_CAMERA_LATENCY_SEC = 0.20;
+  static final double MAX_SINGLE_TAG_SPEED_MPS = 2.5;
+  static final double MAX_SINGLE_TAG_ANGULAR_SPEED_RAD_PER_SEC = 4.0;
   private static final double FUSION_STATUS_LOG_PERIOD_SEC = 1.0;
   private static final double PIPELINE_STATS_LOG_PERIOD_SEC = 5.0;
   private static final double POSE_LOG_TRANSLATION_DELTA_METERS = 0.05;
@@ -331,7 +337,10 @@ public class Vision {
       List<PoseEstimationResult> estimations,
       Pose2d currentPose,
       Map<Cameras, Double> lastFusedTimestamps,
-      int consecutiveOutliers) {
+      int consecutiveOutliers,
+      double nowSec,
+      double robotSpeedMps,
+      double robotOmegaRadPerSec) {
     int rejNoEst = 0;
     int rejStale = 0;
     int rejLowTagFar = 0;
@@ -340,6 +349,7 @@ public class Vision {
     int rejAmbiguity = 0;
     int rejOutOfField = 0;
     FusionCandidate best = null;
+    List<FusionCandidate> acceptedCandidates = new ArrayList<>();
 
     double fieldLength = fieldLayout.getFieldLength();
     double fieldWidth = fieldLayout.getFieldWidth();
@@ -356,6 +366,16 @@ public class Vision {
 
       double lastTs = lastFusedTimestamps.getOrDefault(est.camera(), Double.NEGATIVE_INFINITY);
       if (pose.timestampSeconds <= lastTs + STALE_TIMESTAMP_EPSILON_SEC) {
+        rejStale++;
+        continue;
+      }
+      if ((nowSec - pose.timestampSeconds) > MAX_VISION_MEASUREMENT_AGE_SEC) {
+        rejStale++;
+        continue;
+      }
+      double cameraLatencySec =
+          Math.max(0.0, nowSec - est.camera().camera.getLatestResult().getTimestampSeconds());
+      if (cameraLatencySec > MAX_CAMERA_LATENCY_SEC) {
         rejStale++;
         continue;
       }
@@ -389,6 +409,12 @@ public class Vision {
       if (tagCount < MIN_TAGS_FOR_DIRECT_ACCEPT
           && translationError > MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS) {
         rejLowTagFar++;
+        continue;
+      }
+      if (tagCount < MIN_TAGS_FOR_DIRECT_ACCEPT
+          && (robotSpeedMps > MAX_SINGLE_TAG_SPEED_MPS
+              || Math.abs(robotOmegaRadPerSec) > MAX_SINGLE_TAG_ANGULAR_SPEED_RAD_PER_SEC)) {
+        rejHighStd++;
         continue;
       }
 
@@ -430,13 +456,19 @@ public class Vision {
               true,
               stdDevs,
               score);
+      acceptedCandidates.add(candidate);
       if (best == null || candidate.score() < best.score()) {
         best = candidate;
       }
     }
 
+    acceptedCandidates.sort(
+        Comparator.comparingDouble(FusionCandidate::timestampSec)
+            .thenComparingDouble(FusionCandidate::score));
+
     return new SelectionResult(
         Optional.ofNullable(best),
+        acceptedCandidates,
         rejNoEst,
         rejStale,
         rejLowTagFar,
@@ -449,10 +481,12 @@ public class Vision {
   static SelectionResult selectBasicPose(
       List<PoseEstimationResult> estimations,
       Pose2d currentPose,
-      Map<Cameras, Double> lastFusedTimestamps) {
+      Map<Cameras, Double> lastFusedTimestamps,
+      double nowSec) {
     int rejNoEst = 0;
     int rejStale = 0;
     FusionCandidate best = null;
+    List<FusionCandidate> acceptedCandidates = new ArrayList<>();
 
     for (PoseEstimationResult est : estimations) {
       if (est.estimatedPose().isEmpty()) {
@@ -463,6 +497,16 @@ public class Vision {
       var pose = est.estimatedPose().get();
       double lastTs = lastFusedTimestamps.getOrDefault(est.camera(), Double.NEGATIVE_INFINITY);
       if (pose.timestampSeconds <= lastTs + STALE_TIMESTAMP_EPSILON_SEC) {
+        rejStale++;
+        continue;
+      }
+      if ((nowSec - pose.timestampSeconds) > MAX_VISION_MEASUREMENT_AGE_SEC) {
+        rejStale++;
+        continue;
+      }
+      double cameraLatencySec =
+          Math.max(0.0, nowSec - est.camera().camera.getLatestResult().getTimestampSeconds());
+      if (cameraLatencySec > MAX_CAMERA_LATENCY_SEC) {
         rejStale++;
         continue;
       }
@@ -493,12 +537,17 @@ public class Vision {
               true,
               stdDevs,
               score);
+      acceptedCandidates.add(candidate);
       if (best == null || candidate.score() < best.score()) {
         best = candidate;
       }
     }
 
-    return new SelectionResult(Optional.ofNullable(best), rejNoEst, rejStale, 0, 0, 0, 0, 0);
+    acceptedCandidates.sort(
+        Comparator.comparingDouble(FusionCandidate::timestampSec)
+            .thenComparingDouble(FusionCandidate::score));
+    return new SelectionResult(
+        Optional.ofNullable(best), acceptedCandidates, rejNoEst, rejStale, 0, 0, 0, 0, 0);
   }
 
   // ── Pipeline: selectBestPose (instance) ──────────────────────────────────
@@ -518,14 +567,25 @@ public class Vision {
     }
     if (selectedMode == EstimatorMode.OFF) {
       consecutiveOutlierCount = 0;
-      return new SelectionResult(Optional.empty(), 0, 0, 0, 0, 0, 0, 0);
+      return new SelectionResult(Optional.empty(), List.of(), 0, 0, 0, 0, 0, 0, 0);
     }
+    double nowSec = Timer.getFPGATimestamp();
+    var robotVelocity = swerveDrive.getRobotVelocity();
+    double robotSpeedMps =
+        Math.hypot(robotVelocity.vxMetersPerSecond, robotVelocity.vyMetersPerSecond);
+    double robotOmegaRadPerSec = robotVelocity.omegaRadiansPerSecond;
     if (selectedMode == EstimatorMode.BASIC) {
       consecutiveOutlierCount = 0;
-      return selectBasicPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec);
+      return selectBasicPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec, nowSec);
     }
     return selectAdvancedPose(
-        estimations, swerveDrive.getPose(), lastFusedTimestampSec, consecutiveOutlierCount);
+        estimations,
+        swerveDrive.getPose(),
+        lastFusedTimestampSec,
+        consecutiveOutlierCount,
+        nowSec,
+        robotSpeedMps,
+        robotOmegaRadPerSec);
   }
 
   // ── Pipeline: setVisionMeasurement ─────────────────────────────────────
@@ -538,25 +598,25 @@ public class Vision {
    */
   public void setVisionMeasurement(SwerveDrive swerveDrive, SelectionResult selection) {
     Optional<FusionCandidate> fusedCandidate = selection.bestCandidate();
+    List<FusionCandidate> acceptedCandidates = selection.acceptedCandidates();
 
-    if (fusedCandidate.isPresent()) {
-      FusionCandidate best = fusedCandidate.get();
-      swerveDrive.addVisionMeasurement(best.pose(), best.timestampSec(), best.stdDevs());
-      lastFusedTimestampSec.put(best.camera(), best.timestampSec());
+    for (FusionCandidate accepted : acceptedCandidates) {
+      swerveDrive.addVisionMeasurement(accepted.pose(), accepted.timestampSec(), accepted.stdDevs());
+      lastFusedTimestampSec.put(accepted.camera(), accepted.timestampSec());
       acceptedUpdates++;
       BufferedLogger.getInstance()
           .printf(
               "[VisionPipeline] ACCEPT camera=%s ts=%.3f tags=%d err=%.3f pose=(%.3f, %.3f, %.1fdeg) std=(%.3f, %.3f, %.3f)",
-              best.camera().name(),
-              best.timestampSec(),
-              best.tagCount(),
-              best.translationError(),
-              best.pose().getX(),
-              best.pose().getY(),
-              best.pose().getRotation().getDegrees(),
-              best.stdX(),
-              best.stdY(),
-              best.stdTheta());
+              accepted.camera().name(),
+              accepted.timestampSec(),
+              accepted.tagCount(),
+              accepted.translationError(),
+              accepted.pose().getX(),
+              accepted.pose().getY(),
+              accepted.pose().getRotation().getDegrees(),
+              accepted.stdX(),
+              accepted.stdY(),
+              accepted.stdTheta());
     }
 
     // Track consecutive outlier rejections for override logic
