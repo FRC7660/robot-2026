@@ -5,10 +5,6 @@
 package frc.robot;
 
 import com.pathplanner.lib.auto.NamedCommands;
-import com.pathplanner.lib.path.PathPlannerPath;
-import com.pathplanner.lib.util.FileVersionException;
-import com.pathplanner.lib.util.FlippingUtil;
-import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -18,8 +14,6 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -31,12 +25,6 @@ import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.FuelPalantir.FuelPalantirMode;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 import swervelib.SwerveInputStream;
 
 /**
@@ -56,8 +44,6 @@ public class RobotContainer {
   private final Turret turret = createTurret();
 
   private final AutonomousManager autonomousManager;
-
-  private final SendableChooser<String> poseInitChooser;
 
   private SwerveSubsystem createDrivebase() {
     return new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-chassis0"));
@@ -153,12 +139,6 @@ public class RobotContainer {
 
     autonomousManager = new AutonomousManager(drivebase);
 
-    poseInitChooser = new SendableChooser<>();
-    poseInitChooser.setDefaultOption("PathPlanner path start", "pathplanner");
-    poseInitChooser.addOption("DriverStation alliance position", "driverstation");
-    poseInitChooser.addOption("Zero (origin)", "zero");
-    SmartDashboard.putData("Pose Init", poseInitChooser);
-
     // Set the turret default command to compute targets from odometry
     turret.setDefaultCommand(new DefaultCommand(turret));
   }
@@ -245,172 +225,8 @@ public class RobotContainer {
     return autonomousManager.getAutonomousCommand();
   }
 
-  public void resetPoseFromChooser() {
-    String choice = poseInitChooser.getSelected();
-    if (choice == null) {
-      choice = "pathplanner";
-    }
-
-    switch (choice) {
-      case "pathplanner":
-        resetPoseFromPathPlanner();
-        break;
-      case "driverstation":
-        resetPoseFromDriverStation();
-        break;
-      case "zero":
-      default:
-        drivebase.resetOdometry(new Pose2d());
-        System.out.println("[PoseReset] source=ZERO pose=(0.000, 0.000, 0.0deg)");
-        break;
-    }
-  }
-
-  private void resetPoseFromPathPlanner() {
-    try {
-      // Use the selected auto file's first path to get the starting pose
-      Command selectedAuto = autonomousManager.getAutonomousCommand();
-      String autoName = selectedAuto != null ? selectedAuto.getName() : "path_to_center";
-      String pathName = null;
-
-      String selectedAutoName = autonomousManager.getSelectedAutoName();
-      if (selectedAutoName != null) {
-        pathName = getFirstPathNameFromAutoFile(selectedAutoName);
-      }
-
-      if (pathName == null) {
-        // Extract path name from command name if possible, fall back to path_to_center
-        pathName = "path_to_center";
-        if (autoName.contains("PathPlanner-")) {
-          int start = autoName.indexOf("PathPlanner-") + "PathPlanner-".length();
-          String suffix = "-PathfindThenFollow";
-          if (autoName.endsWith(suffix) && autoName.length() > start + suffix.length()) {
-            pathName = autoName.substring(start, autoName.length() - suffix.length());
-          } else {
-            int end = autoName.indexOf("-", start);
-            if (end > start) {
-              pathName = autoName.substring(start, end);
-            }
-          }
-        }
-      }
-
-      PathPlannerPath path = PathPlannerPath.fromPathFile(pathName);
-      Pose2d startPose = path.getStartingHolonomicPose().orElse(new Pose2d());
-      var alliance = DriverStation.getAlliance();
-      if (alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red) {
-        startPose = FlippingUtil.flipFieldPose(startPose);
-      }
-      drivebase.resetOdometry(startPose);
-      System.out.printf(
-          "[PoseReset] source=PATHPLANNER path=%s pose=(%.3f, %.3f, %.1fdeg)%n",
-          pathName, startPose.getX(), startPose.getY(), startPose.getRotation().getDegrees());
-    } catch (IOException | ParseException | FileVersionException e) {
-      drivebase.resetOdometry(new Pose2d());
-      System.out.println(
-          "[PoseReset] source=PATHPLANNER_FALLBACK_ZERO pose=(0.000, 0.000, 0.0deg)");
-    }
-  }
-
-  private String getFirstPathNameFromAutoFile(String autoFileName) {
-    File autoFile =
-        new File(Filesystem.getDeployDirectory(), "pathplanner/autos/" + autoFileName + ".auto");
-    if (!autoFile.exists()) {
-      System.out.printf("[PoseReset] auto file not found: %s%n", autoFile.getAbsolutePath());
-      return null;
-    }
-
-    try (FileReader reader = new FileReader(autoFile)) {
-      Object parsed = new JSONParser().parse(reader);
-      if (!(parsed instanceof JSONObject)) {
-        return null;
-      }
-      JSONObject root = (JSONObject) parsed;
-      JSONObject command = (JSONObject) root.get("command");
-      String pathName = findFirstPathName(command);
-      if (pathName != null) {
-        System.out.printf("[PoseReset] auto=%s firstPath=%s%n", autoFileName, pathName);
-      }
-      return pathName;
-    } catch (IOException | ParseException e) {
-      DriverStation.reportWarning(
-          "[PoseReset] Failed to parse PathPlanner auto '" + autoFileName + "': " + e.getMessage(),
-          false);
-      return null;
-    }
-  }
-
-  private String findFirstPathName(JSONObject commandNode) {
-    if (commandNode == null) {
-      return null;
-    }
-
-    String type = (String) commandNode.get("type");
-    JSONObject data = (JSONObject) commandNode.get("data");
-    if ("path".equals(type) && data != null) {
-      Object pathName = data.get("pathName");
-      return pathName instanceof String ? (String) pathName : null;
-    }
-
-    if (data == null) {
-      return null;
-    }
-
-    Object commandsObj = data.get("commands");
-    if (commandsObj instanceof JSONArray) {
-      JSONArray commands = (JSONArray) commandsObj;
-      for (Object command : commands) {
-        if (command instanceof JSONObject) {
-          String pathName = findFirstPathName((JSONObject) command);
-          if (pathName != null) {
-            return pathName;
-          }
-        }
-      }
-    }
-
-    Object nestedObj = data.get("command");
-    if (nestedObj instanceof JSONObject) {
-      return findFirstPathName((JSONObject) nestedObj);
-    }
-
-    return null;
-  }
-
-  private void resetPoseFromDriverStation() {
-    // PLACEHOLDER positions -- measure on the actual 2026 field and update!
-    // Blue alliance stations are on the left side, Red on the right.
-    // Station 1 is closest to the scoring table, Station 3 is farthest.
-    double[][] bluePositions = {
-      {1.0, 1.0, 0.0}, // Station 1 (placeholder)
-      {1.0, 4.0, 0.0}, // Station 2 (placeholder)
-      {1.0, 7.0, 0.0}, // Station 3 (placeholder)
-    };
-    double[][] redPositions = {
-      {16.0, 1.0, 180.0}, // Station 1 (placeholder)
-      {16.0, 4.0, 180.0}, // Station 2 (placeholder)
-      {16.0, 7.0, 180.0}, // Station 3 (placeholder)
-    };
-
-    var alliance = DriverStation.getAlliance();
-    var location = DriverStation.getLocation();
-
-    boolean isRed = alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red;
-    int station = location.isPresent() ? location.getAsInt() : 2; // default to station 2
-    station = (int) MathUtil.clamp(station, 1, 3);
-
-    double[][] positions = isRed ? redPositions : bluePositions;
-    double[] pos = positions[station - 1];
-    Pose2d startPose =
-        new Pose2d(new Translation2d(pos[0], pos[1]), Rotation2d.fromDegrees(pos[2]));
-    drivebase.resetOdometry(startPose);
-    System.out.printf(
-        "[PoseReset] source=DRIVERSTATION alliance=%s station=%d pose=(%.3f, %.3f, %.1fdeg)%n",
-        isRed ? "Red" : "Blue",
-        station,
-        startPose.getX(),
-        startPose.getY(),
-        startPose.getRotation().getDegrees());
+  public void prepareAutonomous() {
+    autonomousManager.prepareAutonomousStart();
   }
 
   public void setMotorBrake(boolean brake) {
