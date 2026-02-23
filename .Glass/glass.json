@@ -4,6 +4,12 @@
       "Mechanisms": {
         "ShooterConfig": {
           "ShooterMotor": {
+            "closedloop": {
+              "open": true,
+              "setpoint": {
+                "open": true
+              }
+            },
             "mechanism": {
               "open": true
             },
@@ -41,6 +47,9 @@
               }
             },
             "current": {
+              "limit": {
+                "open": true
+              },
               "open": true
             },
             "mechanism": {
@@ -103,6 +112,11 @@
       "/SmartDashboard/Swerve Drive": "Alerts"
     },
     "windows": {
+      "/SmartDashboard/Mechanisms/Commands/Intake/Live Tuning": {
+        "window": {
+          "visible": true
+        }
+      },
       "/SmartDashboard/Mechanisms/Commands/Launch/Live Tuning": {
         "window": {
           "visible": true
@@ -125,6 +139,19 @@
     "Plot <0>": {
       "plots": [
         {
+          "backgroundColor": [
+            0.0,
+            0.0,
+            0.0,
+            0.8500000238418579
+          ],
+          "height": 268
+        }
+      ]
+    },
+    "Plot <1>": {
+      "plots": [
+        {
           "axis": [
             {
               "autoFit": true
@@ -136,8 +163,17 @@
             0.0,
             0.8500000238418579
           ],
-          "height": 326,
+          "height": 294,
           "series": [
+            {
+              "color": [
+                0.2980392277240753,
+                0.44705885648727417,
+                0.6901960968971252,
+                1.0
+              ],
+              "id": "NT:/Mechanisms/ShooterConfig/ShooterMotor/closedloop/setpoint/velocity"
+            },
             {
               "color": [
                 0.8666667342185974,
@@ -146,33 +182,8 @@
                 1.0
               ],
               "id": "NT:/Mechanisms/ShooterConfig/ShooterMotor/mechanism/velocity"
-            },
-            {
-              "color": [
-                0.3111112117767334,
-                1.0,
-                0.0,
-                1.0
-              ],
-              "id": "NT:/Tuning/ShooterConfig/ShooterMotor/closedloop/setpoint/velocity"
             }
           ]
-        }
-      ],
-      "window": {
-        "visible": false
-      }
-    },
-    "Plot <1>": {
-      "plots": [
-        {
-          "backgroundColor": [
-            0.0,
-            0.0,
-            0.0,
-            0.8500000238418579
-          ],
-          "height": 326
         }
       ]
     }
