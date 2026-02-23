@@ -52,11 +52,8 @@ public class Turret extends SubsystemBase {
    * @param getPose a Supplier that returns the current {@link Pose2d} of the robot
    */
   public Turret(Supplier<Pose2d> getPose) {
-    System.out.println("[BootTrace] Turret ctor start");
     this.getPose = getPose;
-    System.out.println("[BootTrace] Turret configureTurretMotor start");
     SparkFlexConfig turretConfig = configureTurretMotor();
-    System.out.println("[BootTrace] Turret motor configure start");
     turretMotor.configure(
         turretConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
@@ -72,7 +69,6 @@ public class Turret extends SubsystemBase {
         new PIDController(
             Constants.Turret.TURRET_P, Constants.Turret.TURRET_I, Constants.Turret.TURRET_D);
     this.zeroPoint = new TurretZeroPoint();
-    System.out.println("[BootTrace] Turret ctor complete");
   }
 
   // Turret Motor Config
