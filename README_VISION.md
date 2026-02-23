@@ -6,9 +6,9 @@ This pipeline takes AprilTag data from both cameras, fuses it into robot pose up
 The same camera snapshot stream also feeds the pure `fuelPalantir(...)` decision step used by teleop and PathPlanner-triggered commands.
 
 ```text
-CAMERA0 ----\
-             \
-CAMERA1 ------> Vision.process(swerveDrive)
+BACK_CAMERA  ----\
+                  \
+FRONT_CAMERA ------> Vision.process(swerveDrive)
                   |
                   |  1. getCameraData()           -- fetch raw frames
                   |  2. updateAprilTagError()     -- run pose estimation per camera
@@ -70,27 +70,27 @@ Vision and pose outputs (from `src/main/java/frc/robot/subsystems/swervedrive/Vi
 
 Per-camera raw AprilTag observation outputs:
 
-- `Vision/CAMERA0/TagVisible`
-- `Vision/CAMERA0/TagId`
-- `Vision/CAMERA0/YawDeg`
-- `Vision/CAMERA0/DistanceM`
-- `Vision/CAMERA0/TimestampSec`
-- `Vision/CAMERA1/TagVisible`
-- `Vision/CAMERA1/TagId`
-- `Vision/CAMERA1/YawDeg`
-- `Vision/CAMERA1/DistanceM`
-- `Vision/CAMERA1/TimestampSec`
+- `Vision/BACK_CAMERA/TagVisible`
+- `Vision/BACK_CAMERA/TagId`
+- `Vision/BACK_CAMERA/YawDeg`
+- `Vision/BACK_CAMERA/DistanceM`
+- `Vision/BACK_CAMERA/TimestampSec`
+- `Vision/FRONT_CAMERA/TagVisible`
+- `Vision/FRONT_CAMERA/TagId`
+- `Vision/FRONT_CAMERA/YawDeg`
+- `Vision/FRONT_CAMERA/DistanceM`
+- `Vision/FRONT_CAMERA/TimestampSec`
 
 Per-camera derived robot pose outputs:
 
-- `Vision/CAMERA0/DerivedPose/Valid`
-- `Vision/CAMERA0/DerivedPose/X`
-- `Vision/CAMERA0/DerivedPose/Y`
-- `Vision/CAMERA0/DerivedPose/HeadingDeg`
-- `Vision/CAMERA1/DerivedPose/Valid`
-- `Vision/CAMERA1/DerivedPose/X`
-- `Vision/CAMERA1/DerivedPose/Y`
-- `Vision/CAMERA1/DerivedPose/HeadingDeg`
+- `Vision/BACK_CAMERA/DerivedPose/Valid`
+- `Vision/BACK_CAMERA/DerivedPose/X`
+- `Vision/BACK_CAMERA/DerivedPose/Y`
+- `Vision/BACK_CAMERA/DerivedPose/HeadingDeg`
+- `Vision/FRONT_CAMERA/DerivedPose/Valid`
+- `Vision/FRONT_CAMERA/DerivedPose/X`
+- `Vision/FRONT_CAMERA/DerivedPose/Y`
+- `Vision/FRONT_CAMERA/DerivedPose/HeadingDeg`
 
 Other existing dashboard outputs in this project:
 
@@ -105,8 +105,8 @@ Other existing dashboard outputs in this project:
 
 Command registration:
 
-- `FuelPalantirContinue30`
-- `FuelPalantirStop20`
+- `FuelPalantir`
+- `LogoFuelPalantir`
 - `ResetPoseFromAprilTags`
 
 These are registered in `src/main/java/frc/robot/RobotContainer.java` using `NamedCommands.registerCommand(...)`.
@@ -119,15 +119,14 @@ FuelPalantir internals:
 
 Mode behavior:
 
-- `FuelPalantirContinue30`: run up to 30s, then continue.
-- `FuelPalantirStop20`: run up to 20s, then hold robot stopped until disabled.
-- Fuel target count is currently proxy-based with a TODO stub for real sensor/indexer integration.
+- `AUTONOMOUS`: runs for up to 15s, then completes.
+- `TELEOP`: runs until cancelled (button release).
 
 ## Choosing the PathPlanner Auto That Uses FuelPalantir
 
 1. Build an auto in the PathPlanner GUI that includes:
    - first path segment
-   - named command `FuelPalantirContinue30` or `FuelPalantirStop20`
+   - named command `FuelPalantir` or `LogoFuelPalantir`
    - named command `ResetPoseFromAprilTags` (if desired before segment 2)
    - second path segment
 2. Save it; this writes an `.auto` file under `src/main/deploy/pathplanner/autos/`.
