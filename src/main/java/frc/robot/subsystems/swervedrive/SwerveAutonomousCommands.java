@@ -106,7 +106,8 @@ final class SwerveAutonomousCommands {
                           return;
                         }
                         double elapsed = Timer.getFPGATimestamp() - startTimeSec.get();
-                        Map<Cameras, Vision.CameraSnapshot> cameraData = vision.getLatestCameraData();
+                        Map<Cameras, Vision.CameraSnapshot> cameraData =
+                            vision.getLatestCameraData();
                         FuelPalantir.FuelPalantirStep step =
                             FuelPalantir.fuelPalantir(cameraData, state.get(), mode, elapsed);
                         state.set(step.nextState());
@@ -157,19 +158,16 @@ final class SwerveAutonomousCommands {
                   .until(() -> lastStep.get() != null && lastStep.get().completed())
                   .finallyDo(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false))
                   .andThen(
-                      subsystem
-                          .runOnce(
-                              () -> {
-                                FuelPalantir.FuelPalantirStep step = lastStep.get();
-                                String reason = step == null ? "unknown" : step.reason();
-                                debugAuto(
-                                    String.format(
-                                        "FUEL PALANTIR END mode=%s elapsed=%.2fs reason=%s",
-                                        mode,
-                                        Timer.getFPGATimestamp() - startTimeSec.get(),
-                                        reason));
-                                currentAutoRunId = -1;
-                              }))
+                      subsystem.runOnce(
+                          () -> {
+                            FuelPalantir.FuelPalantirStep step = lastStep.get();
+                            String reason = step == null ? "unknown" : step.reason();
+                            debugAuto(
+                                String.format(
+                                    "FUEL PALANTIR END mode=%s elapsed=%.2fs reason=%s",
+                                    mode, Timer.getFPGATimestamp() - startTimeSec.get(), reason));
+                            currentAutoRunId = -1;
+                          }))
                   .withName("FuelPalantirCommand-" + mode.name());
             },
             Set.of(subsystem))
@@ -550,7 +548,8 @@ final class SwerveAutonomousCommands {
             });
   }
 
-  private Command updateTagIdFromVisibleTarget(AtomicInteger tagToUpdate, IntSupplier excludedTagId) {
+  private Command updateTagIdFromVisibleTarget(
+      AtomicInteger tagToUpdate, IntSupplier excludedTagId) {
     return Commands.runOnce(
         () -> {
           getClosestVisibleAprilTagObservation(excludedTagId.getAsInt())
@@ -662,7 +661,8 @@ final class SwerveAutonomousCommands {
             });
   }
 
-  private Command findSecondTagFromCurrentTag(AtomicInteger currentTagId, AtomicInteger secondTagId) {
+  private Command findSecondTagFromCurrentTag(
+      AtomicInteger currentTagId, AtomicInteger secondTagId) {
     return Commands.sequence(
         Commands.runOnce(
             () ->
@@ -677,7 +677,8 @@ final class SwerveAutonomousCommands {
 
   private Command centerOnKnownTag(AtomicInteger tagIdRef) {
     return Commands.sequence(
-        Commands.runOnce(() -> debugAuto(String.format("CENTER TAG START tagId=%d", tagIdRef.get()))),
+        Commands.runOnce(
+            () -> debugAuto(String.format("CENTER TAG START tagId=%d", tagIdRef.get()))),
         Commands.either(
             alignToTargetWithRotationLimit(
                 () -> getVisibleAprilTagById(tagIdRef.get()).map(TargetObservation::target),
@@ -685,6 +686,7 @@ final class SwerveAutonomousCommands {
                 TAG_SEARCH_MAX_RADIANS),
             Commands.none(),
             () -> tagIdRef.get() > 0),
-        Commands.runOnce(() -> debugAuto(String.format("CENTER TAG END tagId=%d", tagIdRef.get()))));
+        Commands.runOnce(
+            () -> debugAuto(String.format("CENTER TAG END tagId=%d", tagIdRef.get()))));
   }
 }

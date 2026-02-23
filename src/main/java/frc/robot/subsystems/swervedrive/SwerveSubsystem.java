@@ -59,6 +59,7 @@ public class SwerveSubsystem extends SubsystemBase {
 
   /** Swerve drive object. */
   private final SwerveDrive swerveDrive;
+
   private final SwerveAutonomousCommands autonomousCommands;
 
   /** Enable vision odometry updates while driving. */
@@ -313,7 +314,8 @@ public class SwerveSubsystem extends SubsystemBase {
       return false;
     }
 
-    List<Vision.PoseEstimationResult> estimations = vision.estimateCameraPosesFromAprilTags(cameraData);
+    List<Vision.PoseEstimationResult> estimations =
+        vision.estimateCameraPosesFromAprilTags(cameraData);
     Optional<EstimatedRobotPose> bestEstimate = Optional.empty();
     Vision.PoseEstimationResult bestResult = null;
     int bestTagCount = -1;
