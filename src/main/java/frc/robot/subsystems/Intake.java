@@ -6,6 +6,8 @@ import static edu.wpi.first.units.Units.DegreesPerSecond;
 import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Pounds;
+import static edu.wpi.first.units.Units.RPM;
+import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Seconds;
 import static edu.wpi.first.units.Units.Volts;
 
@@ -52,19 +54,19 @@ public class Intake extends SubsystemBase {
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
           .withClosedLoopController(
-              175.0, 0.0, 20.0, DegreesPerSecond.of(720), DegreesPerSecondPerSecond.of(360))
+              175.0, 0.0, 20.0, RPM.of(1000), RPM.per(Second).of(6000))
           .withFeedforward(new ArmFeedforward(0.02, 0.005, 0.0))
           // sim
           .withSimClosedLoopController(
-              175.0, 0, 20.0, DegreesPerSecond.of(720), DegreesPerSecondPerSecond.of(360))
+              175.0, 0, 20.0, RPM.of(1000), RPM.per(Second).of(6000))
           .withSimFeedforward(new ArmFeedforward(0.02, 0.005, 0.0))
           .withTelemetry("LiftMotor", TelemetryVerbosity.HIGH)
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(5, 5, 3.333)))
           .withMotorInverted(true)
           .withIdleMode(MotorMode.COAST)
           .withStatorCurrentLimit(Amps.of(40))
-          .withClosedLoopRampRate(Seconds.of(0.25))
-          .withOpenLoopRampRate(Seconds.of(0.25));
+          .withClosedLoopRampRate(Seconds.of(0.05))
+          .withOpenLoopRampRate(Seconds.of(0.05));
 
   // Create our SmartMotorController from our Spark and config with the NEO.
   private SmartMotorController liftSmartMotorController =
