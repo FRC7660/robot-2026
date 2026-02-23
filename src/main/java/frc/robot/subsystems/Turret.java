@@ -1,15 +1,21 @@
 package frc.robot.subsystems;
 
-import com.revrobotics.PersistMode;
-import com.revrobotics.ResetMode;
+import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.Degrees;
+import static edu.wpi.first.units.Units.DegreesPerSecond;
+import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
+import static edu.wpi.first.units.Units.Meters;
+import static edu.wpi.first.units.Units.Pounds;
+import static edu.wpi.first.units.Units.Seconds;
+
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkFlexConfig;
-import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -17,13 +23,25 @@ import frc.robot.Constants;
 import frc.robot.lib.TurretHelpers;
 import frc.robot.lib.TurretZeroPoint;
 import java.util.function.Supplier;
+import yams.gearing.GearBox;
+import yams.gearing.MechanismGearing;
+import yams.mechanisms.config.PivotConfig;
+import yams.mechanisms.positional.Pivot;
+import yams.motorcontrollers.SmartMotorController;
+import yams.motorcontrollers.SmartMotorControllerConfig;
+import yams.motorcontrollers.SmartMotorControllerConfig.ControlMode;
+import yams.motorcontrollers.SmartMotorControllerConfig.MotorMode;
+import yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity;
+import yams.motorcontrollers.local.SparkWrapper;
 
 /** Simple turret subsystem that holds a NEO Vortex and a supplier for the robot pose. */
 public class Turret extends SubsystemBase {
   private final SparkFlex turretMotor =
       new SparkFlex(Constants.Turret.MOTOR_ID, SparkLowLevel.MotorType.kBrushless);
   private final Supplier<Pose2d> getPose;
-
+  // YAMS controller + mechanism
+  private final SmartMotorController turretSmartMotorController;
+  private final Pivot turretPivot;
   // Most recent setpoint (robot-relative radians). Useful for debugging and tests.
   private Rotation2d lastSetpoint = new Rotation2d();
   // Most recently chosen target (field coordinates, meters)
@@ -36,8 +54,6 @@ public class Turret extends SubsystemBase {
   private double lastDesiredAbsDeg = 0.0;
   // Most recent practical rotation command (deg)
   private double lastRotationCommandDeg = 0.0;
-  // PID controller for position control (units: motor rotations)
-  private final PIDController positionPid;
   // Zero-point regulator
   private final TurretZeroPoint zeroPoint;
 
@@ -53,10 +69,6 @@ public class Turret extends SubsystemBase {
    */
   public Turret(Supplier<Pose2d> getPose) {
     this.getPose = getPose;
-    SparkFlexConfig turretConfig = configureTurretMotor();
-    turretMotor.configure(
-        turretConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
-    // turretMotor.getEncoder().setPosition(0.0);
 
     // Initialize the motor encoder so turret angle starts at 135 degrees.
     try {
@@ -66,9 +78,44 @@ public class Turret extends SubsystemBase {
     } catch (Throwable t) {
       // Ignore if encoder API unavailable in sim.
     }
-    this.positionPid =
-        new PIDController(
-            Constants.Turret.TURRET_P, Constants.Turret.TURRET_I, Constants.Turret.TURRET_D);
+
+    SmartMotorControllerConfig smcConfig =
+        new SmartMotorControllerConfig(this)
+            .withControlMode(ControlMode.CLOSED_LOOP)
+            // Feedback Constants (PID Constants)
+            .withClosedLoopController(
+                Constants.Turret.TURRET_P,
+                Constants.Turret.TURRET_I,
+                Constants.Turret.TURRET_D,
+                DegreesPerSecond.of(180),
+                DegreesPerSecondPerSecond.of(90))
+            .withSimClosedLoopController(
+                Constants.Turret.TURRET_P,
+                Constants.Turret.TURRET_I,
+                Constants.Turret.TURRET_D,
+                DegreesPerSecond.of(180),
+                DegreesPerSecondPerSecond.of(90))
+            // Telemetry name and verbosity level
+            .withTelemetry("TurretMotorConfig", TelemetryVerbosity.HIGH)
+            // Gearing from motor rotor to turret.
+            .withGearing(new MechanismGearing(GearBox.fromReductionStages(4, 10)))
+            // Motor properties to prevent over currenting.
+            .withMotorInverted(false)
+            .withIdleMode(MotorMode.BRAKE)
+            .withStatorCurrentLimit(Amps.of(40))
+            .withClosedLoopRampRate(Seconds.of(0.25))
+            .withOpenLoopRampRate(Seconds.of(0.25));
+
+    this.turretSmartMotorController = new SparkWrapper(turretMotor, DCMotor.getNEO(1), smcConfig);
+
+    PivotConfig pivotConfig =
+        new PivotConfig(turretSmartMotorController)
+            .withHardLimit(Degrees.of(0), Degrees.of(270))
+            .withStartingPosition(Degrees.of(135))
+            .withTelemetry("TurretPivot", TelemetryVerbosity.HIGH)
+            .withMOI(Meters.of(0.254), Pounds.of(2));
+
+    this.turretPivot = new Pivot(pivotConfig);
     this.zeroPoint = new TurretZeroPoint();
   }
 
@@ -97,8 +144,8 @@ public class Turret extends SubsystemBase {
     if (desiredAbsDeg < 0) {
       desiredAbsDeg += 360.0;
     }
-    // Enforce turret hard range of motion: [0, 330] degrees absolute
-    desiredAbsDeg = Math.max(0.0, Math.min(330.0, desiredAbsDeg));
+    // Enforce turret hard range of motion: [0, 270] degrees absolute
+    desiredAbsDeg = Math.max(0.0, Math.min(270.0, desiredAbsDeg));
     this.lastDesiredAbsDeg = desiredAbsDeg;
 
     // Read current motor rotations from encoder (REV API: getEncoder().getPosition())
@@ -120,23 +167,14 @@ public class Turret extends SubsystemBase {
     double rotationCommandDeg = zeroPoint.updateAndCompute(desiredAbsDeg, currentAngleDeg);
     this.lastRotationCommandDeg = rotationCommandDeg;
 
-    // Translate rotation command (degrees) into desired motor rotations target
-    double deltaTurretRotations = rotationCommandDeg / 360.0; // signed
-    double desiredMotorRotations =
-        currentMotorRotations + deltaTurretRotations * Constants.Turret.TURRET_GEAR_RATIO;
-
-    // PID on rotations (current -> desired)
-    double pidOutput = positionPid.calculate(currentMotorRotations, desiredMotorRotations);
-
-    // Clamp and apply as motor demand
-    double cmd =
-        Math.max(
-            -Constants.Turret.TURRET_SPEED, Math.min(Constants.Turret.TURRET_SPEED, pidOutput));
-    try {
-      turretMotor.set(cmd);
-    } catch (Throwable t) {
-      // If set API not available, swallow to avoid crashing compilation in simulation
+    // Compute practical absolute setpoint based on current angle + commanded delta
+    double practicalAbsDeg = currentAngleDeg + rotationCommandDeg;
+    if (practicalAbsDeg < 0) {
+      practicalAbsDeg += 360.0;
     }
+    practicalAbsDeg = Math.max(0.0, Math.min(270.0, practicalAbsDeg));
+
+    turretPivot.setMechanismPositionSetpoint(Degrees.of(practicalAbsDeg));
   }
 
   /** Get the most recent turret setpoint (robot-relative angle). Primarily useful for testing. */
