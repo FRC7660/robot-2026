@@ -36,6 +36,19 @@ public class AutonomousManager {
     return selected == null ? thereBackAuto : selected;
   }
 
+  /**
+   * Prepare autonomous without forcing an extra odometry reset.
+   *
+   * <p>PathPlanner autos already honor each auto file's reset policy (`resetOdom`), so we avoid a
+   * separate pre-auto reset path to keep one source of truth.
+   */
+  public void prepareAutonomousStart() {
+    String selectedAutoName = getSelectedAutoName();
+    System.out.printf(
+        "[AutoChooser] prepareAutonomousStart selectedAuto=%s%n",
+        selectedAutoName == null ? "unknown" : selectedAutoName);
+  }
+
   public String getSelectedAutoName() {
     Command selected = autoChooser.getSelected();
     Command effective = selected == null ? thereBackAuto : selected;
