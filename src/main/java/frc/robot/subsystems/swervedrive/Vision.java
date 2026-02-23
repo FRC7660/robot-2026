@@ -58,7 +58,8 @@ public class Vision {
       Cameras camera,
       Optional<EstimatedRobotPose> estimatedPose,
       Matrix<N3, N1> stdDevs,
-      int processedResultCount) {}
+      int processedResultCount,
+      double cameraLatestTimestampSec) {}
 
   /** A candidate that passed rejection filters. */
   public record FusionCandidate(
@@ -249,7 +250,9 @@ public class Vision {
         processedCount++;
       }
 
-      results.add(new PoseEstimationResult(camera, visionEst, stdDevs, processedCount));
+      double latestTs =
+          snapshot.latestResult() != null ? snapshot.latestResult().getTimestampSeconds() : 0.0;
+      results.add(new PoseEstimationResult(camera, visionEst, stdDevs, processedCount, latestTs));
     }
     return results;
   }
@@ -375,8 +378,7 @@ public class Vision {
         rejStale++;
         continue;
       }
-      double cameraLatencySec =
-          Math.max(0.0, nowSec - est.camera().getCamera().getLatestResult().getTimestampSeconds());
+      double cameraLatencySec = Math.max(0.0, nowSec - est.cameraLatestTimestampSec());
       if (cameraLatencySec > MAX_CAMERA_LATENCY_SEC) {
         rejStale++;
         continue;
@@ -506,8 +508,7 @@ public class Vision {
         rejStale++;
         continue;
       }
-      double cameraLatencySec =
-          Math.max(0.0, nowSec - est.camera().getCamera().getLatestResult().getTimestampSeconds());
+      double cameraLatencySec = Math.max(0.0, nowSec - est.cameraLatestTimestampSec());
       if (cameraLatencySec > MAX_CAMERA_LATENCY_SEC) {
         rejStale++;
         continue;
