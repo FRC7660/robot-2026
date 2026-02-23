@@ -31,10 +31,11 @@ import swervelib.SwerveDrive;
  * Vision pipeline for AprilTag-based pose estimation and fusion.
  *
  * <p>The pipeline runs every robot cycle (teleop + auto) and consists of: 1. {@link
- * #getCameraData()} -- fetch raw results from all cameras 2. {@link #estimateCameraPosesFromAprilTags(Map)} --
- * run PhotonPoseEstimator on each camera's results 3. {@link #selectBestPose(List, SwerveDrive)} --
- * filter and score candidates 4. {@link #setVisionMeasurement(SwerveDrive, SelectionResult)} --
- * apply the best candidate to the swerve drive pose estimator
+ * #getCameraData()} -- fetch raw results from all cameras 2. {@link
+ * #estimateCameraPosesFromAprilTags(Map)} -- run PhotonPoseEstimator on each camera's results 3.
+ * {@link #selectBestPose(List, SwerveDrive)} -- filter and score candidates 4. {@link
+ * #setVisionMeasurement(SwerveDrive, SelectionResult)} -- apply the best candidate to the swerve
+ * drive pose estimator
  */
 public class Vision {
 
@@ -219,7 +220,8 @@ public class Vision {
    * @param cameraData the snapshots from {@link #getCameraData()}
    * @return list of pose estimation results
    */
-  public List<PoseEstimationResult> estimateCameraPosesFromAprilTags(Map<Cameras, CameraSnapshot> cameraData) {
+  public List<PoseEstimationResult> estimateCameraPosesFromAprilTags(
+      Map<Cameras, CameraSnapshot> cameraData) {
     List<PoseEstimationResult> results = new ArrayList<>();
     for (var entry : cameraData.entrySet()) {
       Cameras camera = entry.getKey();
@@ -601,7 +603,8 @@ public class Vision {
     List<FusionCandidate> acceptedCandidates = selection.acceptedCandidates();
 
     for (FusionCandidate accepted : acceptedCandidates) {
-      swerveDrive.addVisionMeasurement(accepted.pose(), accepted.timestampSec(), accepted.stdDevs());
+      swerveDrive.addVisionMeasurement(
+          accepted.pose(), accepted.timestampSec(), accepted.stdDevs());
       lastFusedTimestampSec.put(accepted.camera(), accepted.timestampSec());
       acceptedUpdates++;
       BufferedLogger.getInstance()
