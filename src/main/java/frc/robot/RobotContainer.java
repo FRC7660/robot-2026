@@ -287,7 +287,6 @@ public class RobotContainer {
                   () -> {
                     return .99;
                   }));
-
       // Replaced by the trigger command below
       // driverXbox.a().onTrue(intakeSystem.setAngle(-25.0));
       // driverXbox.x().onTrue(intakeSystem.setAngle(110.0));
@@ -334,6 +333,12 @@ public class RobotContainer {
       driverXbox.back().whileTrue(Commands.none());
       driverXbox.leftBumper().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
       driverXbox.rightBumper().whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.TELEOP));
+
+      driverXbox
+          .b()
+          .whileTrue(
+              drivebase.driveToPose(
+                  new Pose2d(new Translation2d(14, 4), Rotation2d.fromDegrees(0))));
 
       driverXbox.y().whileTrue(drivebase.sysIdDriveMotorCommand());
     }
