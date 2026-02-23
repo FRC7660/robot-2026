@@ -60,18 +60,11 @@ public class RobotContainer {
   private final SendableChooser<String> poseInitChooser;
 
   private SwerveSubsystem createDrivebase() {
-    System.out.println("[BootTrace] RobotContainer field init drivebase start");
-    SwerveSubsystem s =
-        new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-chassis0"));
-    System.out.println("[BootTrace] RobotContainer field init drivebase complete");
-    return s;
+    return new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-chassis0"));
   }
 
   private Turret createTurret() {
-    System.out.println("[BootTrace] RobotContainer field init turret start");
-    Turret t = new Turret(drivebase::getPose);
-    System.out.println("[BootTrace] RobotContainer field init turret complete");
-    return t;
+    return new Turret(drivebase::getPose);
   }
 
   private double getRightXCorrected() {
@@ -139,11 +132,8 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
-    System.out.println("[BootTrace] RobotContainer ctor start");
     // Configure the trigger bindings
-    System.out.println("[BootTrace] configureBindings start");
     configureBindings();
-    System.out.println("[BootTrace] configureBindings complete");
     DriverStation.silenceJoystickConnectionWarning(true);
 
     // Create the NamedCommands that will be used in PathPlanner
@@ -161,9 +151,7 @@ public class RobotContainer {
             },
             drivebase));
 
-    System.out.println("[BootTrace] AutonomousManager create start");
     autonomousManager = new AutonomousManager(drivebase);
-    System.out.println("[BootTrace] AutonomousManager create complete");
 
     poseInitChooser = new SendableChooser<>();
     poseInitChooser.setDefaultOption("PathPlanner path start", "pathplanner");
@@ -172,9 +160,7 @@ public class RobotContainer {
     SmartDashboard.putData("Pose Init", poseInitChooser);
 
     // Set the turret default command to compute targets from odometry
-    System.out.println("[BootTrace] Turret default command set start");
     turret.setDefaultCommand(new DefaultCommand(turret));
-    System.out.println("[BootTrace] RobotContainer ctor complete");
   }
 
   /**
@@ -203,8 +189,6 @@ public class RobotContainer {
     } else {
       drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
     }
-    // driverXbox.rightBumper().onTrue(drivebase.trackDetectedObjectByCameraName("camera0",
-    // 3.0));
     if (Robot.isSimulation()) {
       Pose2d target = new Pose2d(new Translation2d(1, 4), Rotation2d.fromDegrees(90));
       // drivebase.getSwerveDrive().field.getObject("targetPose").setPose(target);
@@ -231,10 +215,7 @@ public class RobotContainer {
               drivebase.driveToPose(
                   new Pose2d(new Translation2d(14, 3), Rotation2d.fromDegrees(180))));
     }
-    System.out.println("Pre-Test");
-
     if (DriverStation.isTest()) {
-      System.out.println("Yay it's working");
       drivebase.setDefaultCommand(
           driveFieldOrientedAnglularVelocity); // Overrides drive command above!
 
@@ -250,8 +231,6 @@ public class RobotContainer {
       driverXbox.back().whileTrue(Commands.none());
       driverXbox.leftBumper().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
       driverXbox.rightBumper().whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.TELEOP));
-
-      driverXbox.b().whileTrue(drivebase.logDetectedObjectAreaByCameraName("BACK_CAMERA"));
 
       driverXbox.y().whileTrue(drivebase.sysIdDriveMotorCommand());
     }
@@ -399,18 +378,18 @@ public class RobotContainer {
   }
 
   private void resetPoseFromDriverStation() {
-    // Known starting positions per alliance station (approximate field positions)
-    // 2026 Reefscape field: Blue alliance stations are on the left side (x~1.0m)
-    // Station 1 is closest to the scoring table, Station 3 is farthest
+    // PLACEHOLDER positions -- measure on the actual 2026 field and update!
+    // Blue alliance stations are on the left side, Red on the right.
+    // Station 1 is closest to the scoring table, Station 3 is farthest.
     double[][] bluePositions = {
-      {1.0, 1.0, 0.0}, // Station 1
-      {1.0, 4.0, 0.0}, // Station 2
-      {1.0, 7.0, 0.0}, // Station 3
+      {1.0, 1.0, 0.0}, // Station 1 (placeholder)
+      {1.0, 4.0, 0.0}, // Station 2 (placeholder)
+      {1.0, 7.0, 0.0}, // Station 3 (placeholder)
     };
     double[][] redPositions = {
-      {16.0, 1.0, 180.0}, // Station 1
-      {16.0, 4.0, 180.0}, // Station 2
-      {16.0, 7.0, 180.0}, // Station 3
+      {16.0, 1.0, 180.0}, // Station 1 (placeholder)
+      {16.0, 4.0, 180.0}, // Station 2 (placeholder)
+      {16.0, 7.0, 180.0}, // Station 3 (placeholder)
     };
 
     var alliance = DriverStation.getAlliance();
