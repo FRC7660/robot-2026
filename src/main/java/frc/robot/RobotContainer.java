@@ -296,10 +296,7 @@ public class RobotContainer {
                   upperShooter,
                   lowerShooter));
 
-      driverXbox.leftBumper().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
-      driverXbox.rightBumper().whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.TELEOP));
-
-      driverXbox.y().whileTrue(drivebase.sysIdDriveMotorCommand());
+      driverXbox.b().whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.TELEOP));
     }
   }
 
