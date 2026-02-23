@@ -44,7 +44,7 @@ public class Vision {
     BASIC
   }
 
-  // ── Data records for pipeline stages ──────────────────────────────────────
+  // -- Data records for pipeline stages --------------------------------------
 
   /** Raw data from one camera in a single cycle. */
   public record CameraSnapshot(
@@ -89,7 +89,7 @@ public class Vision {
   public record CameraTagObservation(
       int tagId, double yawDeg, double distanceMeters, double tsSec) {}
 
-  // ── Constants ─────────────────────────────────────────────────────────────
+  // -- Constants -------------------------------------------------------------
 
   /** April Tag Field Layout of the year. */
   public static final AprilTagFieldLayout fieldLayout =
@@ -128,7 +128,7 @@ public class Vision {
   private static final int STEP_TOTAL = 4;
   private static final String[] PIPELINE_STEP_LABELS = {"fetch", "est", "select", "apply", "total"};
 
-  // ── Instance state ────────────────────────────────────────────────────────
+  // -- Instance state --------------------------------------------------------
 
   /** Current pose from the pose estimator using wheel odometry. */
   private Supplier<Pose2d> currentPose;
@@ -191,7 +191,7 @@ public class Vision {
     }
   }
 
-  // ── Pipeline Step 1: getCameraData() ──────────────────────────────────────
+  // -- Pipeline Step 1: getCameraData() --------------------------------------
 
   /**
    * Fetch raw results from all cameras.
@@ -211,7 +211,7 @@ public class Vision {
     return data;
   }
 
-  // ── Pipeline Step 2: estimateCameraPosesFromAprilTags() ────────────────────────────────
+  // -- Pipeline Step 2: estimateCameraPosesFromAprilTags() --------------------------------
 
   /**
    * Run pose estimation on each camera's results.
@@ -252,7 +252,7 @@ public class Vision {
     return results;
   }
 
-  // ── Pipeline Step 2b: computeStdDevs() (pure static) ─────────────────────
+  // -- Pipeline Step 2b: computeStdDevs() (pure static) ---------------------
 
   /**
    * Compute standard deviations for a pose estimate.
@@ -308,7 +308,7 @@ public class Vision {
     return estStdDevs;
   }
 
-  // ── Pipeline Step 3: selectAdvancedPose() ─────────────────────────────────
+  // -- Pipeline Step 3: selectAdvancedPose() ---------------------------------
 
   /**
    * Filter and score pose estimation results using advanced rejection filters, selecting the best
@@ -550,7 +550,7 @@ public class Vision {
         Optional.ofNullable(best), acceptedCandidates, rejNoEst, rejStale, 0, 0, 0, 0, 0);
   }
 
-  // ── Pipeline: selectBestPose (instance) ──────────────────────────────────
+  // -- Pipeline: selectBestPose (instance) ----------------------------------
 
   /**
    * Select the best pose candidate using the current estimator mode.
@@ -588,7 +588,7 @@ public class Vision {
         robotOmegaRadPerSec);
   }
 
-  // ── Pipeline: setVisionMeasurement ─────────────────────────────────────
+  // -- Pipeline: setVisionMeasurement -------------------------------------
 
   /**
    * Apply the best vision candidate to the swerve drive pose estimator.
@@ -636,7 +636,7 @@ public class Vision {
     rejectedOutOfField += selection.rejectedOutOfField();
   }
 
-  // ── Pipeline Orchestrator ─────────────────────────────────────────────────
+  // -- Pipeline Orchestrator -------------------------------------------------
 
   /**
    * Run the full vision pipeline. Runs every cycle regardless of mode (teleop + auto).
@@ -1051,7 +1051,7 @@ public class Vision {
     return latestCameraData;
   }
 
-  // ── Legacy methods (still used by other subsystems) ───────────────────────
+  // -- Legacy methods (still used by other subsystems) -----------------------
 
   /**
    * Calculates a target pose relative to an AprilTag on the field.
