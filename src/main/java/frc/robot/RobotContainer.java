@@ -41,7 +41,6 @@ import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Set;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -71,7 +70,6 @@ public class RobotContainer {
   private final AutonomousManager autonomousManager;
 
   private final SendableChooser<String> poseInitChooser;
-  private final SendableChooser<FuelPalantirMode> logoFuelPalantirModeChooser;
 
   private SwerveSubsystem createDrivebase() {
     System.out.println("[BootTrace] RobotContainer field init drivebase start");
@@ -166,24 +164,12 @@ public class RobotContainer {
     System.out.println("[BootTrace] configureBindings complete");
     DriverStation.silenceJoystickConnectionWarning(true);
 
-    logoFuelPalantirModeChooser = new SendableChooser<>();
-    logoFuelPalantirModeChooser.setDefaultOption(
-        "Continue After 30s", FuelPalantirMode.CONTINUE_AFTER_30S);
-    logoFuelPalantirModeChooser.addOption("Stop After 20s", FuelPalantirMode.STOP_AFTER_20S);
-    SmartDashboard.putData("Logo FuelPalantir Mode", logoFuelPalantirModeChooser);
-
     // Create the NamedCommands that will be used in PathPlanner
     NamedCommands.registerCommand("test", Commands.print("I EXIST"));
     NamedCommands.registerCommand(
-        "FuelPalantirContinue30",
-        drivebase.fuelPalantirCommand(FuelPalantirMode.CONTINUE_AFTER_30S));
+        "FuelPalantir", drivebase.fuelPalantirCommand(FuelPalantirMode.AUTONOMOUS));
     NamedCommands.registerCommand(
-        "FuelPalantirStop20", drivebase.fuelPalantirCommand(FuelPalantirMode.STOP_AFTER_20S));
-    NamedCommands.registerCommand(
-        "LogoFuelPalantir",
-        Commands.defer(
-            () -> drivebase.fuelPalantirCommand(getSelectedLogoFuelPalantirMode()),
-            Set.of(drivebase)));
+        "LogoFuelPalantir", drivebase.fuelPalantirCommand(FuelPalantirMode.AUTONOMOUS));
     NamedCommands.registerCommand(
         "ResetPoseFromAprilTags",
         Commands.runOnce(
@@ -283,18 +269,14 @@ public class RobotContainer {
       driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
       driverXbox.back().whileTrue(drivebase.centerModulesCommand());
       driverXbox.leftBumper().whileTrue(new YAGSLPitCheck(drivebase));
-      driverXbox
-          .rightBumper()
-          .whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.CONTINUE_AFTER_30S));
+      driverXbox.rightBumper().whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.TELEOP));
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
       driverXbox.start().whileTrue(Commands.none());
       driverXbox.back().whileTrue(Commands.none());
       driverXbox.leftBumper().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
-      driverXbox
-          .rightBumper()
-          .whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.CONTINUE_AFTER_30S));
+      driverXbox.rightBumper().whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.TELEOP));
 
       driverXbox.b().whileTrue(drivebase.logDetectedObjectAreaByCameraName("BACK_CAMERA"));
 
@@ -404,11 +386,6 @@ public class RobotContainer {
           false);
       return null;
     }
-  }
-
-  private FuelPalantirMode getSelectedLogoFuelPalantirMode() {
-    FuelPalantirMode selected = logoFuelPalantirModeChooser.getSelected();
-    return selected == null ? FuelPalantirMode.CONTINUE_AFTER_30S : selected;
   }
 
   private String findFirstPathName(JSONObject commandNode) {
