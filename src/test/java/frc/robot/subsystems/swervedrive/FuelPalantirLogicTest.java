@@ -56,101 +56,56 @@ class FuelPalantirLogicTest {
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
             data,
-            new FuelPalantir.FuelPalantirState(0, Optional.empty(), false),
-            FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
+            new FuelPalantir.FuelPalantirState(Optional.empty()),
+            FuelPalantir.FuelPalantirMode.AUTONOMOUS,
             1.0);
 
     assertTrue(step.nextState().lockedCamera().isPresent());
     assertEquals(Cameras.BACK_CAMERA, step.nextState().lockedCamera().get());
     assertTrue(step.forwardMps() > 0.0);
-    assertFalse(step.fuelCollectedThisCycle());
     assertFalse(step.completed());
   }
 
   @Test
-  void fuelPalantir_incrementsProxyCountWhenTargetAreaReached() {
+  void fuelPalantir_stopsForwardWhenAreaAboveThreshold() {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
     data.put(Cameras.BACK_CAMERA, snapshotWithTarget(-1, 1.0, 5.0, 1.0));
 
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
             data,
-            new FuelPalantir.FuelPalantirState(2, Optional.of(Cameras.BACK_CAMERA), false),
-            FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
+            new FuelPalantir.FuelPalantirState(Optional.of(Cameras.BACK_CAMERA)),
+            FuelPalantir.FuelPalantirMode.AUTONOMOUS,
             2.0);
 
-    assertTrue(step.fuelCollectedThisCycle());
-    assertEquals(3, step.nextState().proxyCollectedFuelCount());
+    assertEquals(0.0, step.forwardMps());
     assertFalse(step.completed());
   }
 
   @Test
-  void fuelPalantir_continueModeTimeoutCompletes() {
+  void fuelPalantir_autonomousTimeoutCompletes() {
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
             baseCameraData(),
-            new FuelPalantir.FuelPalantirState(0, Optional.empty(), false),
-            FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
-            30.0);
+            new FuelPalantir.FuelPalantirState(Optional.empty()),
+            FuelPalantir.FuelPalantirMode.AUTONOMOUS,
+            15.0);
 
     assertTrue(step.completed());
     assertEquals("timeout", step.reason());
   }
 
   @Test
-  void fuelPalantir_stopModeTimeoutCompletes() {
+  void fuelPalantir_teleopNeverCompletesOnItsOwn() {
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
             baseCameraData(),
-            new FuelPalantir.FuelPalantirState(0, Optional.empty(), false),
-            FuelPalantir.FuelPalantirMode.STOP_AFTER_20S,
-            20.0);
+            new FuelPalantir.FuelPalantirState(Optional.empty()),
+            FuelPalantir.FuelPalantirMode.TELEOP,
+            600.0);
 
-    assertTrue(step.completed());
-    assertEquals("timeout", step.reason());
-  }
-
-  @Test
-  void fuelPalantir_completesWhenProxyFuelTargetReached() {
-    Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
-    data.put(Cameras.BACK_CAMERA, snapshotWithTarget(-1, 0.0, 6.0, 1.0));
-
-    FuelPalantir.FuelPalantirStep step =
-        FuelPalantir.fuelPalantir(
-            data,
-            new FuelPalantir.FuelPalantirState(7, Optional.of(Cameras.BACK_CAMERA), false),
-            FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
-            5.0);
-
-    assertTrue(step.completed());
-    assertEquals("target_fuel_count_reached", step.reason());
-    assertEquals(8, step.nextState().proxyCollectedFuelCount());
-  }
-
-  @Test
-  void fuelPalantir_doesNotDoubleCountWhenAreaStaysAboveThreshold() {
-    // First cycle: was below → now above → counts as 1 collection
-    Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
-    data.put(Cameras.BACK_CAMERA, snapshotWithTarget(-1, 0.0, 5.0, 1.0));
-
-    FuelPalantir.FuelPalantirStep step1 =
-        FuelPalantir.fuelPalantir(
-            data,
-            new FuelPalantir.FuelPalantirState(0, Optional.of(Cameras.BACK_CAMERA), false),
-            FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S,
-            1.0);
-
-    assertTrue(step1.fuelCollectedThisCycle());
-    assertEquals(1, step1.nextState().proxyCollectedFuelCount());
-    assertTrue(step1.nextState().wasAboveAreaThreshold());
-
-    // Second cycle: still above threshold with same piece — must NOT count again
-    FuelPalantir.FuelPalantirStep step2 =
-        FuelPalantir.fuelPalantir(
-            data, step1.nextState(), FuelPalantir.FuelPalantirMode.CONTINUE_AFTER_30S, 1.02);
-
-    assertFalse(step2.fuelCollectedThisCycle());
-    assertEquals(1, step2.nextState().proxyCollectedFuelCount());
+    assertFalse(step.completed());
+    assertEquals("searching", step.reason());
   }
 
   @Test

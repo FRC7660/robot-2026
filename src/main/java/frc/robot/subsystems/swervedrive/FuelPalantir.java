@@ -14,35 +14,25 @@ public class FuelPalantir {
   static final double FUEL_APPROACH_MIN_FORWARD_MPS = 0.10;
   static final double FUEL_APPROACH_MAX_FORWARD_MPS = 0.35;
   static final double FUEL_APPROACH_AREA_P_GAIN = 0.08;
-  static final double FUEL_APPROACH_TIMEOUT_SEC = 10.0;
-  static final int FUEL_TARGET_COUNT = 8;
-  static final double FUEL_PALANTIR_CONTINUE_TIMEOUT_SEC = 30.0;
-  static final double FUEL_PALANTIR_STOP_TIMEOUT_SEC = 20.0;
+  static final double FUEL_PALANTIR_AUTONOMOUS_TIMEOUT_SEC = 15.0;
 
   // ── Records & Enums ───────────────────────────────────────────────────────
 
   public enum FuelPalantirMode {
-    CONTINUE_AFTER_30S,
-    STOP_AFTER_20S
+    AUTONOMOUS, // 15s timeout, completes on its own
+    TELEOP // No timeout (runs until cancelled by button release)
   }
 
-  public record FuelPalantirState(
-      int proxyCollectedFuelCount, Optional<Cameras> lockedCamera, boolean wasAboveAreaThreshold) {}
+  public record FuelPalantirState(Optional<Cameras> lockedCamera) {}
 
   public record FuelPalantirStep(
       FuelPalantirState nextState,
       double forwardMps,
       double rotationRadPerSec,
-      boolean fuelCollectedThisCycle,
       boolean completed,
       String reason) {}
 
   // ── Pure static helpers ───────────────────────────────────────────────────
-
-  static boolean hasCollectedFuelTargetCount(int proxyCollectedFuelCount, int targetCount) {
-    // TODO: Replace proxy count with real fuel collection sensor/indexer integration.
-    return proxyCollectedFuelCount >= targetCount;
-  }
 
   static Optional<PhotonTrackedTarget> getClosestNonFiducialTarget(Vision.CameraSnapshot snapshot) {
     if (snapshot == null
@@ -99,10 +89,6 @@ public class FuelPalantir {
       FuelPalantirState currentState,
       FuelPalantirMode mode,
       double elapsedSec) {
-    final double timeoutSec =
-        mode == FuelPalantirMode.CONTINUE_AFTER_30S
-            ? FUEL_PALANTIR_CONTINUE_TIMEOUT_SEC
-            : FUEL_PALANTIR_STOP_TIMEOUT_SEC;
 
     Optional<Cameras> lockedCamera = chooseLockCamera(cameraData, currentState.lockedCamera());
     Optional<PhotonTrackedTarget> target =
@@ -110,18 +96,12 @@ public class FuelPalantir {
 
     double rotation = SwerveSubsystem.SEARCH_ROTATION_RAD_PER_SEC;
     double forward = 0.0;
-    boolean aboveThreshold = false;
-    boolean collectedThisCycle = false;
 
     if (target.isPresent()) {
       double yawDeg = target.get().getYaw();
       rotation = SwerveSubsystem.calculateRotationFromYawDeg(yawDeg);
       double area = target.get().getArea();
-      aboveThreshold = area >= FUEL_APPROACH_STOP_AREA;
-      if (aboveThreshold) {
-        // Rising-edge detection: only count a collection on the first cycle the area
-        // crosses the threshold, not on every subsequent cycle while the piece lingers.
-        collectedThisCycle = !currentState.wasAboveAreaThreshold();
+      if (area >= FUEL_APPROACH_STOP_AREA) {
         forward = 0.0;
       } else {
         double areaError = FUEL_APPROACH_STOP_AREA - area;
@@ -133,20 +113,13 @@ public class FuelPalantir {
       }
     }
 
-    int nextProxyCount = currentState.proxyCollectedFuelCount() + (collectedThisCycle ? 1 : 0);
-    boolean reachedFuelTarget = hasCollectedFuelTargetCount(nextProxyCount, FUEL_TARGET_COUNT);
-    boolean timedOut = elapsedSec >= timeoutSec;
-    boolean completed = reachedFuelTarget || timedOut;
-    String reason =
-        reachedFuelTarget ? "target_fuel_count_reached" : (timedOut ? "timeout" : "searching");
+    boolean timedOut =
+        mode == FuelPalantirMode.AUTONOMOUS && elapsedSec >= FUEL_PALANTIR_AUTONOMOUS_TIMEOUT_SEC;
+    boolean completed = timedOut;
+    String reason = timedOut ? "timeout" : "searching";
 
     return new FuelPalantirStep(
-        new FuelPalantirState(nextProxyCount, lockedCamera, aboveThreshold),
-        forward,
-        rotation,
-        collectedThisCycle,
-        completed,
-        reason);
+        new FuelPalantirState(lockedCamera), forward, rotation, completed, reason);
   }
 
   private FuelPalantir() {}
