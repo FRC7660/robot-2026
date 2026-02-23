@@ -1061,130 +1061,95 @@ public class SwerveSubsystem extends SubsystemBase {
             () -> debugAuto(String.format("CENTER TAG END tagId=%d", tagIdRef.get()))));
   }
 
-  private Command holdStoppedUntilDisabled() {
-    return run(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false))
-        .until(DriverStation::isDisabled)
-        .withName("FuelPalantirHoldStoppedUntilDisabled");
-  }
-
   public Command fuelPalantirCommand(FuelPalantir.FuelPalantirMode mode) {
     return Commands.defer(
             () -> {
               AtomicReference<Double> startTimeSec = new AtomicReference<>(0.0);
               AtomicReference<FuelPalantir.FuelPalantirState> state =
-                  new AtomicReference<>(
-                      new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
+                  new AtomicReference<>(new FuelPalantir.FuelPalantirState(Optional.empty()));
               AtomicReference<FuelPalantir.FuelPalantirStep> lastStep = new AtomicReference<>(null);
               AtomicReference<Double> lastStatusLogTimeSec =
                   new AtomicReference<>(Double.NEGATIVE_INFINITY);
 
-              Command runFuelPalantir =
-                  startRun(
+              return startRun(
+                      () -> {
+                        startTimeSec.set(Timer.getFPGATimestamp());
+                        state.set(new FuelPalantir.FuelPalantirState(Optional.empty()));
+                        lastStep.set(null);
+                        debugAuto(String.format("FUEL PALANTIR START mode=%s", mode));
+                      },
+                      () -> {
+                        if (vision == null) {
+                          debugAuto("FUEL PALANTIR no vision instance available");
+                          lastStep.set(
+                              new FuelPalantir.FuelPalantirStep(
+                                  state.get(), 0.0, 0.0, true, "vision_not_initialized"));
+                          swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
+                          return;
+                        }
+                        double elapsed = Timer.getFPGATimestamp() - startTimeSec.get();
+                        Map<Cameras, Vision.CameraSnapshot> cameraData =
+                            vision.getLatestCameraData();
+                        FuelPalantir.FuelPalantirStep step =
+                            FuelPalantir.fuelPalantir(cameraData, state.get(), mode, elapsed);
+                        state.set(step.nextState());
+                        lastStep.set(step);
+                        Optional<Cameras> lockedCameraForDrive = step.nextState().lockedCamera();
+                        double commandedForwardMps = step.forwardMps();
+                        if (lockedCameraForDrive.isPresent()
+                            && lockedCameraForDrive.get() == Cameras.BACK_CAMERA) {
+                          commandedForwardMps = -commandedForwardMps;
+                        }
+                        swerveDrive.drive(
+                            new Translation2d(commandedForwardMps, 0),
+                            step.rotationRadPerSec(),
+                            false,
+                            false);
+                        if (step.completed() || shouldDebugLog(lastStatusLogTimeSec, 1.0)) {
+                          Optional<PhotonTrackedTarget> backCameraTarget =
+                              FuelPalantir.getClosestNonFiducialTarget(
+                                  cameraData.get(Cameras.BACK_CAMERA));
+                          Optional<PhotonTrackedTarget> frontCameraTarget =
+                              FuelPalantir.getClosestNonFiducialTarget(
+                                  cameraData.get(Cameras.FRONT_CAMERA));
+                          Optional<Cameras> lockedCamera = step.nextState().lockedCamera();
+                          Optional<PhotonTrackedTarget> lockedTarget =
+                              lockedCamera.flatMap(
+                                  camera ->
+                                      FuelPalantir.getClosestNonFiducialTarget(
+                                          cameraData.get(camera)));
+
+                          debugAuto(
+                              String.format(
+                                  "FUEL PALANTIR STATUS mode=%s elapsed=%.2fs"
+                                      + " locked=%s backTarget=%s frontTarget=%s"
+                                      + " lockedYaw=%.1f lockedArea=%.2f"
+                                      + " fwd=%.2f rot=%.2f reason=%s",
+                                  mode,
+                                  elapsed,
+                                  lockedCamera.map(Enum::name).orElse("none"),
+                                  backCameraTarget.isPresent(),
+                                  frontCameraTarget.isPresent(),
+                                  lockedTarget.map(PhotonTrackedTarget::getYaw).orElse(Double.NaN),
+                                  lockedTarget.map(PhotonTrackedTarget::getArea).orElse(Double.NaN),
+                                  commandedForwardMps,
+                                  step.rotationRadPerSec(),
+                                  step.reason()));
+                        }
+                      })
+                  .until(() -> lastStep.get() != null && lastStep.get().completed())
+                  .finallyDo(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false))
+                  .andThen(
+                      runOnce(
                           () -> {
-                            startTimeSec.set(Timer.getFPGATimestamp());
-                            state.set(
-                                new FuelPalantir.FuelPalantirState(0, Optional.empty(), false));
-                            lastStep.set(null);
+                            FuelPalantir.FuelPalantirStep step = lastStep.get();
+                            String reason = step == null ? "unknown" : step.reason();
                             debugAuto(
                                 String.format(
-                                    "FUEL PALANTIR START mode=%s targetFuel=%d",
-                                    mode, FuelPalantir.FUEL_TARGET_COUNT));
-                          },
-                          () -> {
-                            if (vision == null) {
-                              debugAuto("FUEL PALANTIR no vision instance available");
-                              lastStep.set(
-                                  new FuelPalantir.FuelPalantirStep(
-                                      state.get(),
-                                      0.0,
-                                      0.0,
-                                      false,
-                                      true,
-                                      "vision_not_initialized"));
-                              swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
-                              return;
-                            }
-                            double elapsed = Timer.getFPGATimestamp() - startTimeSec.get();
-                            Map<Cameras, Vision.CameraSnapshot> cameraData =
-                                vision.getLatestCameraData();
-                            FuelPalantir.FuelPalantirStep step =
-                                FuelPalantir.fuelPalantir(cameraData, state.get(), mode, elapsed);
-                            state.set(step.nextState());
-                            lastStep.set(step);
-                            Optional<Cameras> lockedCameraForDrive =
-                                step.nextState().lockedCamera();
-                            double commandedForwardMps = step.forwardMps();
-                            if (lockedCameraForDrive.isPresent()
-                                && lockedCameraForDrive.get() == Cameras.BACK_CAMERA) {
-                              commandedForwardMps = -commandedForwardMps;
-                            }
-                            swerveDrive.drive(
-                                new Translation2d(commandedForwardMps, 0),
-                                step.rotationRadPerSec(),
-                                false,
-                                false);
-                            if (step.fuelCollectedThisCycle()
-                                || step.completed()
-                                || shouldDebugLog(lastStatusLogTimeSec, 1.0)) {
-                              Optional<PhotonTrackedTarget> backCameraTarget =
-                                  FuelPalantir.getClosestNonFiducialTarget(
-                                      cameraData.get(Cameras.BACK_CAMERA));
-                              Optional<PhotonTrackedTarget> frontCameraTarget =
-                                  FuelPalantir.getClosestNonFiducialTarget(
-                                      cameraData.get(Cameras.FRONT_CAMERA));
-                              Optional<Cameras> lockedCamera = step.nextState().lockedCamera();
-                              Optional<PhotonTrackedTarget> lockedTarget =
-                                  lockedCamera.flatMap(
-                                      camera ->
-                                          FuelPalantir.getClosestNonFiducialTarget(
-                                              cameraData.get(camera)));
-
-                              debugAuto(
-                                  String.format(
-                                      "FUEL PALANTIR STATUS mode=%s elapsed=%.2fs proxyFuel=%d"
-                                          + " locked=%s backTarget=%s frontTarget=%s"
-                                          + " lockedYaw=%.1f lockedArea=%.2f"
-                                          + " fwd=%.2f rot=%.2f collected=%s reason=%s",
-                                      mode,
-                                      elapsed,
-                                      step.nextState().proxyCollectedFuelCount(),
-                                      lockedCamera.map(Enum::name).orElse("none"),
-                                      backCameraTarget.isPresent(),
-                                      frontCameraTarget.isPresent(),
-                                      lockedTarget
-                                          .map(PhotonTrackedTarget::getYaw)
-                                          .orElse(Double.NaN),
-                                      lockedTarget
-                                          .map(PhotonTrackedTarget::getArea)
-                                          .orElse(Double.NaN),
-                                      commandedForwardMps,
-                                      step.rotationRadPerSec(),
-                                      step.fuelCollectedThisCycle(),
-                                      step.reason()));
-                            }
-                          })
-                      .until(() -> lastStep.get() != null && lastStep.get().completed())
-                      .finallyDo(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false))
-                      .andThen(
-                          runOnce(
-                              () -> {
-                                FuelPalantir.FuelPalantirStep step = lastStep.get();
-                                String reason = step == null ? "unknown" : step.reason();
-                                debugAuto(
-                                    String.format(
-                                        "FUEL PALANTIR END mode=%s proxyFuel=%d elapsed=%.2fs reason=%s",
-                                        mode,
-                                        state.get().proxyCollectedFuelCount(),
-                                        Timer.getFPGATimestamp() - startTimeSec.get(),
-                                        reason));
-                              }))
-                      .withName("FuelPalantirCommand-" + mode.name());
-
-              if (mode == FuelPalantir.FuelPalantirMode.STOP_AFTER_20S) {
-                return Commands.sequence(runFuelPalantir, holdStoppedUntilDisabled())
-                    .withName("FuelPalantirStopAfter20ThenHold");
-              }
-              return runFuelPalantir;
+                                    "FUEL PALANTIR END mode=%s elapsed=%.2fs reason=%s",
+                                    mode, Timer.getFPGATimestamp() - startTimeSec.get(), reason));
+                          }))
+                  .withName("FuelPalantirCommand-" + mode.name());
             },
             Set.of(this))
         .withName("FuelPalantirCommand-" + mode.name());
