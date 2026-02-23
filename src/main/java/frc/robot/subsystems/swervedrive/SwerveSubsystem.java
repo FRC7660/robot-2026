@@ -256,7 +256,7 @@ public class SwerveSubsystem extends SubsystemBase {
 
     return run(
         () -> {
-          var result = camera.camera.getLatestResult();
+          var result = camera.getCamera().getLatestResult();
           if (result.hasTargets()) {
             drive(
                 getTargetSpeeds(
