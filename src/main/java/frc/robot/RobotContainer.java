@@ -23,16 +23,17 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
-import frc.robot.subsystems.Launch;
 import frc.robot.Constants.OperatorConstants;
 import frc.robot.commands.swervedrive.MisalignCorrection;
 import frc.robot.commands.swervedrive.YAGSLPitCheck;
 import frc.robot.commands.turret.TurretAutoTurn;
 import frc.robot.subsystems.Index;
 import frc.robot.subsystems.Intake;
+import frc.robot.subsystems.Launch;
 import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
+import java.util.function.DoubleSupplier;
 import swervelib.SwerveInputStream;
 
 /**
@@ -46,6 +47,20 @@ public class RobotContainer {
   // Replace with CommandPS4Controller or CommandJoystick if needed
   final CommandXboxController driverXbox = new CommandXboxController(0);
   private final Intake intakeSystem = new Intake();
+
+  // Trigger (CLASS) which will initiate trigger (INPUT) control of the arm
+  private Trigger liftPressureDetected = new Trigger(() -> (driverXbox.getLeftTriggerAxis() > 0.1));
+  private Trigger liftSimPressureDetected = new Trigger(() -> (driverXbox.getRawAxis(1) > 0.1));
+
+  private DoubleSupplier dx_leftTriggerSupplier = driverXbox::getLeftTriggerAxis;
+
+  // how did I figure this out
+  private double getRaw1() {
+    return driverXbox.getRawAxis(1);
+  }
+
+  private DoubleSupplier dx_axis1Supplier = this::getRaw1;
+
   // The robot's subsystems and commands are defined here...
   private final String chassisDirectory = "swerve/7660-chassis1";
   private final SwerveSubsystem drivebase =
@@ -211,6 +226,16 @@ public class RobotContainer {
       driverXbox.rightBumper().whileTrue(intakeSystem.setAngle(30.0));
       driverXbox.leftBumper().whileTrue(intakeSystem.setAngle(-10.0));
 
+      // Trigger-based linear arm angle control (KEYBOARD COMPATIBLE)
+      liftSimPressureDetected.whileTrue(
+          Commands.run(
+              () -> {
+                double angle = 110 - dx_axis1Supplier.getAsDouble() * (110 + 25);
+                intakeSystem.setAngle(angle).schedule();
+                SmartDashboard.putNumber("AXIS1", dx_axis1Supplier.getAsDouble() * (110 + 25));
+              }));
+      liftSimPressureDetected.whileFalse(intakeSystem.setAngle(110.0));
+
       // driverXbox
       //    .a()
       //    .whileTrue(
@@ -230,7 +255,7 @@ public class RobotContainer {
       driverXbox.leftBumper().whileTrue(new YAGSLPitCheck(drivebase));
       driverXbox.rightBumper().onTrue(launchSystem.setVelocity(50.0));
       driverXbox.rightBumper().onFalse(launchSystem.setVelocity(0));
-      driverXbox.b().whileTrue(Commands.parallel(indexSystem.setSystemSpeed(0.6, 0.7)));
+      driverXbox.b().whileTrue(indexSystem.setSystemSpeed(0.6, 0.7));
       driverXbox
           .y()
           .whileTrue(
@@ -238,8 +263,22 @@ public class RobotContainer {
                   () -> {
                     return .99;
                   }));
-      driverXbox.a().onTrue(intakeSystem.setAngle(-25.0));
-      driverXbox.x().onTrue(intakeSystem.setAngle(110.0));
+
+      // Replaced by the trigger command below
+      // driverXbox.a().onTrue(intakeSystem.setAngle(-25.0));
+      // driverXbox.x().onTrue(intakeSystem.setAngle(110.0));
+
+      // Trigger-based linear arm angle control
+      liftPressureDetected.whileTrue(
+          Commands.run(
+              () -> {
+                double angle = 110 - dx_leftTriggerSupplier.getAsDouble() * (110 + 25);
+                intakeSystem.setAngle(angle).schedule();
+                SmartDashboard.putNumber(
+                    "AXIS1", dx_leftTriggerSupplier.getAsDouble() * (110 + 25));
+              }));
+      liftPressureDetected.onFalse(intakeSystem.setAngle(110.0));
+
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));

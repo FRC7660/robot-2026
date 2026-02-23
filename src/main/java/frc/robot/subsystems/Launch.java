@@ -1,12 +1,9 @@
 package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Amps;
-import static edu.wpi.first.units.Units.DegreesPerSecond;
-import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Pounds;
 import static edu.wpi.first.units.Units.RPM;
-import static edu.wpi.first.units.Units.RevolutionsPerSecond;
 import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Seconds;
 
@@ -41,10 +38,8 @@ public class Launch extends SubsystemBase {
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
           // Feedback Constants (PID Constants)
-          .withClosedLoopController(
-              0, 0, 0, RPM.of(6700), RPM.per(Second).of(6700*2))
-          .withSimClosedLoopController(
-              0, 0, 0, RPM.of(6700), RPM.per(Second).of(6700*2))
+          .withClosedLoopController(0, 0, 0, RPM.of(6700), RPM.per(Second).of(6700 * 2))
+          .withSimClosedLoopController(0, 0, 0, RPM.of(6700), RPM.per(Second).of(6700 * 2))
           // Feedforward Constants
           .withFeedforward(new SimpleMotorFeedforward(0.115, 6.5, 3))
           .withSimFeedforward(new SimpleMotorFeedforward(0.115, 6.5, 3))
@@ -99,8 +94,7 @@ public class Launch extends SubsystemBase {
   }
 
   /**
-   * Set the shooter velocity.
-   * Speed should be POSITIVE.
+   * Set the shooter velocity. Speed should be POSITIVE.
    *
    * @param speed Speed to set.
    * @return {@link edu.wpi.first.wpilibj2.command.RunCommand}
@@ -110,7 +104,7 @@ public class Launch extends SubsystemBase {
     AngularVelocity velocity = RPM.of(absSpeed);
     return shooter.run(velocity);
   }
-    
+
   public void stop() {
     shooter.run(RPM.of(0));
   }
