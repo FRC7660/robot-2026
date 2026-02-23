@@ -202,7 +202,7 @@ public class Vision {
   public Map<Cameras, CameraSnapshot> getCameraData() {
     EnumMap<Cameras, CameraSnapshot> data = new EnumMap<>(Cameras.class);
     for (Cameras camera : Cameras.values()) {
-      List<PhotonPipelineResult> results = camera.camera.getAllUnreadResults();
+      List<PhotonPipelineResult> results = camera.getCamera().getAllUnreadResults();
 
       PhotonPipelineResult latestResult =
           results.isEmpty() ? null : results.get(results.size() - 1);
@@ -236,7 +236,7 @@ public class Vision {
       // accurate. Only the final (most recent) estimate is surfaced; intermediate estimates
       // are intentionally discarded because the latest frame has the freshest geometry.
       for (PhotonPipelineResult result : aprilTagResults) {
-        visionEst = camera.poseEstimator.update(result);
+        visionEst = camera.getPoseEstimator().update(result);
         List<PhotonTrackedTarget> targets =
             visionEst.isPresent() ? visionEst.get().targetsUsed : result.getTargets();
         stdDevs =
@@ -376,7 +376,7 @@ public class Vision {
         continue;
       }
       double cameraLatencySec =
-          Math.max(0.0, nowSec - est.camera().camera.getLatestResult().getTimestampSeconds());
+          Math.max(0.0, nowSec - est.camera().getCamera().getLatestResult().getTimestampSeconds());
       if (cameraLatencySec > MAX_CAMERA_LATENCY_SEC) {
         rejStale++;
         continue;
@@ -507,7 +507,7 @@ public class Vision {
         continue;
       }
       double cameraLatencySec =
-          Math.max(0.0, nowSec - est.camera().camera.getLatestResult().getTimestampSeconds());
+          Math.max(0.0, nowSec - est.camera().getCamera().getLatestResult().getTimestampSeconds());
       if (cameraLatencySec > MAX_CAMERA_LATENCY_SEC) {
         rejStale++;
         continue;
