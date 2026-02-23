@@ -54,10 +54,6 @@ public enum Cameras {
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1));
 
-  // Backward-compatible aliases used throughout existing code.
-  public static final Cameras CAMERA0 = BACK_CAMERA;
-  public static final Cameras CAMERA1 = FRONT_CAMERA;
-
   /** Latency alert to use when high latency is detected. */
   public final Alert latencyAlert;
 

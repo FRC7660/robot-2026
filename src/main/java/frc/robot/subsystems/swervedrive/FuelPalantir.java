@@ -27,9 +27,7 @@ public class FuelPalantir {
   }
 
   public record FuelPalantirState(
-      int proxyCollectedFuelCount,
-      Optional<Cameras> lockedCamera,
-      boolean wasAboveAreaThreshold) {}
+      int proxyCollectedFuelCount, Optional<Cameras> lockedCamera, boolean wasAboveAreaThreshold) {}
 
   public record FuelPalantirStep(
       FuelPalantirState nextState,
@@ -77,7 +75,7 @@ public class FuelPalantir {
       }
       // Lock released: locked camera no longer sees any fuel
     }
-    Cameras[] candidates = {Cameras.CAMERA0, Cameras.CAMERA1};
+    Cameras[] candidates = {Cameras.BACK_CAMERA, Cameras.FRONT_CAMERA};
     Cameras bestCamera = null;
     double minAbsYaw = Double.POSITIVE_INFINITY;
     for (Cameras camera : candidates) {
