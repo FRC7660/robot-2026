@@ -31,7 +31,7 @@ import swervelib.SwerveDrive;
  * Vision pipeline for AprilTag-based pose estimation and fusion.
  *
  * <p>The pipeline runs every robot cycle (teleop + auto) and consists of: 1. {@link
- * #getCameraData()} -- fetch raw results from all cameras 2. {@link #updateAprilTagError(Map)} --
+ * #getCameraData()} -- fetch raw results from all cameras 2. {@link #estimateCameraPosesFromAprilTags(Map)} --
  * run PhotonPoseEstimator on each camera's results 3. {@link #selectBestPose(List, SwerveDrive)} --
  * filter and score candidates 4. {@link #setVisionMeasurement(SwerveDrive, SelectionResult)} --
  * apply the best candidate to the swerve drive pose estimator
@@ -211,7 +211,7 @@ public class Vision {
     return data;
   }
 
-  // ── Pipeline Step 2: updateAprilTagError() ────────────────────────────────
+  // ── Pipeline Step 2: estimateCameraPosesFromAprilTags() ────────────────────────────────
 
   /**
    * Run pose estimation on each camera's results.
@@ -219,7 +219,7 @@ public class Vision {
    * @param cameraData the snapshots from {@link #getCameraData()}
    * @return list of pose estimation results
    */
-  public List<PoseEstimationResult> updateAprilTagError(Map<Cameras, CameraSnapshot> cameraData) {
+  public List<PoseEstimationResult> estimateCameraPosesFromAprilTags(Map<Cameras, CameraSnapshot> cameraData) {
     List<PoseEstimationResult> results = new ArrayList<>();
     for (var entry : cameraData.entrySet()) {
       Cameras camera = entry.getKey();
@@ -326,7 +326,7 @@ public class Vision {
    *   <li>Translation outlier (with consecutive-outlier override and multi-tag leniency)
    * </ol>
    *
-   * @param estimations results from {@link #updateAprilTagError}
+   * @param estimations results from {@link #estimateCameraPosesFromAprilTags}
    * @param currentPose the current robot pose from odometry
    * @param lastFusedTimestamps last fused timestamp per camera
    * @param consecutiveOutliers number of consecutive cycles where all candidates were rejected as
@@ -555,7 +555,7 @@ public class Vision {
   /**
    * Select the best pose candidate using the current estimator mode.
    *
-   * @param estimations results from {@link #updateAprilTagError}
+   * @param estimations results from {@link #estimateCameraPosesFromAprilTags}
    * @param swerveDrive the swerve drive for current pose
    * @return selection result with best candidate and rejection counts
    */
@@ -652,7 +652,7 @@ public class Vision {
     long t1 = System.nanoTime();
 
     // Run pose estimation on each camera
-    List<PoseEstimationResult> estimations = updateAprilTagError(cameraData);
+    List<PoseEstimationResult> estimations = estimateCameraPosesFromAprilTags(cameraData);
     Map<Cameras, Optional<EstimatedRobotPose>> rawLatestPoseByCamera = new EnumMap<>(Cameras.class);
     for (PoseEstimationResult est : estimations) {
       rawLatestPoseByCamera.put(est.camera(), est.estimatedPose());

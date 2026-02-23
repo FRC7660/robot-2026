@@ -313,7 +313,7 @@ public class SwerveSubsystem extends SubsystemBase {
       return false;
     }
 
-    List<Vision.PoseEstimationResult> estimations = vision.updateAprilTagError(cameraData);
+    List<Vision.PoseEstimationResult> estimations = vision.estimateCameraPosesFromAprilTags(cameraData);
     Optional<EstimatedRobotPose> bestEstimate = Optional.empty();
     Vision.PoseEstimationResult bestResult = null;
     int bestTagCount = -1;
