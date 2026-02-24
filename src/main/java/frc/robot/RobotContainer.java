@@ -50,6 +50,7 @@ public class RobotContainer {
 
   // Trigger (CLASS) which will initiate trigger (INPUT) control of the arm
   private Trigger liftPressureDetected = new Trigger(() -> (driverXbox.getLeftTriggerAxis() > 0.1));
+  private Trigger liftPressureMaxed = new Trigger(() -> (driverXbox.getLeftTriggerAxis() > 0.9));
   private Trigger liftSimPressureDetected = new Trigger(() -> (driverXbox.getRawAxis(1) > 0.1));
 
   private DoubleSupplier dx_leftTriggerSupplier = driverXbox::getLeftTriggerAxis;
@@ -271,13 +272,16 @@ public class RobotContainer {
       // Trigger-based linear arm angle control
       liftPressureDetected.whileTrue(
           Commands.run(
-              () -> {
-                double angle = 110 - dx_leftTriggerSupplier.getAsDouble() * (110 + 25);
-                intakeSystem.setAngle(angle).schedule();
-                SmartDashboard.putNumber(
-                    "AXIS1", dx_leftTriggerSupplier.getAsDouble() * (110 + 25));
-              }));
+                  () -> {
+                    double angle = 110 - dx_leftTriggerSupplier.getAsDouble() * (110 + 25);
+                    intakeSystem.setAngle(angle).schedule();
+                    SmartDashboard.putNumber(
+                        "AXIS1", dx_leftTriggerSupplier.getAsDouble() * (110 + 25));
+                  })
+              .onlyIf(() -> !liftPressureMaxed.getAsBoolean()));
       liftPressureDetected.onFalse(intakeSystem.setAngle(110.0));
+      liftPressureMaxed.whileTrue(intakeSystem.fullIntake());
+      liftPressureMaxed.onFalse(Commands.runOnce(() -> intakeSystem.stopRoller()));
 
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
