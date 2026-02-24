@@ -14,6 +14,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.trajectory.TrapezoidProfile.Constraints;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
@@ -237,10 +238,10 @@ public class RobotContainer {
               }));
       liftSimPressureDetected.whileFalse(intakeSystem.setAngle(110.0));
 
-      // driverXbox
-      //    .a()
-      //    .whileTrue(
-      //        indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
+      driverXbox
+         .a()
+         .whileTrue(
+             indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
     }
 
     if (DriverStation.isTest()) {
@@ -256,7 +257,11 @@ public class RobotContainer {
       driverXbox.leftBumper().whileTrue(new YAGSLPitCheck(drivebase));
       driverXbox.rightBumper().onTrue(launchSystem.setVelocity(50.0));
       driverXbox.rightBumper().onFalse(launchSystem.setVelocity(0));
-      driverXbox.b().whileTrue(indexSystem.setSystemSpeed(0.6, 0.7));
+      //driverXbox.b().whileTrue(indexSystem.setVelocityindex(60.0));
+      driverXbox
+         .b()
+         .whileTrue(
+             indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
       driverXbox
           .y()
           .whileTrue(
