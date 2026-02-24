@@ -74,7 +74,6 @@ public class Turret extends SubsystemBase {
     try {
       double turretRotations = 165.0 / 360.0;
       double motorRotations = turretRotations * Constants.Turret.TURRET_GEAR_RATIO;
-      turretMotor.getEncoder().setPosition(motorRotations);
     } catch (Throwable t) {
       // Ignore if encoder API unavailable in sim.
     }
@@ -117,13 +116,6 @@ public class Turret extends SubsystemBase {
 
     this.turretPivot = new Pivot(pivotConfig);
     this.zeroPoint = new TurretZeroPoint();
-  }
-
-  // Turret Motor Config
-  public SparkFlexConfig configureTurretMotor() {
-    SparkFlexConfig turretConfig = new SparkFlexConfig();
-    turretConfig.idleMode(IdleMode.kBrake).inverted(false);
-    return turretConfig;
   }
 
   /**
@@ -239,5 +231,13 @@ public class Turret extends SubsystemBase {
         (turretMotor.getEncoder().getPosition() / Constants.Turret.TURRET_GEAR_RATIO) * 360);
     SmartDashboard.putNumber(
         "Turret/Setpoint (Robot Relative)", getRobotRelativeAngle().getDegrees());
+        turretPivot.updateTelemetry();
+  }
+  
+  @Override
+  public void simulationPeriodic() {
+    // Update simulation physics and visualization
+    turretPivot.simIterate();
   }
 }
+
