@@ -2,8 +2,6 @@ package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Degrees;
-import static edu.wpi.first.units.Units.DegreesPerSecond;
-import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Pounds;
 import static edu.wpi.first.units.Units.RPM;
@@ -53,12 +51,10 @@ public class Intake extends SubsystemBase {
   private SmartMotorControllerConfig liftConfig =
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
-          .withClosedLoopController(
-              175.0, 0.0, 20.0, RPM.of(1000), RPM.per(Second).of(6000))
+          .withClosedLoopController(175.0, 0.0, 20.0, RPM.of(1000), RPM.per(Second).of(6000))
           .withFeedforward(new ArmFeedforward(0.02, 0.005, 0.0))
           // sim
-          .withSimClosedLoopController(
-              175.0, 0, 20.0, RPM.of(1000), RPM.per(Second).of(6000))
+          .withSimClosedLoopController(175.0, 0, 20.0, RPM.of(1000), RPM.per(Second).of(6000))
           .withSimFeedforward(new ArmFeedforward(0.02, 0.005, 0.0))
           .withTelemetry("LiftMotor", TelemetryVerbosity.HIGH)
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(5, 5, 3.333)))
@@ -134,7 +130,7 @@ public class Intake extends SubsystemBase {
     setRollerSpeed(Constants.Intake.ROLLER_SPEED);
   }
 
-  private void stopRoller() {
+  public void stopRoller() {
     setRollerSpeed(0);
   }
 
@@ -149,5 +145,17 @@ public class Intake extends SubsystemBase {
           setRollerSpeed(speed);
         },
         () -> stopRoller());
+  }
+
+  public void fullDeploy() {
+    lift.setMechanismPositionSetpoint(Angle.ofRelativeUnits(-25.0, Degrees));
+  }
+
+  public Command fullIntake() {
+    return run(
+        () -> {
+          setRollerSpeed(0.99);
+          fullDeploy();
+        });
   }
 }
