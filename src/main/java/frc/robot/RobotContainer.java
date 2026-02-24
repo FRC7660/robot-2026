@@ -213,7 +213,7 @@ public class RobotContainer {
       //    .whileTrue(
       //        indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
       driverXbox.x().whileTrue(new TurretAutoTurn(turret));
-      driverXbox.y().onTrue(turret.autoSetAngle());
+      driverXbox.y().whileTrue(turret.autoSetAngle());
     }
 
     if (DriverStation.isTest()) {

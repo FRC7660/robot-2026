@@ -127,7 +127,7 @@ public class Turret extends SubsystemBase {
    */
   public void setTurretSetpoint(Rotation2d robotRelativeAngle) {
     //TODO: need to add "only move if greater than"
-    turretSmartMotorController.setPosition(Angle.ofBaseUnits(robotRelativeAngle.getDegrees(), Degrees));
+    turretSmartMotorController.setPosition(robotRelativeAngle.getMeasure());
     this.lastSetpoint = robotRelativeAngle;
   }
 
