@@ -35,6 +35,7 @@ import swervelib.SwerveInputStream;
  * subsystems, commands, and trigger mappings) should be declared here.
  */
 public class RobotContainer {
+  private static final double SHOOTER_FEED_MIN_RPM = 3000.0;
 
   // Replace with CommandPS4Controller or CommandJoystick if needed
   final CommandXboxController driverXbox = new CommandXboxController(0);
@@ -243,11 +244,14 @@ public class RobotContainer {
               Commands.startEnd(
                   () -> {
                     upperShooter.setUpperMotor(0.85);
-                    lowerShooter.setLowerMotor(0.85);
+                    boolean shooterAtSpeed = upperShooter.isAtSpeed(SHOOTER_FEED_MIN_RPM);
+                    lowerShooter.setLowerMotor(shooterAtSpeed ? 0.85 : 0.0);
+                    SmartDashboard.putBoolean("Shooter/FeedReady", shooterAtSpeed);
                   },
                   () -> {
                     upperShooter.setUpperMotor(0);
                     lowerShooter.setLowerMotor(0);
+                    SmartDashboard.putBoolean("Shooter/FeedReady", false);
                   },
                   upperShooter,
                   lowerShooter));
@@ -258,11 +262,14 @@ public class RobotContainer {
               Commands.runEnd(
                   () -> {
                     upperShooter.setUpperMotor(driverXbox.getRightTriggerAxis());
-                    lowerShooter.setLowerMotor(0.85);
+                    boolean shooterAtSpeed = upperShooter.isAtSpeed(SHOOTER_FEED_MIN_RPM);
+                    lowerShooter.setLowerMotor(shooterAtSpeed ? 0.85 : 0.0);
+                    SmartDashboard.putBoolean("Shooter/FeedReady", shooterAtSpeed);
                   },
                   () -> {
                     upperShooter.setUpperMotor(0);
                     lowerShooter.setLowerMotor(0);
+                    SmartDashboard.putBoolean("Shooter/FeedReady", false);
                   },
                   upperShooter,
                   lowerShooter));

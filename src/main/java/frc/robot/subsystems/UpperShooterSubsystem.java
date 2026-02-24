@@ -9,6 +9,7 @@ import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 /**
@@ -23,12 +24,10 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
  */
 public class UpperShooterSubsystem extends SubsystemBase {
 
-  private SparkMaxConfig configShooter;
-
   // private SparkMaxSim motorShooterSim;
   // private double desiredSpeed;
 
-  private SparkMax upperMotor = new SparkMax(20, MotorType.kBrushless);
+  private final SparkMax upperMotor = new SparkMax(20, MotorType.kBrushless);
 
   // Talon SRX motor controllers
   // private final TalonSRX lowerMotor; // Intake motor (CAN ID 21)
@@ -88,9 +87,18 @@ public class UpperShooterSubsystem extends SubsystemBase {
     setUpperMotor(0.0);
   }
 
+  /** Returns the shooter motor speed in RPM (always non-negative). */
+  public double getShooterRpm() {
+    return Math.abs(upperMotor.getEncoder().getVelocity());
+  }
+
+  /** Returns true when shooter RPM is at or above the minimum threshold. */
+  public boolean isAtSpeed(double minRpm) {
+    return getShooterRpm() >= minRpm;
+  }
+
   @Override
   public void periodic() {
-    // No default behavior; control is entirely command-driven via setLowerMotor() and
-    // setUpperMotor() calls from the command classes.
+    SmartDashboard.putNumber("Shooter/RPM", getShooterRpm());
   }
 }
