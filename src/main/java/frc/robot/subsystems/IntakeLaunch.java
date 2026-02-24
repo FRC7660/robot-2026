@@ -3,9 +3,9 @@ package frc.robot.subsystems;
 import com.ctre.phoenix.motorcontrol.ControlMode;
 import com.ctre.phoenix.motorcontrol.NeutralMode;
 import com.ctre.phoenix.motorcontrol.can.TalonSRX;
+import com.revrobotics.PersistMode;
+import com.revrobotics.ResetMode;
 import com.revrobotics.spark.SparkBase.ControlType;
-import com.revrobotics.spark.SparkBase.PersistMode;
-import com.revrobotics.spark.SparkBase.ResetMode;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
@@ -107,7 +107,7 @@ public class IntakeLaunch extends SubsystemBase {
   }
 
   private void setUpperVelocityRpm(double targetRpm) {
-    upperPidController.setReference(-Math.abs(targetRpm), ControlType.kVelocity);
+    upperPidController.setSetpoint(-Math.abs(targetRpm), ControlType.kVelocity);
   }
 
   private boolean isUpperAtSpeed(double targetRpm) {
