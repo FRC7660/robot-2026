@@ -10,8 +10,7 @@ import static edu.wpi.first.units.Units.Seconds;
 
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
-import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
-import com.revrobotics.spark.config.SparkFlexConfig;
+import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -92,8 +91,10 @@ public class Turret extends SubsystemBase {
                 Constants.Turret.TURRET_P,
                 Constants.Turret.TURRET_I,
                 Constants.Turret.TURRET_D,
-                DegreesPerSecond.of(180),
-                DegreesPerSecondPerSecond.of(90))
+                DegreesPerSecond.of(600),
+                DegreesPerSecondPerSecond.of(900))
+            .withFeedforward(new SimpleMotorFeedforward(0.0, 0.0, 0.0))
+            .withSimFeedforward(new SimpleMotorFeedforward(0.05, 2.0, 0.0))
             // Telemetry name and verbosity level
             .withTelemetry("TurretMotorConfig", TelemetryVerbosity.HIGH)
             // Gearing from motor rotor to turret.
@@ -110,8 +111,10 @@ public class Turret extends SubsystemBase {
     PivotConfig pivotConfig =
         new PivotConfig(turretSmartMotorController)
             .withHardLimit(Degrees.of(0), Degrees.of(270))
-            .withStartingPosition(Degrees.of(135))
+            .withStartingPosition(Degrees.of(0.0))
             .withTelemetry("TurretPivot", TelemetryVerbosity.HIGH)
+            .withSoftLimits(Degrees.of(0.0), Degrees.of(360.0))
+            .withHardLimit(Degrees.of(0.0), Degrees.of(360.0))
             .withMOI(Meters.of(0.254), Pounds.of(2));
 
     this.turretPivot = new Pivot(pivotConfig);
@@ -231,13 +234,12 @@ public class Turret extends SubsystemBase {
         (turretMotor.getEncoder().getPosition() / Constants.Turret.TURRET_GEAR_RATIO) * 360);
     SmartDashboard.putNumber(
         "Turret/Setpoint (Robot Relative)", getRobotRelativeAngle().getDegrees());
-        turretPivot.updateTelemetry();
+    turretPivot.updateTelemetry();
   }
-  
+
   @Override
   public void simulationPeriodic() {
     // Update simulation physics and visualization
     turretPivot.simIterate();
   }
 }
-

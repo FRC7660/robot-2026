@@ -61,17 +61,38 @@
       "/LiveWindow/Ungrouped/Pigeon 2 [13]": "Gyro",
       "/LiveWindow/Ungrouped/Scheduler": "Scheduler",
       "/SmartDashboard/Alerts": "Alerts",
+      "/SmartDashboard/Arm/mechanism": "Mechanism2d",
+      "/SmartDashboard/Auto Chooser": "String Chooser",
       "/SmartDashboard/Encoders": "Alerts",
       "/SmartDashboard/Field": "Field2d",
       "/SmartDashboard/IMU": "Alerts",
       "/SmartDashboard/JSON": "Alerts",
+      "/SmartDashboard/Mechanisms/Commands/Index/Live Tuning": "Command",
+      "/SmartDashboard/Mechanisms/Commands/Intake/Live Tuning": "Command",
+      "/SmartDashboard/Mechanisms/Commands/LiftMotor/Down": "Command",
+      "/SmartDashboard/Mechanisms/Commands/LiftMotor/Up": "Command",
+      "/SmartDashboard/Mechanisms/Commands/LiftMotor/ZeroEncoder": "Command",
+      "/SmartDashboard/Mechanisms/Commands/ShooterMotor/Down": "Command",
+      "/SmartDashboard/Mechanisms/Commands/ShooterMotor/Up": "Command",
+      "/SmartDashboard/Mechanisms/Commands/ShooterMotor/ZeroEncoder": "Command",
+      "/SmartDashboard/Mechanisms/Commands/Turret/Live Tuning": "Command",
+      "/SmartDashboard/Mechanisms/Commands/TurretMotorConfig/Down": "Command",
+      "/SmartDashboard/Mechanisms/Commands/TurretMotorConfig/Up": "Command",
+      "/SmartDashboard/Mechanisms/Commands/TurretMotorConfig/ZeroEncoder": "Command",
+      "/SmartDashboard/Mechanisms/Commands/indexerMotor/Down": "Command",
+      "/SmartDashboard/Mechanisms/Commands/indexerMotor/Up": "Command",
+      "/SmartDashboard/Mechanisms/Commands/indexerMotor/ZeroEncoder": "Command",
       "/SmartDashboard/Motors": "Alerts",
       "/SmartDashboard/PathPlanner": "Alerts",
+      "/SmartDashboard/PhotonAlerts": "Alerts",
       "/SmartDashboard/Pigeon 2 (v6) [13]": "Gyro",
       "/SmartDashboard/Pigeon 2 [13]": "Gyro",
       "/SmartDashboard/SendableChooser[0]": "String Chooser",
       "/SmartDashboard/Swerve Drive": "Alerts",
+      "/SmartDashboard/TurretPivot/mechanism": "Mechanism2d",
       "/SmartDashboard/VisionSystemSim-Vision/Sim Field": "Field2d",
+      "/SmartDashboard/funnel/mechanism": "Mechanism2d",
+      "/SmartDashboard/indexer/mechanism": "Mechanism2d",
       "/SmartDashboard/navX-Sensor[1]": "Gyro",
       "/SmartDashboard/navX-Sensor[4]": "Gyro"
     },
@@ -116,26 +137,231 @@
         "window": {
           "visible": true
         }
+      },
+      "/SmartDashboard/Mechanisms/Commands/Turret/Live Tuning": {
+        "window": {
+          "visible": true
+        }
+      },
+      "/SmartDashboard/TurretPivot/mechanism": {
+        "window": {
+          "visible": true
+        }
       }
     }
   },
   "NetworkTables": {
+    "Persistent Values": {
+      "open": false
+    },
+    "Retained Values": {
+      "open": false
+    },
     "transitory": {
-      "FMSInfo": {
+      "Mechanisms": {
+        "TurretPivot": {
+          "TurretMotorConfig": {
+            "closedloop": {
+              "open": true,
+              "setpoint": {
+                "open": true
+              }
+            },
+            "current": {
+              "open": true
+            },
+            "mechanism": {
+              "open": true
+            },
+            "motor": {
+              "open": true
+            },
+            "open": true,
+            "rotor": {
+              "open": true
+            }
+          },
+          "open": true
+        },
         "open": true
       },
       "SmartDashboard": {
-        "Field": {
+        "Mechanisms": {
+          "Commands": {
+            "Turret": {
+              "Live Tuning": {
+                "open": true
+              }
+            },
+            "TurretMotorConfig": {
+              "open": true
+            },
+            "open": true
+          }
+        },
+        "Turret": {
           "open": true
         },
-        "open": true,
-        "swerve": {
+        "TurretPivot": {
+          "mechanism": {
+            "open": true
+          }
+        },
+        "open": true
+      },
+      "Tuning": {
+        "TurretPivot": {
+          "TurretMotorConfig": {
+            "closedloop": {
+              "feedback": {
+                "open": true
+              },
+              "feedforward": {
+                "open": true
+              },
+              "motionprofile": {
+                "open": true
+              },
+              "open": true,
+              "setpoint": {
+                "open": true
+              }
+            },
+            "current": {
+              "limit": {
+                "open": true
+              },
+              "open": true
+            },
+            "mechanism": {
+              "limit": {
+                "open": true
+              },
+              "open": true
+            },
+            "open": true,
+            "ramprate": {
+              "dutycycle": {
+                "open": true
+              },
+              "open": true
+            }
+          },
           "open": true
-        }
+        },
+        "open": true
       }
     }
   },
   "NetworkTables Info": {
     "visible": true
+  },
+  "Plot": {
+    "Plot <0>": {
+      "plots": [
+        {
+          "axis": [
+            {
+              "autoFit": true
+            }
+          ],
+          "backgroundColor": [
+            0.9399999976158142,
+            0.9399999976158142,
+            0.9399999976158142,
+            1.0
+          ],
+          "height": 281,
+          "legendLocation": 1,
+          "legendOutside": true,
+          "series": [
+            {
+              "color": [
+                0.2980392277240753,
+                0.44705885648727417,
+                0.6901960968971252,
+                1.0
+              ],
+              "id": "NT:/Mechanisms/TurretPivot/TurretMotorConfig/closedloop/setpoint/position"
+            },
+            {
+              "color": [
+                0.8666667342185974,
+                0.5176470875740051,
+                0.32156863808631897,
+                1.0
+              ],
+              "id": "NT:/Mechanisms/TurretPivot/TurretMotorConfig/mechanism/position"
+            }
+          ],
+          "viewTime": 5.0
+        },
+        {
+          "axis": [
+            {
+              "autoFit": true
+            }
+          ],
+          "backgroundColor": [
+            0.9399999976158142,
+            0.9399999976158142,
+            0.9399999976158142,
+            1.0
+          ],
+          "height": 281,
+          "legendLocation": 1,
+          "legendOutside": true,
+          "series": [
+            {
+              "color": [
+                0.2980392277240753,
+                0.44705885648727417,
+                0.6901960968971252,
+                1.0
+              ],
+              "id": "NT:/Mechanisms/TurretPivot/TurretMotorConfig/motor/outputVoltage"
+            }
+          ],
+          "viewTime": 5.0
+        },
+        {
+          "axis": [
+            {
+              "autoFit": true
+            }
+          ],
+          "backgroundColor": [
+            0.9399999976158142,
+            0.9399999976158142,
+            0.9399999976158142,
+            1.0
+          ],
+          "height": 281,
+          "legendLocation": 1,
+          "legendOutside": true,
+          "series": [
+            {
+              "color": [
+                0.2980392277240753,
+                0.44705885648727417,
+                0.6901960968971252,
+                1.0
+              ],
+              "id": "NT:/Mechanisms/TurretPivot/TurretMotorConfig/mechanism/velocity"
+            },
+            {
+              "color": [
+                0.8666667342185974,
+                0.5176470875740051,
+                0.32156863808631897,
+                1.0
+              ],
+              "id": "NT:/Mechanisms/TurretPivot/TurretMotorConfig/closedloop/setpoint/velocity"
+            }
+          ],
+          "viewTime": 5.0
+        }
+      ]
+    }
   }
 }
