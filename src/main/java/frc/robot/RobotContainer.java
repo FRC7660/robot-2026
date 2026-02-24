@@ -202,15 +202,11 @@ public class RobotContainer {
       // driverXbox.rightBumper().onTrue(Commands.none());
 
       // INTAKE
-      driverXbox
-          .leftBumper()
-          .whileTrue(intakeLaunch.runIntake());
+      driverXbox.leftBumper().whileTrue(intakeLaunch.runIntake());
 
       // EXPEL(OUTTAKE)
 
-      driverXbox
-          .rightBumper()
-          .whileTrue(intakeLaunch.runOuttake());
+      driverXbox.rightBumper().whileTrue(intakeLaunch.runOuttake());
 
       // SHOOT
       driverXbox
@@ -224,9 +220,7 @@ public class RobotContainer {
           .onFalse(intakeLaunch.stopShooting());
 
       // UNSTICK
-      driverXbox
-          .y()
-          .whileTrue(intakeLaunch.runUnstick());
+      driverXbox.y().whileTrue(intakeLaunch.runUnstick());
 
       driverXbox
           .b()
