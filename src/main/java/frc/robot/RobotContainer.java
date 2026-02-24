@@ -149,7 +149,7 @@ public class RobotContainer {
     SmartDashboard.putData("Auto Chooser", autoChooser);
 
     // Set the turret default command to compute targets from odometry
-    turret.setDefaultCommand(Commands.idle(turret));
+    // turret.setDefaultCommand(Commands.idle(turret));
   }
 
   /**
@@ -213,6 +213,7 @@ public class RobotContainer {
       //    .whileTrue(
       //        indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
       driverXbox.x().whileTrue(new TurretAutoTurn(turret));
+      driverXbox.y().onTrue(turret.autoSetAngle());
     }
 
     if (DriverStation.isTest()) {
@@ -251,7 +252,7 @@ public class RobotContainer {
               drivebase.driveToPose(
                   new Pose2d(new Translation2d(14, 4), Rotation2d.fromDegrees(0))));
 
-      driverXbox.y().whileTrue(drivebase.sysIdDriveMotorCommand());
+      //driverXbox.y().whileTrue(drivebase.sysIdDriveMotorCommand());
     }
   }
 
