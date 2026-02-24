@@ -150,7 +150,6 @@ public class RobotContainer {
 
     // Set the turret default command to compute targets from odometry
     turret.setDefaultCommand(Commands.idle(turret));
-    driverXbox.povUp().whileTrue(new TurretAutoTurn(turret));
   }
 
   /**
@@ -213,6 +212,7 @@ public class RobotContainer {
       //    .a()
       //    .whileTrue(
       //        indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
+      driverXbox.x().whileTrue(new TurretAutoTurn(turret));
     }
 
     if (DriverStation.isTest()) {
@@ -236,7 +236,7 @@ public class RobotContainer {
                     return .99;
                   }));
       driverXbox.a().onTrue(intakeSystem.setAngle(-25.0));
-      driverXbox.x().onTrue(intakeSystem.setAngle(110.0));
+      // driverXbox.x().onTrue(intakeSystem.setAngle(110.0));
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
