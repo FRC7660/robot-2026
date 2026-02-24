@@ -15,12 +15,16 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.lib.TurretHelpers;
 import frc.robot.lib.TurretZeroPoint;
+
+import java.util.Optional;
 import java.util.function.Supplier;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
@@ -90,7 +94,7 @@ public class Turret extends SubsystemBase {
             .withFeedforward(new SimpleMotorFeedforward(0.27937, 0.089836, 0.014557))
             .withSimClosedLoopController(
                 .15, 0, 0, DegreesPerSecond.of(360), DegreesPerSecondPerSecond.of(360))
-            .withSimFeedforward(new SimpleMotorFeedforward(0, 0, 0))
+            .withSimFeedforward(new SimpleMotorFeedforward(0, 4.6, 0))
             // Telemetry name and verbosity level
             .withTelemetry("TurretMotorConfig", TelemetryVerbosity.HIGH)
             // Gearing from motor rotor to turret.
@@ -122,48 +126,9 @@ public class Turret extends SubsystemBase {
    * @param robotRelativeAngle turret angle relative to robot forward
    */
   public void setTurretSetpoint(Rotation2d robotRelativeAngle) {
+    //TODO: need to add "only move if greater than"
+    turretSmartMotorController.setPosition(Angle.ofBaseUnits(robotRelativeAngle.getDegrees(), Degrees));
     this.lastSetpoint = robotRelativeAngle;
-
-    // Compute desired absolute turret angle (field-agnostic in robot frame)
-    Pose2d pose = getPose.get();
-    double desiredAbsRad = pose.getRotation().getRadians() + robotRelativeAngle.getRadians();
-
-    // Convert desired absolute angle (radians) to degrees [0,360)
-    double desiredAbsDeg = Math.toDegrees(desiredAbsRad) % 360.0;
-    if (desiredAbsDeg < 0) {
-      desiredAbsDeg += 360.0;
-    }
-    // Enforce turret hard range of motion: [0, 270] degrees absolute
-    desiredAbsDeg = Math.max(0.0, Math.min(270.0, desiredAbsDeg));
-    this.lastDesiredAbsDeg = desiredAbsDeg;
-
-    // Read current motor rotations from encoder (REV API: getEncoder().getPosition())
-    double currentMotorRotations = 0.0;
-    try {
-      currentMotorRotations = turretMotor.getEncoder().getPosition();
-    } catch (Throwable t) {
-      currentMotorRotations = 0.0;
-    }
-
-    // Convert current motor rotations to turret absolute angle degrees
-    double currentTurretRotations = currentMotorRotations / Constants.Turret.TURRET_GEAR_RATIO;
-    double currentAngleDeg = (currentTurretRotations * 360.0) % 360.0;
-    if (currentAngleDeg < 0) {
-      currentAngleDeg += 360.0;
-    }
-
-    // Sticky-zero behavior with zero-point regulator
-    double rotationCommandDeg = zeroPoint.updateAndCompute(desiredAbsDeg, currentAngleDeg);
-    this.lastRotationCommandDeg = rotationCommandDeg;
-
-    // Compute practical absolute setpoint based on current angle + commanded delta
-    double practicalAbsDeg = currentAngleDeg + rotationCommandDeg;
-    if (practicalAbsDeg < 0) {
-      practicalAbsDeg += 360.0;
-    }
-    practicalAbsDeg = Math.max(0.0, Math.min(270.0, practicalAbsDeg));
-
-    turretPivot.setMechanismPositionSetpoint(Degrees.of(practicalAbsDeg));
   }
 
   /** Get the most recent turret setpoint (robot-relative angle). Primarily useful for testing. */
@@ -171,6 +136,10 @@ public class Turret extends SubsystemBase {
     return lastSetpoint;
   }
 
+  public Command autoSetAngle() {
+    return turretPivot.setAngle(getRobotRelativeAngle().getMeasure());
+  }
+  
   /**
    * Compute the desired turret angle relative to the robot using the stored pose supplier and
    * TurretHelpers decision logic.
@@ -223,12 +192,15 @@ public class Turret extends SubsystemBase {
 
   @Override
   public void periodic() {
-    SmartDashboard.putNumber(
-        "Turret/Position",
-        (turretMotor.getEncoder().getPosition() / Constants.Turret.TURRET_GEAR_RATIO) * 360);
-    SmartDashboard.putNumber(
-        "Turret/Setpoint (Robot Relative)", getRobotRelativeAngle().getDegrees());
-        turretPivot.updateTelemetry();
+    turretPivot.updateTelemetry();
+    Optional<Angle> sp = turretSmartMotorController.getMechanismPositionSetpoint();
+    double setPoint = sp.isPresent() ? sp.get().in(Degrees) : -1.0;
+    SmartDashboard.putNumber("Turret/PositionRot", (turretMotor.getEncoder().getPosition() / Constants.Turret.TURRET_GEAR_RATIO) * 360);
+    SmartDashboard.putNumber("Turret/Setpoint (Calc)", getRobotRelativeAngle().getDegrees());
+    SmartDashboard.putNumber("Turret/Position", turretSmartMotorController.getMechanismPosition().in(Degrees));
+    SmartDashboard.putNumber("Turret/FieldAngle", lastFieldAngle.getDegrees());
+    SmartDashboard.putNumber("Turret/RobotAngle", getPose.get().getRotation().getDegrees());
+    SmartDashboard.putNumber("Turret/Setpoint", setPoint);
   }
   
   @Override
