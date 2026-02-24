@@ -47,4 +47,27 @@ public final class Constants {
     public static final double RIGHT_X_DEADBAND = 0.1;
     public static final double TURN_CONSTANT = 6;
   }
+
+  public static final class IntakeLaunchConstants {
+    public static final int UPPER_MOTOR_ID = 20;
+    public static final int LOWER_MOTOR_ID = 21;
+
+    public static final double DEFAULT_LAUNCH_SPEED_RPM = 3000.0;
+    public static final double UPPER_READY_TOLERANCE_RPM = 100.0;
+    public static final double UPPER_READY_TIME_SECONDS = 0.050;
+    public static final double UPPER_STOP_DELAY_SECONDS = 0.5;
+
+    public static final double LOWER_FEED_DUTY_CYCLE = 0.85;
+
+    public static final double UPPER_VELOCITY_KP = 0.0002;
+    public static final double UPPER_VELOCITY_KI = 0.0;
+    public static final double UPPER_VELOCITY_KD = 0.0;
+
+    public static final double INTAKE_UPPER_DUTY_CYCLE = 0.85;
+    public static final double INTAKE_LOWER_DUTY_CYCLE = -0.85;
+    public static final double OUTTAKE_UPPER_DUTY_CYCLE = -0.85;
+    public static final double OUTTAKE_LOWER_DUTY_CYCLE = 0.85;
+    public static final double UNSTICK_UPPER_DUTY_CYCLE = -0.85;
+    public static final double UNSTICK_LOWER_DUTY_CYCLE = -0.85;
+  }
 }

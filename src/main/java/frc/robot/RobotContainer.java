@@ -22,8 +22,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OperatorConstants;
-import frc.robot.subsystems.LowerShooterSubsystem;
-import frc.robot.subsystems.UpperShooterSubsystem;
+import frc.robot.subsystems.IntakeLaunch;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
 import swervelib.SwerveInputStream;
@@ -42,8 +41,7 @@ public class RobotContainer {
   private final SwerveSubsystem drivebase =
       new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-jv0"));
 
-  private final UpperShooterSubsystem upperShooter = new UpperShooterSubsystem();
-  private final LowerShooterSubsystem lowerShooter = new LowerShooterSubsystem();
+  private final IntakeLaunch intakeLaunch = new IntakeLaunch();
 
   // Establish a Sendable Chooser that will be able to be sent to the SmartDashboard, allowing
   // selection of desired auto
@@ -206,99 +204,29 @@ public class RobotContainer {
       // INTAKE
       driverXbox
           .leftBumper()
-          .whileTrue(
-              Commands.startEnd(
-                  () -> {
-                    upperShooter.setUpperMotor(0.85);
-                    lowerShooter.setLowerMotor(-0.85);
-                  },
-                  () -> {
-                    upperShooter.setUpperMotor(0);
-                    lowerShooter.setLowerMotor(0);
-                  },
-                  upperShooter,
-                  lowerShooter));
+          .whileTrue(intakeLaunch.runIntake());
 
       // EXPEL(OUTTAKE)
 
       driverXbox
           .rightBumper()
-          .whileTrue(
-              Commands.startEnd(
-                  () -> {
-                    upperShooter.setUpperMotor(-0.85);
-                    lowerShooter.setLowerMotor(0.85);
-                  },
-                  () -> {
-                    upperShooter.setUpperMotor(0);
-                    lowerShooter.setLowerMotor(0);
-                  },
-                  upperShooter,
-                  lowerShooter));
+          .whileTrue(intakeLaunch.runOuttake());
 
       // SHOOT
       driverXbox
           .leftTrigger(0.1)
-          .whileTrue(
-              Commands.startEnd(
-                  () -> {
-                    upperShooter.setUpperMotor(0.85);
-                    lowerShooter.setLowerMotor(0.85);
-                  },
-                  () -> {
-                    upperShooter.setUpperMotor(0);
-                    lowerShooter.setLowerMotor(0);
-                  },
-                  upperShooter,
-                  lowerShooter));
+          .whileTrue(intakeLaunch.shootDefault())
+          .onFalse(intakeLaunch.stopShooting());
 
       driverXbox
           .rightTrigger(0.1)
-          .whileTrue(
-              Commands.runEnd(
-                  () -> {
-                    upperShooter.setUpperMotor(driverXbox.getRightTriggerAxis());
-                    lowerShooter.setLowerMotor(0.85);
-                  },
-                  () -> {
-                    upperShooter.setUpperMotor(0);
-                    lowerShooter.setLowerMotor(0);
-                  },
-                  upperShooter,
-                  lowerShooter));
+          .whileTrue(intakeLaunch.shootDefault())
+          .onFalse(intakeLaunch.stopShooting());
 
       // UNSTICK
       driverXbox
           .y()
-          .whileTrue(
-              Commands.startEnd(
-                  () -> {
-                    upperShooter.setUpperMotor(-0.85);
-                    lowerShooter.setLowerMotor(-0.85);
-                  },
-                  () -> {
-                    upperShooter.setUpperMotor(0);
-                    lowerShooter.setLowerMotor(0);
-                  },
-                  upperShooter,
-                  lowerShooter));
-
-      // Intake/Shooter Commands
-      // Lower intake: right trigger ≥ 0.9 → CCW at 75%, right bumper → CW at 75%, else brake
-      // driverXbox
-      // .rightTrigger(0.9)
-      // .or(driverXbox.rightBumper())
-      // .whileTrue(
-      // new RunLowerIntakeCommand(
-      // lowerShooter, driverXbox::getRightTriggerAxis, driverXbox.rightBumper()));
-
-      // Upper shooter: left trigger ≥ 0.9 → CCW at 50%, left bumper → CW at 50%, else brake
-      // driverXbox
-      // .leftTrigger(0.1)
-      // .or(driverXbox.leftBumper())
-      // .whileTrue(
-      //  new RunUpperShooterCommand(
-      //  upperShooter, driverXbox::getLeftTriggerAxis, driverXbox.leftBumper()));
+          .whileTrue(intakeLaunch.runUnstick());
 
       driverXbox
           .b()
