@@ -10,8 +10,7 @@ import static edu.wpi.first.units.Units.Seconds;
 
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
-import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
-import com.revrobotics.spark.config.SparkFlexConfig;
+import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -88,12 +87,10 @@ public class Turret extends SubsystemBase {
                 Constants.Turret.TURRET_D,
                 DegreesPerSecond.of(180),
                 DegreesPerSecondPerSecond.of(90))
+            .withFeedforward(new SimpleMotorFeedforward(0.27937, 0.089836, 0.014557))
             .withSimClosedLoopController(
-                Constants.Turret.TURRET_P,
-                Constants.Turret.TURRET_I,
-                Constants.Turret.TURRET_D,
-                DegreesPerSecond.of(180),
-                DegreesPerSecondPerSecond.of(90))
+                .15, 0, 0, DegreesPerSecond.of(360), DegreesPerSecondPerSecond.of(360))
+            .withSimFeedforward(new SimpleMotorFeedforward(0, 0, 0))
             // Telemetry name and verbosity level
             .withTelemetry("TurretMotorConfig", TelemetryVerbosity.HIGH)
             // Gearing from motor rotor to turret.
