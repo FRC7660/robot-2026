@@ -99,8 +99,8 @@ public class Turret extends SubsystemBase {
             .withMotorInverted(false)
             .withIdleMode(MotorMode.BRAKE)
             .withStatorCurrentLimit(Amps.of(40))
-            .withClosedLoopRampRate(Seconds.of(0.25))
-            .withOpenLoopRampRate(Seconds.of(0.25));
+            .withClosedLoopRampRate(Seconds.of(0.05))
+            .withOpenLoopRampRate(Seconds.of(0.05));
 
     this.turretSmartMotorController = new SparkWrapper(turretMotor, DCMotor.getNEO(1), smcConfig);
 
