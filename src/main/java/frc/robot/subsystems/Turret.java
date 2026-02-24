@@ -102,7 +102,7 @@ public class Turret extends SubsystemBase {
             .withClosedLoopRampRate(Seconds.of(0.05))
             .withOpenLoopRampRate(Seconds.of(0.05));
 
-    this.turretSmartMotorController = new SparkWrapper(turretMotor, DCMotor.getNEO(1), smcConfig);
+    turretSmartMotorController = new SparkWrapper(turretMotor, DCMotor.getNEO(1), smcConfig);
 
     PivotConfig pivotConfig =
         new PivotConfig(turretSmartMotorController)
@@ -111,8 +111,8 @@ public class Turret extends SubsystemBase {
             .withTelemetry("TurretPivot", TelemetryVerbosity.HIGH)
             .withMOI(Meters.of(0.254), Pounds.of(2));
 
-    this.turretPivot = new Pivot(pivotConfig);
-    this.zeroPoint = new TurretZeroPoint();
+    turretPivot = new Pivot(pivotConfig);
+    zeroPoint = new TurretZeroPoint();
   }
 
   /**
