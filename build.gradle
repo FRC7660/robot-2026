@@ -13,6 +13,7 @@ sourceSets {
     main {
         java {
             srcDir '../../yagsl/java/'
+            srcDir '../YAMS/yams/java/'
         }
     }
 }
@@ -58,6 +59,11 @@ wpi.java.debugJni = false
 
 // Set this to true to enable desktop support.
 def includeDesktopSupport = true
+
+// Exclude the upstream YAMS JAR — YAMS is compiled from source at ../YAMS/yams/java/
+configurations.all {
+    exclude group: "yams", module: "YAMS-java"
+}
 
 // Defining my dependencies. In this case, WPILib (+ friends), and vendor libraries.
 // Also defines JUnit 5.
