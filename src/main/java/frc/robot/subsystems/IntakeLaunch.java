@@ -1,6 +1,7 @@
 package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.KilogramSquareMeters;
 import static edu.wpi.first.units.Units.RPM;
 
 import com.ctre.phoenix.motorcontrol.ControlMode;
@@ -15,6 +16,8 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
+import yams.mechanisms.config.FlyWheelConfig;
+import yams.mechanisms.velocity.FlyWheel;
 import yams.motorcontrollers.SmartMotorController;
 import yams.motorcontrollers.SmartMotorControllerConfig;
 import yams.motorcontrollers.SmartMotorControllerConfig.MotorMode;
@@ -36,6 +39,9 @@ public class IntakeLaunch extends SubsystemBase {
               Constants.IntakeLaunchConstants.UPPER_VELOCITY_KD);
   private final SmartMotorController upperMotorController =
       new SparkWrapper(upperMotor, DCMotor.getNEO(1), upperMotorConfig);
+  private final FlyWheelConfig upperFlyWheelConfig =
+      new FlyWheelConfig(upperMotorController).withMOI(KilogramSquareMeters.of(0.02));
+  private final FlyWheel upperFlyWheel = new FlyWheel(upperFlyWheelConfig);
   private final Timer atSpeedTimer = new Timer();
 
   public IntakeLaunch() {
@@ -102,7 +108,7 @@ public class IntakeLaunch extends SubsystemBase {
   }
 
   private void setUpperDutyCycle(double dutyCycle) {
-    upperMotorController.setDutyCycle(MathUtil.clamp(dutyCycle, -1.0, 1.0));
+    upperFlyWheel.setDutyCycleSetpoint(MathUtil.clamp(dutyCycle, -1.0, 1.0));
   }
 
   private void setLowerDutyCycle(double dutyCycle) {
@@ -110,11 +116,11 @@ public class IntakeLaunch extends SubsystemBase {
   }
 
   private void setUpperVelocityRpm(double targetRpm) {
-    upperMotorController.setVelocity(RPM.of(-Math.abs(targetRpm)));
+    upperFlyWheel.setMechanismVelocitySetpoint(RPM.of(-Math.abs(targetRpm)));
   }
 
   private boolean isUpperAtSpeed(double targetRpm) {
-    double actualRpm = Math.abs(upperMotorController.getMechanismVelocity().in(RPM));
+    double actualRpm = Math.abs(upperFlyWheel.getSpeed().in(RPM));
     double errorRpm = Math.abs(Math.abs(targetRpm) - actualRpm);
 
     if (errorRpm <= Constants.IntakeLaunchConstants.UPPER_READY_TOLERANCE_RPM) {
@@ -129,7 +135,7 @@ public class IntakeLaunch extends SubsystemBase {
   }
 
   private void stopUpper() {
-    upperMotorController.setDutyCycle(0.0);
+    upperFlyWheel.setDutyCycleSetpoint(0.0);
     resetSpeedGate();
   }
 
@@ -145,11 +151,11 @@ public class IntakeLaunch extends SubsystemBase {
 
   @Override
   public void periodic() {
-    upperMotorController.updateTelemetry();
+    upperFlyWheel.updateTelemetry();
   }
 
   @Override
   public void simulationPeriodic() {
-    upperMotorController.simIterate();
+    upperFlyWheel.simIterate();
   }
 }
