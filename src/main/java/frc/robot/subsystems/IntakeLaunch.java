@@ -1,41 +1,44 @@
 package frc.robot.subsystems;
 
+import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.RPM;
+
 import com.ctre.phoenix.motorcontrol.ControlMode;
 import com.ctre.phoenix.motorcontrol.NeutralMode;
 import com.ctre.phoenix.motorcontrol.can.TalonSRX;
-import com.revrobotics.PersistMode;
-import com.revrobotics.ResetMode;
-import com.revrobotics.spark.SparkBase.ControlType;
-import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
-import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
-import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
+import yams.motorcontrollers.SmartMotorController;
+import yams.motorcontrollers.SmartMotorControllerConfig;
+import yams.motorcontrollers.SmartMotorControllerConfig.MotorMode;
+import yams.motorcontrollers.local.SparkWrapper;
 
 public class IntakeLaunch extends SubsystemBase {
   private final SparkMax upperMotor =
       new SparkMax(Constants.IntakeLaunchConstants.UPPER_MOTOR_ID, MotorType.kBrushless);
   private final TalonSRX lowerMotor = new TalonSRX(Constants.IntakeLaunchConstants.LOWER_MOTOR_ID);
-  private final SparkClosedLoopController upperPidController = upperMotor.getClosedLoopController();
+  private final SmartMotorControllerConfig upperMotorConfig =
+      new SmartMotorControllerConfig(this)
+          .withControlMode(SmartMotorControllerConfig.ControlMode.CLOSED_LOOP)
+          .withIdleMode(MotorMode.COAST)
+          .withMotorInverted(true)
+          .withStatorCurrentLimit(Amps.of(40))
+          .withClosedLoopController(
+              Constants.IntakeLaunchConstants.UPPER_VELOCITY_KP,
+              Constants.IntakeLaunchConstants.UPPER_VELOCITY_KI,
+              Constants.IntakeLaunchConstants.UPPER_VELOCITY_KD);
+  private final SmartMotorController upperMotorController =
+      new SparkWrapper(upperMotor, DCMotor.getNEO(1), upperMotorConfig);
   private final Timer atSpeedTimer = new Timer();
 
   public IntakeLaunch() {
-    SparkMaxConfig upperConfig = new SparkMaxConfig();
-    upperConfig.idleMode(IdleMode.kCoast).inverted(true);
-    upperConfig
-        .closedLoop
-        .p(Constants.IntakeLaunchConstants.UPPER_VELOCITY_KP)
-        .i(Constants.IntakeLaunchConstants.UPPER_VELOCITY_KI)
-        .d(Constants.IntakeLaunchConstants.UPPER_VELOCITY_KD);
-    upperMotor.configure(
-        upperConfig, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
-
     lowerMotor.setNeutralMode(NeutralMode.Brake);
   }
 
@@ -99,7 +102,7 @@ public class IntakeLaunch extends SubsystemBase {
   }
 
   private void setUpperDutyCycle(double dutyCycle) {
-    upperMotor.set(MathUtil.clamp(dutyCycle, -1.0, 1.0));
+    upperMotorController.setDutyCycle(MathUtil.clamp(dutyCycle, -1.0, 1.0));
   }
 
   private void setLowerDutyCycle(double dutyCycle) {
@@ -107,11 +110,11 @@ public class IntakeLaunch extends SubsystemBase {
   }
 
   private void setUpperVelocityRpm(double targetRpm) {
-    upperPidController.setSetpoint(-Math.abs(targetRpm), ControlType.kVelocity);
+    upperMotorController.setVelocity(RPM.of(-Math.abs(targetRpm)));
   }
 
   private boolean isUpperAtSpeed(double targetRpm) {
-    double actualRpm = Math.abs(upperMotor.getEncoder().getVelocity());
+    double actualRpm = Math.abs(upperMotorController.getMechanismVelocity().in(RPM));
     double errorRpm = Math.abs(Math.abs(targetRpm) - actualRpm);
 
     if (errorRpm <= Constants.IntakeLaunchConstants.UPPER_READY_TOLERANCE_RPM) {
@@ -126,7 +129,7 @@ public class IntakeLaunch extends SubsystemBase {
   }
 
   private void stopUpper() {
-    upperMotor.set(0.0);
+    upperMotorController.setDutyCycle(0.0);
     resetSpeedGate();
   }
 
@@ -138,5 +141,15 @@ public class IntakeLaunch extends SubsystemBase {
   private void resetSpeedGate() {
     atSpeedTimer.stop();
     atSpeedTimer.reset();
+  }
+
+  @Override
+  public void periodic() {
+    upperMotorController.updateTelemetry();
+  }
+
+  @Override
+  public void simulationPeriodic() {
+    upperMotorController.simIterate();
   }
 }
