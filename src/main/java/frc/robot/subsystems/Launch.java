@@ -6,6 +6,7 @@ import static edu.wpi.first.units.Units.Pounds;
 import static edu.wpi.first.units.Units.RPM;
 import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Seconds;
+import static edu.wpi.first.units.Units.DegreesPerSecond;
 
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
@@ -14,7 +15,10 @@ import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Command.InterruptionBehavior;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
@@ -129,5 +133,48 @@ public class Launch extends SubsystemBase {
   public void simulationPeriodic() {
     // This method will be called once per scheduler run during simulation
     shooter.simIterate();
+  }
+
+  /** 
+   * PLACEHOLDER: This trigger will check the velocity of the flywheel (in the right UNIT) 
+   * and return true if said velocity is greater than or equal to the distance-based velocity setpoint
+   * with a error margin of 1% (should be tested)
+  **/ 
+  public Trigger optimalVelocityReached = new Trigger(
+    () -> (
+      true
+      //getVelocity().in(RPM)*0.99 >= shooter.getMechanismSetpointVelocity().get().in(RPM)
+      )
+    );
+
+  public Command shotSequenceStart(Index indexSystem) {
+    return Commands.repeatingSequence(
+      // Pause the funnel to allow the flywheel to re-spool
+      Commands.runOnce(
+        () -> indexSystem.setVelocitySetpointfunnel(RPM.of(50.0))
+        ),
+      // Indexing should always run
+      Commands.runOnce(
+        () -> indexSystem.setVelocitySetpointindex(RPM.of(70.0))
+        ),
+      Commands.run(
+        () -> {
+          // PLACEHOLDER: This will set the velocity setpoint to itself, it's entirely redundant
+          this.setVelocitySetpoint(
+            shooter.getMechanismSetpointVelocity().orElse(RPM.of(0.0))
+            );
+        }),
+      Commands.waitUntil(optimalVelocityReached),
+      // PLACEHOLDER: Should probably index faster than this
+      Commands.runOnce(
+        () -> indexSystem.setVelocitySetpointfunnel(RPM.of(70.0))
+        )
+      ).handleInterrupt(() -> shotSequenceEnd(indexSystem));
+  }
+  
+  private void shotSequenceEnd(Index indexSystem) {
+    indexSystem.setVelocitySetpointindex(RPM.of(0.0));
+    indexSystem.setVelocitySetpointfunnel(RPM.of(0.0));
+    shooter.set(0);
   }
 }
