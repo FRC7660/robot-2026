@@ -385,8 +385,9 @@ class VisionPipelineTest {
         Vision.selectAdvancedPose(
             estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
 
-    // 1.2 is not > 1.2, so it passes the single-tag filter
-    assertTrue(result.bestCandidate().isPresent());
+    // Passes lowTagFar (strictly >1.2), then fails outlier gate (>1.0)
+    assertTrue(result.bestCandidate().isEmpty());
+    assertEquals(1, result.rejectedOutlier());
   }
 
   @Test
@@ -571,8 +572,8 @@ class VisionPipelineTest {
     Cameras cam = Cameras.values()[0];
     PhotonTrackedTarget target1 = makeTarget(1);
     PhotonTrackedTarget target2 = makeTarget(2);
-    // 2.0m error: above single-tag outlier (1.5m) but below multi-tag outlier (3.0m)
-    EstimatedRobotPose est = makeEstimatedPose(2.0, 0.0, 1.0, List.of(target1, target2));
+    // 0.4m error: accepted by multi-tag outlier gate (0.5m)
+    EstimatedRobotPose est = makeEstimatedPose(0.4, 0.0, 1.0, List.of(target1, target2));
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
@@ -584,5 +585,28 @@ class VisionPipelineTest {
 
     assertTrue(result.bestCandidate().isPresent());
     assertEquals(0, result.rejectedOutlier());
+  }
+
+  @Test
+  void selectAdvancedPose_multiTagLargeHeadingJump_rejectedOutlier() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target1 = makeTarget(1);
+    PhotonTrackedTarget target2 = makeTarget(2);
+    EstimatedRobotPose est =
+        new EstimatedRobotPose(
+            new Pose3d(0.2, 0.1, 0.0, new Rotation3d(0.0, 0.0, Math.toRadians(20.0))),
+            1.0,
+            List.of(target1, target2));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+
+    Vision.SelectionResult result =
+        Vision.selectAdvancedPose(
+            estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
+
+    assertTrue(result.bestCandidate().isEmpty());
+    assertEquals(1, result.rejectedOutlier());
   }
 }
