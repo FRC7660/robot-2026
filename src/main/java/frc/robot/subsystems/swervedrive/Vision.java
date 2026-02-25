@@ -101,8 +101,10 @@ public class Vision {
   static final int MIN_TAGS_FOR_DIRECT_ACCEPT = 2;
   static final double SINGLE_TAG_MAX_TRUSTED_DISTANCE_METERS = 4.0;
   static final double MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS = 1.2;
-  static final double MAX_TRANSLATION_OUTLIER_METERS = 1.5;
-  static final double MAX_MULTI_TAG_TRANSLATION_OUTLIER_METERS = 3.0;
+  static final double MAX_TRANSLATION_OUTLIER_METERS = 0.5;
+  static final double MAX_MULTI_TAG_TRANSLATION_OUTLIER_METERS = 0.5;
+  static final double MAX_SINGLE_TAG_ROTATION_OUTLIER_DEG = 5.0;
+  static final double MAX_MULTI_TAG_ROTATION_OUTLIER_DEG = 5.0;
   static final double MAX_STD_XY_METERS = 5.0;
 
   /** Maximum acceptable heading standard deviation (~115 degrees). */
@@ -410,6 +412,11 @@ public class Vision {
       }
 
       double translationError = currentPose.getTranslation().getDistance(pose2d.getTranslation());
+      double rotationErrorDeg =
+          Math.abs(pose2d.getRotation().minus(currentPose.getRotation()).getDegrees());
+      if (rotationErrorDeg > 180.0) {
+        rotationErrorDeg = 360.0 - rotationErrorDeg;
+      }
       if (tagCount < MIN_TAGS_FOR_DIRECT_ACCEPT
           && translationError > MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS) {
         rejLowTagFar++;
@@ -442,6 +449,14 @@ public class Vision {
               ? MAX_MULTI_TAG_TRANSLATION_OUTLIER_METERS
               : MAX_TRANSLATION_OUTLIER_METERS;
       if (translationError > outlierThreshold && !forceAcceptOutlier) {
+        rejOutlier++;
+        continue;
+      }
+      double rotationOutlierThresholdDeg =
+          tagCount >= MIN_TAGS_FOR_DIRECT_ACCEPT
+              ? MAX_MULTI_TAG_ROTATION_OUTLIER_DEG
+              : MAX_SINGLE_TAG_ROTATION_OUTLIER_DEG;
+      if (rotationErrorDeg > rotationOutlierThresholdDeg && !forceAcceptOutlier) {
         rejOutlier++;
         continue;
       }

@@ -70,6 +70,8 @@ public class SwerveSubsystem extends SubsystemBase {
 
   private SendableChooser<Vision.EstimatorMode> visionEstimatorModeChooser;
   private SendableChooser<Boolean> visionDebugTelemetryChooser;
+  private final AtomicReference<Vision.EstimatorMode> visionEstimatorModeOverride =
+      new AtomicReference<>(null);
 
   /**
    * Initialize {@link SwerveDrive} with the directory provided.
@@ -164,8 +166,20 @@ public class SwerveSubsystem extends SubsystemBase {
         new Vision(
             swerveDrive::getPose,
             swerveDrive.field,
-            visionEstimatorModeChooser::getSelected,
+            this::getActiveVisionEstimatorMode,
             visionDebugTelemetryChooser::getSelected);
+  }
+
+  private Vision.EstimatorMode getActiveVisionEstimatorMode() {
+    Vision.EstimatorMode overriddenMode = visionEstimatorModeOverride.get();
+    if (overriddenMode != null) {
+      return overriddenMode;
+    }
+    if (visionEstimatorModeChooser == null) {
+      return Vision.EstimatorMode.ADVANCED;
+    }
+    Vision.EstimatorMode selectedMode = visionEstimatorModeChooser.getSelected();
+    return selectedMode == null ? Vision.EstimatorMode.ADVANCED : selectedMode;
   }
 
   @Override
@@ -292,7 +306,11 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   public Command fuelPalantirCommand(FuelPalantir.FuelPalantirMode mode) {
-    return autonomousCommands.fuelPalantirCommand(mode);
+    Command baseCommand = autonomousCommands.fuelPalantirCommand(mode);
+    return baseCommand
+        .beforeStarting(() -> visionEstimatorModeOverride.set(Vision.EstimatorMode.OFF))
+        .finallyDo(() -> visionEstimatorModeOverride.set(null))
+        .withName("FuelPalantirCommand-" + mode.name() + "-NoAprilTagFusion");
   }
 
   static double calculateRotationFromYawDeg(double yawDeg) {
