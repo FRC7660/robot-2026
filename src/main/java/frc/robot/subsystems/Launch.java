@@ -142,8 +142,7 @@ public class Launch extends SubsystemBase {
   **/ 
   public Trigger optimalVelocityReached = new Trigger(
     () -> (
-      true
-      //getVelocity().in(RPM)*0.99 >= shooter.getMechanismSetpointVelocity().get().in(RPM)
+      getVelocity().in(RPM)*0.99 >= shooter.getMechanismSetpointVelocity().get().in(RPM)
       )
     );
 
