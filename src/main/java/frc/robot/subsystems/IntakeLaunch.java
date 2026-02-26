@@ -16,6 +16,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
+import yams.gearing.MechanismGearing;
 import yams.mechanisms.config.FlyWheelConfig;
 import yams.mechanisms.velocity.FlyWheel;
 import yams.motorcontrollers.SmartMotorController;
@@ -32,6 +33,7 @@ public class IntakeLaunch extends SubsystemBase {
           .withControlMode(SmartMotorControllerConfig.ControlMode.CLOSED_LOOP)
           .withIdleMode(MotorMode.COAST)
           .withMotorInverted(true)
+          .withGearing(new MechanismGearing(1))
           .withStatorCurrentLimit(Amps.of(40))
           .withClosedLoopController(
               Constants.IntakeLaunchConstants.UPPER_VELOCITY_KP,
