@@ -22,6 +22,7 @@ import yams.mechanisms.velocity.FlyWheel;
 import yams.motorcontrollers.SmartMotorController;
 import yams.motorcontrollers.SmartMotorControllerConfig;
 import yams.motorcontrollers.SmartMotorControllerConfig.MotorMode;
+import yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity;
 import yams.motorcontrollers.local.SparkWrapper;
 
 public class IntakeLaunch extends SubsystemBase {
@@ -30,6 +31,7 @@ public class IntakeLaunch extends SubsystemBase {
   private final TalonSRX lowerMotor = new TalonSRX(Constants.IntakeLaunchConstants.LOWER_MOTOR_ID);
   private final SmartMotorControllerConfig upperMotorConfig =
       new SmartMotorControllerConfig(this)
+          .withTelemetry("upperConfig", TelemetryVerbosity.HIGH)
           .withControlMode(SmartMotorControllerConfig.ControlMode.CLOSED_LOOP)
           .withIdleMode(MotorMode.COAST)
           .withMotorInverted(true)
@@ -42,7 +44,9 @@ public class IntakeLaunch extends SubsystemBase {
   private final SmartMotorController upperMotorController =
       new SparkWrapper(upperMotor, DCMotor.getNEO(1), upperMotorConfig);
   private final FlyWheelConfig upperFlyWheelConfig =
-      new FlyWheelConfig(upperMotorController).withMOI(KilogramSquareMeters.of(0.02));
+      new FlyWheelConfig(upperMotorController)
+         .withTelemetry("upperFlyWheel", TelemetryVerbosity.HIGH)
+         .withMOI(KilogramSquareMeters.of(0.02));
   private final FlyWheel upperFlyWheel = new FlyWheel(upperFlyWheelConfig);
   private final Timer atSpeedTimer = new Timer();
 
