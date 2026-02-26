@@ -182,6 +182,14 @@ public class SwerveSubsystem extends SubsystemBase {
     return selectedMode == null ? Vision.EstimatorMode.ADVANCED : selectedMode;
   }
 
+  void setVisionEstimatorModeOverride(Vision.EstimatorMode mode) {
+    visionEstimatorModeOverride.set(mode);
+  }
+
+  void clearVisionEstimatorModeOverride() {
+    visionEstimatorModeOverride.set(null);
+  }
+
   @Override
   public void periodic() {
     // When vision is enabled we must manually update odometry in SwerveDrive
@@ -308,9 +316,13 @@ public class SwerveSubsystem extends SubsystemBase {
   public Command fuelPalantirCommand(FuelPalantir.FuelPalantirMode mode) {
     Command baseCommand = autonomousCommands.fuelPalantirCommand(mode);
     return baseCommand
-        .beforeStarting(() -> visionEstimatorModeOverride.set(Vision.EstimatorMode.OFF))
-        .finallyDo(() -> visionEstimatorModeOverride.set(null))
+        .beforeStarting(() -> setVisionEstimatorModeOverride(Vision.EstimatorMode.OFF))
+        .finallyDo(() -> clearVisionEstimatorModeOverride())
         .withName("FuelPalantirCommand-" + mode.name() + "-NoAprilTagFusion");
+  }
+
+  public Command rejoinPathAtNearestPoseCommand(String pathName) {
+    return autonomousCommands.rejoinPathAtNearestPoseCommand(pathName);
   }
 
   static double calculateRotationFromYawDeg(double yawDeg) {
@@ -321,6 +333,10 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   public boolean resetOdometryFromAprilTags() {
+    return resetOdometryFromAprilTags(1);
+  }
+
+  public boolean resetOdometryFromAprilTags(int minTagCount) {
     if (vision == null) {
       System.out.println("[PoseReset] source=APRILTAG failed=vision_not_initialized");
       return false;
@@ -355,6 +371,12 @@ public class SwerveSubsystem extends SubsystemBase {
 
     if (bestEstimate.isEmpty()) {
       System.out.println("[PoseReset] source=APRILTAG failed=no_visible_tags");
+      return false;
+    }
+    if (bestTagCount < minTagCount) {
+      System.out.printf(
+          "[PoseReset] source=APRILTAG failed=insufficient_tags tags=%d min=%d%n",
+          bestTagCount, minTagCount);
       return false;
     }
 

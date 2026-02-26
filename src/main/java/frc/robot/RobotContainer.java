@@ -129,6 +129,8 @@ public class RobotContainer {
     NamedCommands.registerCommand(
         "LogoFuelPalantir", drivebase.fuelPalantirCommand(FuelPalantirMode.AUTONOMOUS));
     NamedCommands.registerCommand(
+        "ThereBackRejoinPart2", drivebase.rejoinPathAtNearestPoseCommand("part-2"));
+    NamedCommands.registerCommand(
         "ResetPoseFromAprilTags",
         Commands.runOnce(
             () -> {
