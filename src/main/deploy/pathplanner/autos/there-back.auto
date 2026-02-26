@@ -17,6 +17,12 @@
           }
         },
         {
+          "type": "named",
+          "data": {
+            "name": "ThereBackRejoinPart2"
+          }
+        },
+        {
           "type": "path",
           "data": {
             "pathName": "part-2"

@@ -3,15 +3,19 @@ package frc.robot.subsystems.swervedrive;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.path.PathConstraints;
+import com.pathplanner.lib.path.PathPlannerPath;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.lib.BufferedLogger;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -19,6 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
+import org.json.simple.parser.ParseException;
 import org.photonvision.targeting.PhotonTrackedTarget;
 import swervelib.SwerveDrive;
 
@@ -43,6 +48,11 @@ final class SwerveAutonomousCommands {
   private static final double DETECTION_CHIRP_TRANSLATION_MPS = 0.22;
   private static final double DETECTION_CHIRP_TIME_SEC = 0.06;
   private static final double DETECTION_CHIRP_GAP_SEC = 0.04;
+  private static final double REJOIN_PATH_TIMEOUT_SEC = 5.0;
+  private static final double REJOIN_VISION_OFF_COOLDOWN_SEC = 0.75;
+  private static final double REJOIN_SNAP_RETRY_WINDOW_SEC = 0.30;
+  private static final double REJOIN_SNAP_RETRY_ATTEMPT_PERIOD_SEC = 0.05;
+  private static final int REJOIN_SNAP_MIN_TAG_COUNT = 1;
 
   private final SwerveSubsystem subsystem;
   private final SwerveDrive swerveDrive;
@@ -172,6 +182,143 @@ final class SwerveAutonomousCommands {
             },
             Set.of(subsystem))
         .withName("FuelPalantirCommand-" + mode.name());
+  }
+
+  public Command rejoinPathAtNearestPoseCommand(String pathName) {
+    return Commands.defer(
+            () -> {
+              final PathPlannerPath path;
+              try {
+                path = PathPlannerPath.fromPathFile(pathName);
+              } catch (IOException | ParseException e) {
+                debugAuto(
+                    String.format(
+                        "REJOIN path=%s failed=path_load_exception type=%s msg=%s",
+                        pathName, e.getClass().getSimpleName(), e.getMessage()));
+                return Commands.none();
+              }
+              var pathPoses = path.getPathPoses();
+              if (pathPoses == null || pathPoses.isEmpty()) {
+                debugAuto(String.format("REJOIN path=%s failed=no_path_poses", pathName));
+                return Commands.none();
+              }
+
+              Pose2d currentPose = swerveDrive.getPose();
+              Pose2d targetPose =
+                  pathPoses.stream()
+                      .min(
+                          Comparator.comparingDouble(
+                              pose ->
+                                  pose
+                                      .getTranslation()
+                                      .getDistance(currentPose.getTranslation())))
+                      .orElse(pathPoses.get(0));
+              double rejoinDistanceMeters =
+                  currentPose.getTranslation().getDistance(targetPose.getTranslation());
+              AtomicReference<Boolean> snappedToAprilTags = new AtomicReference<>(false);
+              AtomicReference<Double> snapStartTimeSec = new AtomicReference<>(0.0);
+              AtomicReference<Double> lastSnapAttemptSec =
+                  new AtomicReference<>(Double.NEGATIVE_INFINITY);
+
+              Command snapRetryCommand =
+                  subsystem
+                      .startRun(
+                          () -> {
+                            snapStartTimeSec.set(Timer.getFPGATimestamp());
+                            lastSnapAttemptSec.set(Double.NEGATIVE_INFINITY);
+                            snappedToAprilTags.set(false);
+                            publishRejoinTelemetry(targetPose, false);
+                          },
+                          () -> {
+                            double now = Timer.getFPGATimestamp();
+                            if (!snappedToAprilTags.get()
+                                && now - lastSnapAttemptSec.get() >= REJOIN_SNAP_RETRY_ATTEMPT_PERIOD_SEC) {
+                              lastSnapAttemptSec.set(now);
+                              if (subsystem.resetOdometryFromAprilTags(REJOIN_SNAP_MIN_TAG_COUNT)) {
+                                snappedToAprilTags.set(true);
+                              }
+                            }
+                            publishRejoinTelemetry(targetPose, snappedToAprilTags.get());
+                          })
+                      .until(
+                          () ->
+                              snappedToAprilTags.get()
+                                  || Timer.getFPGATimestamp() - snapStartTimeSec.get()
+                                      >= REJOIN_SNAP_RETRY_WINDOW_SEC)
+                      .withTimeout(REJOIN_SNAP_RETRY_WINDOW_SEC + 0.10);
+
+              Command rejoinDriveCommand =
+                  Commands.sequence(
+                          Commands.runOnce(
+                              () -> subsystem.setVisionEstimatorModeOverride(Vision.EstimatorMode.OFF)),
+                          Commands.deadline(
+                              driveToPose(targetPose),
+                              subsystem.run(
+                                  () ->
+                                      publishRejoinTelemetry(
+                                          targetPose, snappedToAprilTags.get()))),
+                          Commands.waitSeconds(REJOIN_VISION_OFF_COOLDOWN_SEC))
+                      .withTimeout(REJOIN_PATH_TIMEOUT_SEC)
+                      .finallyDo(() -> subsystem.clearVisionEstimatorModeOverride());
+
+              return snapRetryCommand
+                  .andThen(
+                      Commands.runOnce(
+                          () -> {
+                            Pose2d postSnapPose = swerveDrive.getPose();
+                            double postSnapDistanceMeters =
+                                postSnapPose.getTranslation().getDistance(targetPose.getTranslation());
+                            debugAuto(
+                                String.format(
+                                    "REJOIN path=%s snap=%s minTags=%d current=(%.3f, %.3f, %.1fdeg) postSnap=(%.3f, %.3f, %.1fdeg) target=(%.3f, %.3f, %.1fdeg) distBefore=%.3f distAfter=%.3f",
+                                    pathName,
+                                    snappedToAprilTags.get(),
+                                    REJOIN_SNAP_MIN_TAG_COUNT,
+                                    currentPose.getX(),
+                                    currentPose.getY(),
+                                    currentPose.getRotation().getDegrees(),
+                                    postSnapPose.getX(),
+                                    postSnapPose.getY(),
+                                    postSnapPose.getRotation().getDegrees(),
+                                    targetPose.getX(),
+                                    targetPose.getY(),
+                                    targetPose.getRotation().getDegrees(),
+                                    rejoinDistanceMeters,
+                                    postSnapDistanceMeters));
+                          }))
+                  .andThen(rejoinDriveCommand)
+                  .finallyDo(
+                      () -> {
+                        subsystem.clearVisionEstimatorModeOverride();
+                        clearRejoinTelemetry();
+                      });
+            },
+            Set.of(subsystem))
+        .withName("RejoinPathAtNearestPose-" + pathName);
+  }
+
+  private void publishRejoinTelemetry(Pose2d targetPose, boolean snapSucceeded) {
+    Pose2d current = swerveDrive.getPose();
+    double translationErrorMeters =
+        current.getTranslation().getDistance(targetPose.getTranslation());
+    double headingErrorDeg =
+        Math.abs(current.getRotation().minus(targetPose.getRotation()).getDegrees());
+
+    SmartDashboard.putBoolean("Auto/RejoinActive", true);
+    SmartDashboard.putBoolean("Auto/RejoinSnapSucceeded", snapSucceeded);
+    SmartDashboard.putNumber("Auto/RejoinTargetX", targetPose.getX());
+    SmartDashboard.putNumber("Auto/RejoinTargetY", targetPose.getY());
+    SmartDashboard.putNumber("Auto/RejoinTargetHeadingDeg", targetPose.getRotation().getDegrees());
+    SmartDashboard.putNumber("Auto/RejoinPoseX", current.getX());
+    SmartDashboard.putNumber("Auto/RejoinPoseY", current.getY());
+    SmartDashboard.putNumber("Auto/RejoinHeadingDeg", current.getRotation().getDegrees());
+    SmartDashboard.putNumber("Auto/RejoinPoseErrorM", translationErrorMeters);
+    SmartDashboard.putNumber("Auto/RejoinHeadingErrorDeg", headingErrorDeg);
+  }
+
+  private void clearRejoinTelemetry() {
+    SmartDashboard.putBoolean("Auto/RejoinActive", false);
+    SmartDashboard.putBoolean("Auto/RejoinSnapSucceeded", false);
   }
 
   private record TargetObservation(Cameras camera, PhotonTrackedTarget target) {}
