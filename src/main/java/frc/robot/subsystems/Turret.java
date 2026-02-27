@@ -2,10 +2,10 @@ package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Degrees;
-import static edu.wpi.first.units.Units.DegreesPerSecond;
-import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
 import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.Pounds;
+import static edu.wpi.first.units.Units.RPM;
+import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Seconds;
 
 import com.revrobotics.spark.SparkFlex;
@@ -23,7 +23,6 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.lib.TurretHelpers;
 import frc.robot.lib.TurretZeroPoint;
-
 import java.util.Optional;
 import java.util.function.Supplier;
 import yams.gearing.GearBox;
@@ -85,15 +84,9 @@ public class Turret extends SubsystemBase {
         new SmartMotorControllerConfig(this)
             .withControlMode(ControlMode.CLOSED_LOOP)
             // Feedback Constants (PID Constants)
-            .withClosedLoopController(
-                Constants.Turret.TURRET_P,
-                Constants.Turret.TURRET_I,
-                Constants.Turret.TURRET_D,
-                DegreesPerSecond.of(180),
-                DegreesPerSecondPerSecond.of(90))
-            .withFeedforward(new SimpleMotorFeedforward(0.27937, 0.089836, 0.014557))
-            .withSimClosedLoopController(
-                .15, 0, 0, DegreesPerSecond.of(360), DegreesPerSecondPerSecond.of(360))
+            .withClosedLoopController(1, 0, 0.2, RPM.of(400), RPM.per(Second).of(1300))
+            .withFeedforward(new SimpleMotorFeedforward(0.005, 3.5, 0.0))
+            .withSimClosedLoopController(1.0, 0, 0, RPM.of(110), RPM.per(Second).of(600))
             .withSimFeedforward(new SimpleMotorFeedforward(0, 4.6, 0))
             // Telemetry name and verbosity level
             .withTelemetry("TurretMotorConfig", TelemetryVerbosity.HIGH)
@@ -110,9 +103,9 @@ public class Turret extends SubsystemBase {
 
     PivotConfig pivotConfig =
         new PivotConfig(turretSmartMotorController)
-            .withHardLimit(Degrees.of(0), Degrees.of(330))
-            .withSoftLimits(Degrees.of(30), Degrees.of(270))
-            .withStartingPosition(Degrees.of(30))
+            .withHardLimit(Degrees.of(0), Degrees.of(360))
+            .withSoftLimits(Degrees.of(30), Degrees.of(330))
+            .withStartingPosition(Degrees.of(180))
             .withTelemetry("TurretPivot", TelemetryVerbosity.HIGH)
             .withMOI(Meters.of(0.254), Pounds.of(2));
 
@@ -127,7 +120,7 @@ public class Turret extends SubsystemBase {
    * @param robotRelativeAngle turret angle relative to robot forward
    */
   public void setTurretSetpoint(Rotation2d robotRelativeAngle) {
-    //TODO: need to add "only move if greater than"
+    // TODO: need to add "only move if greater than"
     turretSmartMotorController.setPosition(robotRelativeAngle.getMeasure());
     this.lastSetpoint = robotRelativeAngle;
   }
@@ -140,7 +133,7 @@ public class Turret extends SubsystemBase {
   public Command autoSetAngle() {
     return turretPivot.setAngle(() -> getRobotRelativeAngle().getMeasure());
   }
-  
+
   /**
    * Compute the desired turret angle relative to the robot using the stored pose supplier and
    * TurretHelpers decision logic.
@@ -196,18 +189,20 @@ public class Turret extends SubsystemBase {
     turretPivot.updateTelemetry();
     Optional<Angle> sp = turretSmartMotorController.getMechanismPositionSetpoint();
     double setPoint = sp.isPresent() ? sp.get().in(Degrees) : -1.0;
-    SmartDashboard.putNumber("Turret/PositionRot", (turretMotor.getEncoder().getPosition() / Constants.Turret.TURRET_GEAR_RATIO) * 360);
+    SmartDashboard.putNumber(
+        "Turret/PositionRot",
+        (turretMotor.getEncoder().getPosition() / Constants.Turret.TURRET_GEAR_RATIO) * 360);
     SmartDashboard.putNumber("Turret/Setpoint (Calc)", getRobotRelativeAngle().getDegrees());
-    SmartDashboard.putNumber("Turret/Position", turretSmartMotorController.getMechanismPosition().in(Degrees));
+    SmartDashboard.putNumber(
+        "Turret/Position", turretSmartMotorController.getMechanismPosition().in(Degrees));
     SmartDashboard.putNumber("Turret/FieldAngle", lastFieldAngle.getDegrees());
     SmartDashboard.putNumber("Turret/RobotAngle", getPose.get().getRotation().getDegrees());
     SmartDashboard.putNumber("Turret/Setpoint", setPoint);
   }
-  
+
   @Override
   public void simulationPeriodic() {
     // Update simulation physics and visualization
     turretPivot.simIterate();
   }
 }
-

@@ -138,6 +138,11 @@
           "visible": true
         }
       },
+      "/SmartDashboard/Mechanisms/Commands/Turret/Live Tuning": {
+        "window": {
+          "visible": true
+        }
+      },
       "/SmartDashboard/TurretPivot/mechanism": {
         "window": {
           "visible": true
@@ -151,10 +156,31 @@
         "Turret": {
           "open": true
         },
-        "open": true,
-        "swerve": {
+        "open": true
+      },
+      "Tuning": {
+        "TurretPivot": {
+          "TurretMotorConfig": {
+            "closedloop": {
+              "feedback": {
+                "open": true
+              },
+              "feedforward": {
+                "open": true
+              },
+              "motionprofile": {
+                "open": true
+              },
+              "open": true,
+              "setpoint": {
+                "open": true
+              }
+            },
+            "open": true
+          },
           "open": true
-        }
+        },
+        "open": true
       }
     }
   },
