@@ -99,8 +99,6 @@ public class IntakeLaunch extends SubsystemBase {
               setUpperVelocityRpm(targetRpm);
               if (isUpperAtSpeed(targetRpm)) {
                 setLowerDutyCycle(Constants.IntakeLaunchConstants.LOWER_FEED_DUTY_CYCLE);
-              } else {
-                setLowerDutyCycle(0.0);
               }
             },
             this)
