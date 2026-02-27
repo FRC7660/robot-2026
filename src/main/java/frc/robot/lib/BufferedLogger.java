@@ -5,6 +5,8 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -55,6 +57,13 @@ public final class BufferedLogger {
       System.err.println("[BufferedLogger] Failed to open log file: " + e.getMessage());
     }
     writer = w;
+    try {
+      Path link = Path.of(LOG_DIR, "latest.log");
+      Files.deleteIfExists(link);
+      Files.createSymbolicLink(link, Path.of(logFilePath));
+    } catch (IOException e) {
+      System.err.println("[BufferedLogger] Failed to create latest.log symlink: " + e.getMessage());
+    }
     System.out.println("========================================");
     System.out.println("[BufferedLogger] Log file: " + logFilePath);
     System.out.println("========================================");

@@ -128,21 +128,24 @@ public class RobotContainer {
     DriverStation.silenceJoystickConnectionWarning(true);
 
     // Create the NamedCommands that will be used in PathPlanner
-    NamedCommands.registerCommand("test", Commands.print("I EXIST"));
-    NamedCommands.registerCommand(
-        "FuelPalantir", drivebase.fuelPalantirCommand(FuelPalantirMode.AUTONOMOUS));
-    NamedCommands.registerCommand(
-        "LogoFuelPalantir", drivebase.fuelPalantirCommand(FuelPalantirMode.AUTONOMOUS));
-    NamedCommands.registerCommand(
-        "ThereBackRejoinPart2", drivebase.rejoinPathAtNearestPoseCommand("part-2"));
-    NamedCommands.registerCommand(
-        "ResetPoseFromAprilTags",
-        Commands.runOnce(
-            () -> {
-              boolean reset = drivebase.resetOdometryFromAprilTags();
-              System.out.printf("[PoseReset] source=APRILTAG commandResult=%s%n", reset);
-            },
-            drivebase));
+    try {
+      NamedCommands.registerCommand("test", Commands.print("I EXIST"));
+      NamedCommands.registerCommand(
+          "FuelPalantir", drivebase.fuelPalantirCommand(FuelPalantirMode.AUTONOMOUS));
+      NamedCommands.registerCommand(
+          "LogoFuelPalantir", drivebase.fuelPalantirCommand(FuelPalantirMode.AUTONOMOUS));
+      NamedCommands.registerCommand(
+          "ResetPoseFromAprilTags",
+          Commands.runOnce(
+              () -> {
+                boolean reset = drivebase.resetOdometryFromAprilTags();
+                System.out.printf("[PoseReset] source=APRILTAG commandResult=%s%n", reset);
+              },
+              drivebase));
+    } catch (Exception e) {
+      DriverStation.reportError(
+          "[NamedCommands] registration failed: " + e.getMessage(), e.getStackTrace());
+    }
 
     autonomousManager = new AutonomousManager(drivebase);
 
