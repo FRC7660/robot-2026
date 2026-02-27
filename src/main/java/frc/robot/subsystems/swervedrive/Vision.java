@@ -98,13 +98,17 @@ public class Vision {
       AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded);
 
   static final double STALE_TIMESTAMP_EPSILON_SEC = 1e-4;
+  static final double CAMERA_TIMESTAMP_RESET_THRESHOLD_SEC = 2.0;
+  static final double MAX_FUTURE_TIMESTAMP_SEC = 1.0;
   static final int MIN_TAGS_FOR_DIRECT_ACCEPT = 2;
   static final double SINGLE_TAG_MAX_TRUSTED_DISTANCE_METERS = 4.0;
   static final double MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS = 1.2;
   static final double MAX_TRANSLATION_OUTLIER_METERS = 0.5;
   static final double MAX_MULTI_TAG_TRANSLATION_OUTLIER_METERS = 0.5;
+  static final double MAX_ABSOLUTE_TRANSLATION_ERROR_METERS = 3.0;
   static final double MAX_SINGLE_TAG_ROTATION_OUTLIER_DEG = 5.0;
   static final double MAX_MULTI_TAG_ROTATION_OUTLIER_DEG = 5.0;
+  static final double MAX_ABSOLUTE_ROTATION_ERROR_DEG = 45.0;
   static final double MAX_STD_XY_METERS = 5.0;
 
   /** Maximum acceptable heading standard deviation (~115 degrees). */
@@ -160,6 +164,7 @@ public class Vision {
   private final long[] pipelineStepCount = new long[PIPELINE_STEP_COUNT];
   private Pose2d lastLoggedOdomPose = null;
   private Pose2d lastLoggedFusedPose = null;
+  private Optional<Pose2d> lastSelectedFusedPose = Optional.empty();
   private final EnumMap<Cameras, CameraTagObservation> lastLoggedCameraTagObs =
       new EnumMap<>(Cameras.class);
   // volatile: defensive guard so any future move of process() to a background thread stays safe.
@@ -360,6 +365,12 @@ public class Vision {
 
     double fieldLength = fieldLayout.getFieldLength();
     double fieldWidth = fieldLayout.getFieldWidth();
+    boolean allowDisabledRelocalization = DriverStation.isDisabled();
+    boolean odomOutOfField =
+        currentPose.getX() < 0
+            || currentPose.getX() > fieldLength
+            || currentPose.getY() < 0
+            || currentPose.getY() > fieldWidth;
     boolean forceAcceptOutlier = consecutiveOutliers >= CONSECUTIVE_OUTLIER_OVERRIDE_COUNT;
 
     for (PoseEstimationResult est : estimations) {
@@ -372,7 +383,16 @@ public class Vision {
       Pose2d pose2d = pose.estimatedPose.toPose2d();
 
       double lastTs = lastFusedTimestamps.getOrDefault(est.camera(), Double.NEGATIVE_INFINITY);
+      // Handle camera/coproc timestamp resets without permanently poisoning stale checks.
+      if (lastTs > nowSec + MAX_FUTURE_TIMESTAMP_SEC
+          || pose.timestampSeconds < (lastTs - CAMERA_TIMESTAMP_RESET_THRESHOLD_SEC)) {
+        lastTs = Double.NEGATIVE_INFINITY;
+      }
       if (pose.timestampSeconds <= lastTs + STALE_TIMESTAMP_EPSILON_SEC) {
+        rejStale++;
+        continue;
+      }
+      if ((pose.timestampSeconds - nowSec) > MAX_FUTURE_TIMESTAMP_SEC) {
         rejStale++;
         continue;
       }
@@ -395,6 +415,7 @@ public class Vision {
       }
 
       int tagCount = pose.targetsUsed.size();
+      boolean relaxedRecoveryWindow = forceAcceptOutlier && tagCount >= MIN_TAGS_FOR_DIRECT_ACCEPT;
 
       // Reject high-ambiguity single-tag estimates
       if (tagCount < MIN_TAGS_FOR_DIRECT_ACCEPT) {
@@ -417,7 +438,23 @@ public class Vision {
       if (rotationErrorDeg > 180.0) {
         rotationErrorDeg = 360.0 - rotationErrorDeg;
       }
-      if (tagCount < MIN_TAGS_FOR_DIRECT_ACCEPT
+
+      // Never accept measurements that are wildly inconsistent with odometry.
+      // This stays active even when outlier override is enabled.
+      double absoluteTranslationCap =
+          relaxedRecoveryWindow ? 8.0 : MAX_ABSOLUTE_TRANSLATION_ERROR_METERS;
+      double absoluteRotationCapDeg =
+          relaxedRecoveryWindow ? 120.0 : MAX_ABSOLUTE_ROTATION_ERROR_DEG;
+      if (!allowDisabledRelocalization
+          && !odomOutOfField
+          && (translationError > absoluteTranslationCap || rotationErrorDeg > absoluteRotationCapDeg)) {
+        rejOutlier++;
+        continue;
+      }
+
+      if (!allowDisabledRelocalization
+          && !odomOutOfField
+          && tagCount < MIN_TAGS_FOR_DIRECT_ACCEPT
           && translationError > MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS) {
         rejLowTagFar++;
         continue;
@@ -448,7 +485,10 @@ public class Vision {
           tagCount >= MIN_TAGS_FOR_DIRECT_ACCEPT
               ? MAX_MULTI_TAG_TRANSLATION_OUTLIER_METERS
               : MAX_TRANSLATION_OUTLIER_METERS;
-      if (translationError > outlierThreshold && !forceAcceptOutlier) {
+      if (!allowDisabledRelocalization
+          && !odomOutOfField
+          && translationError > outlierThreshold
+          && !forceAcceptOutlier) {
         rejOutlier++;
         continue;
       }
@@ -456,7 +496,10 @@ public class Vision {
           tagCount >= MIN_TAGS_FOR_DIRECT_ACCEPT
               ? MAX_MULTI_TAG_ROTATION_OUTLIER_DEG
               : MAX_SINGLE_TAG_ROTATION_OUTLIER_DEG;
-      if (rotationErrorDeg > rotationOutlierThresholdDeg && !forceAcceptOutlier) {
+      if (!allowDisabledRelocalization
+          && !odomOutOfField
+          && rotationErrorDeg > rotationOutlierThresholdDeg
+          && !forceAcceptOutlier) {
         rejOutlier++;
         continue;
       }
@@ -515,7 +558,15 @@ public class Vision {
 
       var pose = est.estimatedPose().get();
       double lastTs = lastFusedTimestamps.getOrDefault(est.camera(), Double.NEGATIVE_INFINITY);
+      if (lastTs > nowSec + MAX_FUTURE_TIMESTAMP_SEC
+          || pose.timestampSeconds < (lastTs - CAMERA_TIMESTAMP_RESET_THRESHOLD_SEC)) {
+        lastTs = Double.NEGATIVE_INFINITY;
+      }
       if (pose.timestampSeconds <= lastTs + STALE_TIMESTAMP_EPSILON_SEC) {
+        rejStale++;
+        continue;
+      }
+      if ((pose.timestampSeconds - nowSec) > MAX_FUTURE_TIMESTAMP_SEC) {
         rejStale++;
         continue;
       }
@@ -680,6 +731,7 @@ public class Vision {
 
     // Select the best pose candidate
     SelectionResult selection = selectBestPose(estimations, swerveDrive);
+    lastSelectedFusedPose = selection.bestCandidate().map(FusionCandidate::pose);
     long t3 = System.nanoTime();
 
     // Apply the vision measurement to the swerve drive
@@ -699,6 +751,11 @@ public class Vision {
     logAprilTagTelemetryOnChange(cameraData, swerveDrive.getPose(), selection.bestCandidate());
     logTeleopAprilTagRecord(cameraData, estimations);
     logPipelineCycle(t0, t1, t2, t3, t4);
+  }
+
+  /** Returns the latest selected fused pose from the vision pipeline. */
+  public Optional<Pose2d> getLastSelectedFusedPose() {
+    return lastSelectedFusedPose;
   }
 
   private Optional<CameraTagObservation> getClosestTagObservation(CameraSnapshot snapshot) {

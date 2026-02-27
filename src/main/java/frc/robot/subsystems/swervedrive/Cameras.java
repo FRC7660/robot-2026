@@ -22,7 +22,7 @@ public enum Cameras {
       new Rotation3d(0, Math.toRadians(0), 0),
       new Translation3d(
           Units.inchesToMeters(14.5), Units.inchesToMeters(0), Units.inchesToMeters(6.25)),
-      VecBuilder.fill(4, 4, 8),
+      VecBuilder.fill(1.0, 1.0, 1.2),
       VecBuilder.fill(0.5, 0.5, 1)),
   /** Right Camera */
   // RIGHT_CAM(
@@ -51,7 +51,7 @@ public enum Cameras {
       new Rotation3d(0, Math.toRadians(0), Math.toRadians(180)),
       new Translation3d(
           Units.inchesToMeters(-15.5), Units.inchesToMeters(0), Units.inchesToMeters(5.5)),
-      VecBuilder.fill(4, 4, 8),
+      VecBuilder.fill(1.0, 1.0, 1.2),
       VecBuilder.fill(0.5, 0.5, 1));
 
   /** Name used to look up the PhotonVision camera. */
