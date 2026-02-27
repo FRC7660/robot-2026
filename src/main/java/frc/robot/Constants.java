@@ -52,7 +52,7 @@ public final class Constants {
     public static final int UPPER_MOTOR_ID = 20;
     public static final int LOWER_MOTOR_ID = 21;
 
-    public static final double DEFAULT_LAUNCH_SPEED_RPM = 3000.0;
+    public static final double DEFAULT_LAUNCH_SPEED_RPM = 3500.0;
     public static final double UPPER_READY_TOLERANCE_RPM = 100.0;
     public static final double UPPER_READY_TIME_SECONDS = 0.050;
     public static final double UPPER_STOP_DELAY_SECONDS = 0.5;
