@@ -141,8 +141,7 @@ class FuelPalantirLogicTest {
         new FuelPalantir.FuelPalantirState(Optional.of(Cameras.BACK_CAMERA));
 
     FuelPalantir.FuelPalantirStep step1 =
-        FuelPalantir.fuelPalantir(
-            noTargets, state, FuelPalantir.FuelPalantirMode.TELEOP, 0.1);
+        FuelPalantir.fuelPalantir(noTargets, state, FuelPalantir.FuelPalantirMode.TELEOP, 0.1);
     FuelPalantir.FuelPalantirStep step2 =
         FuelPalantir.fuelPalantir(
             noTargets, step1.nextState(), FuelPalantir.FuelPalantirMode.TELEOP, 0.2);
@@ -158,8 +157,7 @@ class FuelPalantirLogicTest {
         new FuelPalantir.FuelPalantirState(Optional.of(Cameras.BACK_CAMERA));
 
     FuelPalantir.FuelPalantirStep step1 =
-        FuelPalantir.fuelPalantir(
-            noTargets, state, FuelPalantir.FuelPalantirMode.TELEOP, 0.1);
+        FuelPalantir.fuelPalantir(noTargets, state, FuelPalantir.FuelPalantirMode.TELEOP, 0.1);
     FuelPalantir.FuelPalantirStep step2 =
         FuelPalantir.fuelPalantir(
             noTargets, step1.nextState(), FuelPalantir.FuelPalantirMode.TELEOP, 2.9);
@@ -234,10 +232,7 @@ class FuelPalantirLogicTest {
 
     FuelPalantir.FuelPalantirStep lostStep =
         FuelPalantir.fuelPalantir(
-            baseCameraData(),
-            seenStep.nextState(),
-            FuelPalantir.FuelPalantirMode.TELEOP,
-            0.2);
+            baseCameraData(), seenStep.nextState(), FuelPalantir.FuelPalantirMode.TELEOP, 0.2);
 
     assertTrue(seenStep.nextState().hasSeenTarget());
     assertEquals(0.0, lostStep.rotationRadPerSec(), 1e-9);
@@ -257,7 +252,8 @@ class FuelPalantirLogicTest {
     assertEquals(Optional.of(Cameras.BACK_CAMERA), backStep.nextState().lockedCamera());
 
     Map<Cameras, Vision.CameraSnapshot> frontOnly = baseCameraData();
-    frontOnly.put(Cameras.FRONT_CAMERA, snapshotWithTarget(Cameras.FRONT_CAMERA, -1, 5.0, 1.0, 1.0));
+    frontOnly.put(
+        Cameras.FRONT_CAMERA, snapshotWithTarget(Cameras.FRONT_CAMERA, -1, 5.0, 1.0, 1.0));
 
     FuelPalantir.FuelPalantirStep switchedStep =
         FuelPalantir.fuelPalantir(

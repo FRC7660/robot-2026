@@ -48,4 +48,3 @@
 2. Cap/trim unread frame processing per cycle to bound startup `fetch`/`est` latency.
 3. Add per-command timing instrumentation for `RunCommand.execute` payloads to identify heavy callbacks.
 4. Keep SmartDashboard `Auto/Rejoin*` metrics enabled and correlate with accepted vision updates.
-

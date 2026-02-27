@@ -120,7 +120,12 @@ public class SwerveSubsystem extends SubsystemBase {
     initVisionChoosers();
 
     if (visionDriveTest) {
-      setupPhotonVision();
+      try {
+        setupPhotonVision();
+      } catch (Exception e) {
+        DriverStation.reportError(
+            "[Vision] setupPhotonVision() failed: " + e.getMessage(), e.getStackTrace());
+      }
       // Stop the odometry thread if we are using vision that way we can synchronize
       // updates better.
       swerveDrive.stopOdometryThread();
@@ -195,7 +200,11 @@ public class SwerveSubsystem extends SubsystemBase {
     // When vision is enabled we must manually update odometry in SwerveDrive
     if (visionDriveTest) {
       swerveDrive.updateOdometry();
-      vision.process(swerveDrive);
+      try {
+        vision.process(swerveDrive);
+      } catch (Exception e) {
+        DriverStation.reportError("[Vision] process() threw: " + e.getMessage(), e.getStackTrace());
+      }
     }
   }
 
@@ -316,8 +325,17 @@ public class SwerveSubsystem extends SubsystemBase {
   public Command fuelPalantirCommand(FuelPalantir.FuelPalantirMode mode) {
     Command baseCommand = autonomousCommands.fuelPalantirCommand(mode);
     return baseCommand
-        .beforeStarting(() -> setVisionEstimatorModeOverride(Vision.EstimatorMode.OFF))
-        .finallyDo(() -> clearVisionEstimatorModeOverride())
+        .beforeStarting(
+            () -> {
+              System.out.println(
+                  "[FuelPalantir] beforeStarting: disabling AprilTag fusion");
+              setVisionEstimatorModeOverride(Vision.EstimatorMode.OFF);
+            })
+        .finallyDo(
+            () -> {
+              System.out.println("[FuelPalantir] finallyDo: re-enabling AprilTag fusion");
+              clearVisionEstimatorModeOverride();
+            })
         .withName("FuelPalantirCommand-" + mode.name() + "-NoAprilTagFusion");
   }
 

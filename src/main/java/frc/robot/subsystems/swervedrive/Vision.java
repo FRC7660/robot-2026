@@ -883,7 +883,7 @@ public class Vision {
     if (anyTagVisible && (odomChanged || fusedChanged || cameraObsChanged)) {
       BufferedLogger.getInstance()
           .printf(
-              "[AprilTagTeleop] odom=(%.3f, %.3f, %.1fdeg) fused=%s tags=[%s]",
+              "[AprilTagVision] odom=(%.3f, %.3f, %.1fdeg) fused=%s tags=[%s]",
               odomPose.getX(),
               odomPose.getY(),
               odomPose.getRotation().getDegrees(),
@@ -980,7 +980,7 @@ public class Vision {
     }
 
     if (sawAnyTag) {
-      BufferedLogger.getInstance().printf("[AprilTagTeleopRecord] t=%.3f %s", now, sb.toString());
+      BufferedLogger.getInstance().printf("[AprilTagVisionRecord] t=%.3f %s", now, sb.toString());
       lastTeleopTagRecordLogSec = now;
     }
   }
