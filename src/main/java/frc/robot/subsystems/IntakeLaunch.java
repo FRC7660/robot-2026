@@ -12,6 +12,7 @@ import com.revrobotics.spark.SparkMax;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -122,7 +123,7 @@ public class IntakeLaunch extends SubsystemBase {
   }
 
   private void setUpperVelocityRpm(double targetRpm) {
-    upperFlyWheel.setMechanismVelocitySetpoint(RPM.of(-Math.abs(targetRpm)));
+    upperFlyWheel.setMechanismVelocitySetpoint(RPM.of(targetRpm));
   }
 
   private boolean isUpperAtSpeed(double targetRpm) {
@@ -158,6 +159,7 @@ public class IntakeLaunch extends SubsystemBase {
   @Override
   public void periodic() {
     upperFlyWheel.updateTelemetry();
+    SmartDashboard.putNumber("Launch Speed", upperFlyWheel.getSpeed().in(RPM));
   }
 
   @Override
