@@ -57,7 +57,7 @@ public final class Constants {
     public static final double UPPER_READY_TIME_SECONDS = 0.050;
     public static final double UPPER_STOP_DELAY_SECONDS = 0.5;
 
-    public static final double LOWER_FEED_DUTY_CYCLE = 0.85;
+    public static final double LOWER_FEED_DUTY_CYCLE = 0.95;
 
     public static final double UPPER_VELOCITY_KP = 0.0002;
     public static final double UPPER_VELOCITY_KI = 0.0;
