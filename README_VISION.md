@@ -31,7 +31,7 @@ BACK_CAMERA + FRONT_CAMERA
      3) selectBestPose()         advanced/basic filtering (stale/outlier/ambiguity/etc)
      4) setVisionMeasurement()   apply accepted pose(s) with measurement timestamp(s)
   -> fused pose updates into swerve pose estimator
-  -> telemetry: SmartDashboard + [VisionPipeline]/[AprilTagTeleop] logs
+  -> telemetry: SmartDashboard + [VisionPipeline]/[AprilTagVision] logs
   -> latest camera snapshots reused by FuelPalantir logic
 ```
 

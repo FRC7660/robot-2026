@@ -72,18 +72,30 @@ final class SwerveAutonomousCommands {
   }
 
   Command driveToPose(Pose2d pose) {
-    PathConstraints constraints =
-        new PathConstraints(
-            0.35,
-            0.35,
-            swerveDrive.getMaximumChassisAngularVelocity(),
-            Units.degreesToRadians(720));
+    try {
+      PathConstraints constraints =
+          new PathConstraints(
+              0.35,
+              0.35,
+              swerveDrive.getMaximumChassisAngularVelocity(),
+              Units.degreesToRadians(720));
 
-    return AutoBuilder.pathfindToPose(
-        pose,
-        constraints,
-        edu.wpi.first.units.Units.MetersPerSecond.of(0) // Goal end velocity in meters/sec
-        );
+      debugAuto(
+          String.format(
+              "driveToPose creating pathfind command to (%.3f, %.3f, %.1fdeg)",
+              pose.getX(), pose.getY(), pose.getRotation().getDegrees()));
+      return AutoBuilder.pathfindToPose(
+          pose,
+          constraints,
+          edu.wpi.first.units.Units.MetersPerSecond.of(0) // Goal end velocity in meters/sec
+          );
+    } catch (Exception e) {
+      debugAuto(
+          String.format(
+              "driveToPose EXCEPTION type=%s msg=%s",
+              e.getClass().getSimpleName(), e.getMessage()));
+      return Commands.none();
+    }
   }
 
   public Command fuelPalantirCommand(FuelPalantir.FuelPalantirMode mode) {
@@ -103,75 +115,107 @@ final class SwerveAutonomousCommands {
                         startTimeSec.set(Timer.getFPGATimestamp());
                         state.set(new FuelPalantir.FuelPalantirState(Optional.empty()));
                         lastStep.set(null);
+                        debugAuto("[FuelPalantir] startRun init: mode=" + mode);
                         debugAuto(String.format("FUEL PALANTIR START mode=%s", mode));
                       },
                       () -> {
-                        Vision vision = visionSupplier.get();
-                        if (vision == null) {
-                          debugAuto("FUEL PALANTIR no vision instance available");
-                          lastStep.set(
-                              new FuelPalantir.FuelPalantirStep(
-                                  state.get(), 0.0, 0.0, true, "vision_not_initialized"));
-                          swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
-                          return;
-                        }
-                        double elapsed = Timer.getFPGATimestamp() - startTimeSec.get();
-                        Map<Cameras, Vision.CameraSnapshot> cameraData =
-                            vision.getLatestCameraData();
-                        FuelPalantir.FuelPalantirStep step =
-                            FuelPalantir.fuelPalantir(cameraData, state.get(), mode, elapsed);
-                        state.set(step.nextState());
-                        lastStep.set(step);
-                        Optional<Cameras> lockedCameraForDrive = step.nextState().lockedCamera();
-                        double commandedForwardMps = step.forwardMps();
-                        if (lockedCameraForDrive.isPresent()
-                            && lockedCameraForDrive.get() == Cameras.BACK_CAMERA) {
-                          commandedForwardMps = -commandedForwardMps;
-                        }
-                        swerveDrive.drive(
-                            new Translation2d(commandedForwardMps, 0),
-                            step.rotationRadPerSec(),
-                            false,
-                            false);
-                        if (step.completed() || shouldDebugLog(lastStatusLogTimeSec, 1.0)) {
-                          Optional<PhotonTrackedTarget> backCameraTarget =
-                              FuelPalantir.getClosestNonFiducialTarget(
-                                  cameraData.get(Cameras.BACK_CAMERA));
-                          Optional<PhotonTrackedTarget> frontCameraTarget =
-                              FuelPalantir.getClosestNonFiducialTarget(
-                                  cameraData.get(Cameras.FRONT_CAMERA));
-                          Optional<Cameras> lockedCamera = step.nextState().lockedCamera();
-                          Optional<PhotonTrackedTarget> lockedTarget =
-                              lockedCamera.flatMap(
-                                  camera ->
-                                      FuelPalantir.getClosestNonFiducialTarget(
-                                          cameraData.get(camera)));
+                        try {
+                          Vision vision = visionSupplier.get();
+                          if (vision == null) {
+                            debugAuto("FUEL PALANTIR no vision instance available");
+                            lastStep.set(
+                                new FuelPalantir.FuelPalantirStep(
+                                    state.get(), 0.0, 0.0, true, "vision_not_initialized"));
+                            swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
+                            return;
+                          }
+                          double elapsed = Timer.getFPGATimestamp() - startTimeSec.get();
+                          Map<Cameras, Vision.CameraSnapshot> cameraData =
+                              vision.getLatestCameraData();
+                          FuelPalantir.FuelPalantirStep step =
+                              FuelPalantir.fuelPalantir(cameraData, state.get(), mode, elapsed);
+                          state.set(step.nextState());
+                          lastStep.set(step);
+                          Optional<Cameras> lockedCameraForDrive = step.nextState().lockedCamera();
+                          double commandedForwardMps = step.forwardMps();
+                          if (lockedCameraForDrive.isPresent()
+                              && lockedCameraForDrive.get() == Cameras.BACK_CAMERA) {
+                            commandedForwardMps = -commandedForwardMps;
+                          }
+                          swerveDrive.drive(
+                              new Translation2d(commandedForwardMps, 0),
+                              step.rotationRadPerSec(),
+                              false,
+                              false);
+                          if (step.completed() || shouldDebugLog(lastStatusLogTimeSec, 1.0)) {
+                            Optional<PhotonTrackedTarget> backCameraTarget =
+                                FuelPalantir.getClosestNonFiducialTarget(
+                                    cameraData.get(Cameras.BACK_CAMERA));
+                            Optional<PhotonTrackedTarget> frontCameraTarget =
+                                FuelPalantir.getClosestNonFiducialTarget(
+                                    cameraData.get(Cameras.FRONT_CAMERA));
+                            Optional<Cameras> lockedCamera = step.nextState().lockedCamera();
+                            Optional<PhotonTrackedTarget> lockedTarget =
+                                lockedCamera.flatMap(
+                                    camera ->
+                                        FuelPalantir.getClosestNonFiducialTarget(
+                                            cameraData.get(camera)));
 
-                          debugAuto(
-                              String.format(
-                                  "FUEL PALANTIR STATUS mode=%s elapsed=%.2fs"
-                                      + " locked=%s backTarget=%s frontTarget=%s"
-                                      + " lockedYaw=%.1f lockedArea=%.2f"
-                                      + " fwd=%.2f rot=%.2f reason=%s",
-                                  mode,
-                                  elapsed,
-                                  lockedCamera.map(Enum::name).orElse("none"),
-                                  backCameraTarget.isPresent(),
-                                  frontCameraTarget.isPresent(),
-                                  lockedTarget.map(PhotonTrackedTarget::getYaw).orElse(Double.NaN),
-                                  lockedTarget.map(PhotonTrackedTarget::getArea).orElse(Double.NaN),
-                                  commandedForwardMps,
-                                  step.rotationRadPerSec(),
-                                  step.reason()));
+                            debugAuto(
+                                String.format(
+                                    "FUEL PALANTIR STATUS mode=%s elapsed=%.2fs"
+                                        + " locked=%s backTarget=%s frontTarget=%s"
+                                        + " lockedYaw=%.1f lockedArea=%.2f"
+                                        + " fwd=%.2f rot=%.2f reason=%s",
+                                    mode,
+                                    elapsed,
+                                    lockedCamera.map(Enum::name).orElse("none"),
+                                    backCameraTarget.isPresent(),
+                                    frontCameraTarget.isPresent(),
+                                    lockedTarget
+                                        .map(PhotonTrackedTarget::getYaw)
+                                        .orElse(Double.NaN),
+                                    lockedTarget
+                                        .map(PhotonTrackedTarget::getArea)
+                                        .orElse(Double.NaN),
+                                    commandedForwardMps,
+                                    step.rotationRadPerSec(),
+                                    step.reason()));
+                          }
+                        } catch (Exception e) {
+                          debugAuto("[FuelPalantir] EXCEPTION in run loop: " + e.getMessage());
+                          debugAuto("FUEL PALANTIR EXCEPTION: " + e.getMessage());
+                          swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
                         }
                       })
-                  .until(() -> lastStep.get() != null && lastStep.get().completed())
-                  .finallyDo(() -> swerveDrive.drive(new Translation2d(0, 0), 0, false, false))
+                  .until(
+                      () -> {
+                        boolean done = lastStep.get() != null && lastStep.get().completed();
+                        if (done) {
+                          debugAuto(
+                              "[FuelPalantir] until() completed, reason="
+                                  + lastStep.get().reason());
+                        }
+                        return done;
+                      })
+                  .finallyDo(
+                      () -> {
+                        debugAuto("[FuelPalantir] startRun finallyDo: stopping drive");
+                        swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
+                      })
                   .andThen(
                       subsystem.runOnce(
                           () -> {
                             FuelPalantir.FuelPalantirStep step = lastStep.get();
                             String reason = step == null ? "unknown" : step.reason();
+                            debugAuto(
+                                "[FuelPalantir] andThen END: mode="
+                                    + mode
+                                    + " elapsed="
+                                    + String.format(
+                                        "%.2f", Timer.getFPGATimestamp() - startTimeSec.get())
+                                    + " reason="
+                                    + reason);
                             debugAuto(
                                 String.format(
                                     "FUEL PALANTIR END mode=%s elapsed=%.2fs reason=%s",
@@ -187,6 +231,7 @@ final class SwerveAutonomousCommands {
   public Command rejoinPathAtNearestPoseCommand(String pathName) {
     return Commands.defer(
             () -> {
+              debugAuto("REJOIN defer START path=" + pathName);
               final PathPlannerPath path;
               try {
                 path = PathPlannerPath.fromPathFile(pathName);
@@ -196,7 +241,14 @@ final class SwerveAutonomousCommands {
                         "REJOIN path=%s failed=path_load_exception type=%s msg=%s",
                         pathName, e.getClass().getSimpleName(), e.getMessage()));
                 return Commands.none();
+              } catch (Exception e) {
+                debugAuto(
+                    String.format(
+                        "REJOIN path=%s failed=unexpected_exception type=%s msg=%s",
+                        pathName, e.getClass().getSimpleName(), e.getMessage()));
+                return Commands.none();
               }
+              debugAuto("REJOIN path loaded, getting poses");
               var pathPoses = path.getPathPoses();
               if (pathPoses == null || pathPoses.isEmpty()) {
                 debugAuto(String.format("REJOIN path=%s failed=no_path_poses", pathName));
@@ -209,9 +261,7 @@ final class SwerveAutonomousCommands {
                       .min(
                           Comparator.comparingDouble(
                               pose ->
-                                  pose
-                                      .getTranslation()
-                                      .getDistance(currentPose.getTranslation())))
+                                  pose.getTranslation().getDistance(currentPose.getTranslation())))
                       .orElse(pathPoses.get(0));
               double rejoinDistanceMeters =
                   currentPose.getTranslation().getDistance(targetPose.getTranslation());
@@ -220,10 +270,19 @@ final class SwerveAutonomousCommands {
               AtomicReference<Double> lastSnapAttemptSec =
                   new AtomicReference<>(Double.NEGATIVE_INFINITY);
 
+              debugAuto(
+                  String.format(
+                      "REJOIN target=(%.3f, %.3f, %.1fdeg) dist=%.3f",
+                      targetPose.getX(),
+                      targetPose.getY(),
+                      targetPose.getRotation().getDegrees(),
+                      rejoinDistanceMeters));
+
               Command snapRetryCommand =
                   subsystem
                       .startRun(
                           () -> {
+                            debugAuto("REJOIN snapRetry START");
                             snapStartTimeSec.set(Timer.getFPGATimestamp());
                             lastSnapAttemptSec.set(Double.NEGATIVE_INFINITY);
                             snappedToAprilTags.set(false);
@@ -232,7 +291,8 @@ final class SwerveAutonomousCommands {
                           () -> {
                             double now = Timer.getFPGATimestamp();
                             if (!snappedToAprilTags.get()
-                                && now - lastSnapAttemptSec.get() >= REJOIN_SNAP_RETRY_ATTEMPT_PERIOD_SEC) {
+                                && now - lastSnapAttemptSec.get()
+                                    >= REJOIN_SNAP_RETRY_ATTEMPT_PERIOD_SEC) {
                               lastSnapAttemptSec.set(now);
                               if (subsystem.resetOdometryFromAprilTags(REJOIN_SNAP_MIN_TAG_COUNT)) {
                                 snappedToAprilTags.set(true);
@@ -250,7 +310,11 @@ final class SwerveAutonomousCommands {
               Command rejoinDriveCommand =
                   Commands.sequence(
                           Commands.runOnce(
-                              () -> subsystem.setVisionEstimatorModeOverride(Vision.EstimatorMode.OFF)),
+                              () -> {
+                                debugAuto("REJOIN driveToPose START, disabling vision");
+                                subsystem.setVisionEstimatorModeOverride(
+                                    Vision.EstimatorMode.OFF);
+                              }),
                           Commands.deadline(
                               driveToPose(targetPose),
                               subsystem.run(
@@ -259,7 +323,11 @@ final class SwerveAutonomousCommands {
                                           targetPose, snappedToAprilTags.get()))),
                           Commands.waitSeconds(REJOIN_VISION_OFF_COOLDOWN_SEC))
                       .withTimeout(REJOIN_PATH_TIMEOUT_SEC)
-                      .finallyDo(() -> subsystem.clearVisionEstimatorModeOverride());
+                      .finallyDo(
+                          () -> {
+                            debugAuto("REJOIN driveToPose finallyDo, re-enabling vision");
+                            subsystem.clearVisionEstimatorModeOverride();
+                          });
 
               return snapRetryCommand
                   .andThen(
@@ -267,7 +335,9 @@ final class SwerveAutonomousCommands {
                           () -> {
                             Pose2d postSnapPose = swerveDrive.getPose();
                             double postSnapDistanceMeters =
-                                postSnapPose.getTranslation().getDistance(targetPose.getTranslation());
+                                postSnapPose
+                                    .getTranslation()
+                                    .getDistance(targetPose.getTranslation());
                             debugAuto(
                                 String.format(
                                     "REJOIN path=%s snap=%s minTags=%d current=(%.3f, %.3f, %.1fdeg) postSnap=(%.3f, %.3f, %.1fdeg) target=(%.3f, %.3f, %.1fdeg) distBefore=%.3f distAfter=%.3f",
@@ -289,6 +359,7 @@ final class SwerveAutonomousCommands {
                   .andThen(rejoinDriveCommand)
                   .finallyDo(
                       () -> {
+                        debugAuto("REJOIN complete finallyDo, clearing overrides");
                         subsystem.clearVisionEstimatorModeOverride();
                         clearRejoinTelemetry();
                       });
