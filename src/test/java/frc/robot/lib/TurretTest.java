@@ -32,7 +32,7 @@ class TurretTest {
             Units.inchesToMeters(78.305),
             Units.inchesToMeters(79.423),
             Alliance.Red,
-            TurretHelpers.MAX_X,
+            TurretHelpers.GOAL_X_RED,
             TurretHelpers.GOAL_Y_LOW),
         // A: (78.305, 79.423) Blue -> HUB
         Arguments.of(
@@ -48,7 +48,7 @@ class TurretTest {
             Units.inchesToMeters(78.305),
             Units.inchesToMeters(238.263),
             Alliance.Red,
-            TurretHelpers.MAX_X,
+            TurretHelpers.GOAL_X_RED,
             TurretHelpers.GOAL_Y_HIGH),
         // C: (78.305, 238.263) Blue -> HUB
         Arguments.of(
@@ -64,14 +64,14 @@ class TurretTest {
             Units.inchesToMeters(325.61),
             Units.inchesToMeters(79.423),
             Alliance.Red,
-            TurretHelpers.MAX_X,
+            TurretHelpers.GOAL_X_RED,
             TurretHelpers.GOAL_Y_LOW),
         // D: (325.61, 79.423) Blue -> GOAL_B1
         Arguments.of(
             Units.inchesToMeters(325.61),
             Units.inchesToMeters(79.423),
             Alliance.Blue,
-            0.0,
+            TurretHelpers.GOAL_X_BLUE,
             TurretHelpers.GOAL_Y_LOW),
 
         // E: (325.61, 238.263)
@@ -80,14 +80,14 @@ class TurretTest {
             Units.inchesToMeters(325.61),
             Units.inchesToMeters(238.263),
             Alliance.Red,
-            TurretHelpers.MAX_X,
+            TurretHelpers.GOAL_X_RED,
             TurretHelpers.GOAL_Y_HIGH),
         // E: (325.61, 238.263) Blue -> GOAL_B2
         Arguments.of(
             Units.inchesToMeters(325.61),
             Units.inchesToMeters(238.263),
             Alliance.Blue,
-            0.0,
+            TurretHelpers.GOAL_X_BLUE,
             TurretHelpers.GOAL_Y_HIGH),
 
         // F: (560.165, 79.423)
@@ -103,7 +103,7 @@ class TurretTest {
             Units.inchesToMeters(560.165),
             Units.inchesToMeters(79.423),
             Alliance.Blue,
-            0.0,
+            TurretHelpers.GOAL_X_BLUE,
             TurretHelpers.GOAL_Y_LOW),
 
         // H: (560.165, 238.263)
@@ -119,7 +119,7 @@ class TurretTest {
             Units.inchesToMeters(560.165),
             Units.inchesToMeters(238.263),
             Alliance.Blue,
-            0.0,
+            TurretHelpers.GOAL_X_BLUE,
             TurretHelpers.GOAL_Y_HIGH));
   }
 
