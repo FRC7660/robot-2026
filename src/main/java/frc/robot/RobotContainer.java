@@ -288,6 +288,12 @@ public class RobotContainer {
       liftPressureMaxed.whileTrue(intakeSystem.fullIntake());
       liftPressureMaxed.onFalse(Commands.runOnce(() -> intakeSystem.stopRoller()));
 
+      // Shooting Command
+      Trigger shotPressureDetected = new Trigger(() -> driverXbox.getRightTriggerAxis() > 0.1);
+      Command startSequence = launchSystem.shotSequenceStart(indexSystem);
+      startSequence.addRequirements(launchSystem, indexSystem);
+      shotPressureDetected.whileTrue(startSequence);
+
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
