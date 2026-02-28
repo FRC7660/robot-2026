@@ -45,8 +45,8 @@ public class Index extends SubsystemBase {
           .withSimClosedLoopController(
                0, 0, 0, RPM.of(470), RPM.per(Second).of(2000))
           // Feedforward Constants
-          .withFeedforward(new SimpleMotorFeedforward(0, 0, 0))
-          .withSimFeedforward(new SimpleMotorFeedforward(0, 0, 0))
+          .withFeedforward(new SimpleMotorFeedforward(0, 1.5, 0))
+          .withSimFeedforward(new SimpleMotorFeedforward(0, 1.5, 0))
           // Telemetry name and verbosity level
           .withTelemetry("indexerMotor", TelemetryVerbosity.HIGH)
           // Gearing from the motor rotor to final shaft.
