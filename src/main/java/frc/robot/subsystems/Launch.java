@@ -15,12 +15,9 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
-import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants;
-import java.util.function.Supplier;
 import java.util.function.Supplier;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
@@ -113,7 +110,7 @@ public class Launch extends SubsystemBase {
 
   /** Calculate and return a velocity setpoint based on distance */
   public AngularVelocity getOptimalVelocity() {
-    return RPM.of(2000);
+    return RPM.of(50);
   }
 
   public void stop() {
@@ -151,25 +148,24 @@ public class Launch extends SubsystemBase {
     Supplier<AngularVelocity> s_velSupplier = () -> getVelocity();
     Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity();
     Trigger optimalVelocityReached =
-        new Trigger(
-            () -> (s_velSupplier.get().in(RPM) * 0.99 >= s_velSetpointSupplier.get().in(RPM)));
+        new Trigger(() -> (s_velSupplier.get().in(RPM) >= s_velSetpointSupplier.get().in(RPM)));
     // Indexing should always run
     return Commands.sequence(
-      Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(100.0))),
-      Commands.repeatingSequence(
-              // Pause the funnel to allow the flywheel to re-spool
-              Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
-              Commands.runOnce(
-                  () -> {
-                    // PLACEHOLDER: getOptimalVelocity should not just return 2000; attach the
-                    // distance and SWM calculations
-                    this.setVelocitySetpoint(s_velSetpointSupplier.get());
-                  }),
-              Commands.waitUntil(optimalVelocityReached),
-              // PLACEHOLDER: Should probably index faster than this
-              Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
-              Commands.waitUntil(optimalVelocityReached.negate())))
-          .handleInterrupt(() -> shotSequenceEnd(indexSystem));
+            Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(100.0))),
+            Commands.repeatingSequence(
+                // Pause the funnel to allow the flywheel to re-spool
+                Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
+                Commands.runOnce(
+                    () -> {
+                      // PLACEHOLDER: getOptimalVelocity should not just return 2000; attach the
+                      // distance and SWM calculations
+                      this.setVelocitySetpoint(s_velSetpointSupplier.get());
+                    }),
+                Commands.waitUntil(optimalVelocityReached),
+                // PLACEHOLDER: Should probably index faster than this
+                Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
+                Commands.waitUntil(optimalVelocityReached.negate())))
+        .handleInterrupt(() -> shotSequenceEnd(indexSystem));
   }
 
   private void shotSequenceEnd(Index indexSystem) {
