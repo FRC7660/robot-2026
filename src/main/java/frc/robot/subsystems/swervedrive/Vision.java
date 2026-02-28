@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.photonvision.EstimatedRobotPose;
+import org.photonvision.PhotonPoseEstimator;
 import org.photonvision.PhotonUtils;
 import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
@@ -278,6 +279,11 @@ public class Vision {
    */
   public List<PoseEstimationResult> estimateCameraPosesFromAprilTags(
       Map<Cameras, CameraSnapshot> cameraData) {
+    return estimateCameraPosesFromAprilTags(cameraData, Optional.empty());
+  }
+
+  public List<PoseEstimationResult> estimateCameraPosesFromAprilTags(
+      Map<Cameras, CameraSnapshot> cameraData, Optional<Pose2d> referencePose) {
     List<PoseEstimationResult> results = new ArrayList<>();
     for (var entry : cameraData.entrySet()) {
       Cameras camera = entry.getKey();
@@ -294,7 +300,7 @@ public class Vision {
       // accurate. Only the final (most recent) estimate is surfaced; intermediate estimates
       // are intentionally discarded because the latest frame has the freshest geometry.
       for (PhotonPipelineResult result : aprilTagResults) {
-        visionEst = camera.getPoseEstimator().update(result);
+        visionEst = estimateRobotPose(camera, result, referencePose);
         List<PhotonTrackedTarget> targets =
             visionEst.isPresent() ? visionEst.get().targetsUsed : result.getTargets();
         avgCameraDistanceMeters = computeAverageCameraDistanceMeters(targets);
@@ -322,6 +328,24 @@ public class Vision {
               avgFieldDistanceMeters));
     }
     return results;
+  }
+
+  private static Optional<EstimatedRobotPose> estimateRobotPose(
+      Cameras camera, PhotonPipelineResult result, Optional<Pose2d> referencePose) {
+    PhotonPoseEstimator estimator = camera.getPoseEstimator();
+    Optional<EstimatedRobotPose> poseEstimate = estimator.estimateCoprocMultiTagPose(result);
+    if (poseEstimate.isPresent()) {
+      return poseEstimate;
+    }
+
+    if (referencePose.isPresent()) {
+      poseEstimate = estimator.estimateClosestToReferencePose(result, new Pose3d(referencePose.get()));
+      if (poseEstimate.isPresent()) {
+        return poseEstimate;
+      }
+    }
+
+    return estimator.estimateLowestAmbiguityPose(result);
   }
 
   // ── Pipeline Step 2b: computeStdDevs() (pure static) ─────────────────────

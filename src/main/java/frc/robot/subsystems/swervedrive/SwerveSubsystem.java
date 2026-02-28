@@ -402,7 +402,7 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     List<Vision.PoseEstimationResult> estimations =
-        vision.estimateCameraPosesFromAprilTags(cameraData);
+        vision.estimateCameraPosesFromAprilTags(cameraData, Optional.of(swerveDrive.getPose()));
     Vision.SelectionResult selection =
         vision.selectBestPoseForReset(estimations, swerveDrive, minTagCount);
     if (selection.bestCandidate().isEmpty()) {
