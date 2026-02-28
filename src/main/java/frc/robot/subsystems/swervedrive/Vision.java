@@ -283,32 +283,30 @@ public class Vision {
 
   /** Camera Enum to select each camera */
   enum Cameras {
-    /** Back Camera */
-    BACK_CAM(
-        "camA",
-        new Rotation3d(0, Math.toRadians(5), Math.toRadians(180)),
+    /** Front Camera */
+    FRONT_CAM(
+        "cam_G", // front
+        new Rotation3d(0, Math.toRadians(20), Math.toRadians(-30)),
         new Translation3d(
-            Units.inchesToMeters(-12), Units.inchesToMeters(0), Units.inchesToMeters(0)),
+            Units.inchesToMeters(10.503),
+            Units.inchesToMeters(9.836),
+            Units.inchesToMeters(16.369)),
         VecBuilder.fill(4, 4, 8),
         VecBuilder.fill(0.5, 0.5, 1)),
     /** Right Camera */
-    // RIGHT_CAM(
-    //     "right",
-    //     new Rotation3d(0, Math.toRadians(-24.094), Math.toRadians(-30)),
-    //     new Translation3d(
-    //         Units.inchesToMeters(12.056),
-    //         Units.inchesToMeters(-10.981),
-    //         Units.inchesToMeters(8.44)),
-    //     VecBuilder.fill(4, 4, 8),
-    //     VecBuilder.fill(0.5, 0.5, 1)),
-    /** Center Camera */
-    CENTER_CAM(
-        "camB",
-        new Rotation3d(0, Units.degreesToRadians(18), 0),
+    RIGHT_CAM(
+        "cam_E",
+        new Rotation3d(0, Math.toRadians(0), Math.toRadians(-90)),
         new Translation3d(
-            Units.inchesToMeters(-4.628),
-            Units.inchesToMeters(-10.687),
-            Units.inchesToMeters(16.129)),
+            Units.inchesToMeters(-9.5), Units.inchesToMeters(-7.75), Units.inchesToMeters(12.996)),
+        VecBuilder.fill(4, 4, 8),
+        VecBuilder.fill(0.5, 0.5, 1)),
+    /** Left Camera */
+    LEFT_CAM(
+        "cam_F",
+        new Rotation3d(0, Math.toRadians(0), Math.toRadians(90)),
+        new Translation3d(
+            Units.inchesToMeters(-9.5), Units.inchesToMeters(7.75), Units.inchesToMeters(12.996)),
         VecBuilder.fill(4, 4, 8),
         VecBuilder.fill(0.5, 0.5, 1));
 
