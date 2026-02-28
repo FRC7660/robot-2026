@@ -90,9 +90,9 @@ public class Turret extends SubsystemBase {
                 Constants.Turret.TURRET_I,
                 Constants.Turret.TURRET_D,
                 RPM.of(110),
-                RPM.per(Second).of(1000))
+                RPM.per(Second).of(600))
             .withFeedforward(new SimpleMotorFeedforward(0.25, 0.22, 0.0))
-            .withSimClosedLoopController(1, 0, 0, RPM.of(110), RPM.per(Second).of(1000))
+            .withSimClosedLoopController(1, 0, 0, RPM.of(110), RPM.per(Second).of(600))
             .withSimFeedforward(new SimpleMotorFeedforward(0.0, 4.6, 0.0))
             // Telemetry name and verbosity level
             .withTelemetry("TurretMotorConfig", TelemetryVerbosity.HIGH)
