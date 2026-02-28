@@ -56,7 +56,6 @@ public class Turret extends SubsystemBase {
     SparkFlexConfig turretConfig = configureTurretMotor();
     turretMotor.configure(
         turretConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
-    // turretMotor.getEncoder().setPosition(0.0);
 
     // Initialize the motor encoder so turret angle starts at 135 degrees.
     try {

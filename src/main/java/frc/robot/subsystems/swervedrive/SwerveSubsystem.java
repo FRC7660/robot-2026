@@ -7,16 +7,15 @@ package frc.robot.subsystems.swervedrive;
 import static edu.wpi.first.units.Units.Meter;
 
 import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.commands.PathfindingCommand;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
-import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.util.DriveFeedforwards;
 import com.pathplanner.lib.util.swerve.SwerveSetpoint;
 import com.pathplanner.lib.util.swerve.SwerveSetpointGenerator;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -24,24 +23,31 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.trajectory.Trajectory;
-import edu.wpi.first.math.util.Units;
+import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.networktables.StructPublisher;
+import edu.wpi.first.util.datalog.StructLogEntry;
+import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Config;
 import frc.robot.Constants;
-import frc.robot.subsystems.swervedrive.Vision.Cameras;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.json.simple.parser.ParseException;
-import org.photonvision.targeting.PhotonPipelineResult;
+import org.photonvision.EstimatedRobotPose;
 import swervelib.SwerveController;
 import swervelib.SwerveDrive;
 import swervelib.SwerveDriveTest;
@@ -53,14 +59,37 @@ import swervelib.telemetry.SwerveDriveTelemetry;
 import swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity;
 
 public class SwerveSubsystem extends SubsystemBase {
+  static final double SEARCH_ROTATION_RAD_PER_SEC = Math.toRadians(45.0);
+  static final double ANGULAR_TRACKING_GAIN = 2.0;
+
   /** Swerve drive object. */
   private final SwerveDrive swerveDrive;
+
+  private final SwerveAutonomousCommands autonomousCommands;
 
   /** Enable vision odometry updates while driving. */
   private final boolean visionDriveTest = true;
 
   /** PhotonVision class to keep an accurate odometry. */
   private Vision vision;
+
+  private SendableChooser<Vision.EstimatorMode> visionEstimatorModeChooser;
+  private SendableChooser<Boolean> visionDebugTelemetryChooser;
+  private final AtomicReference<Vision.EstimatorMode> visionEstimatorModeOverride =
+      new AtomicReference<>(null);
+  private final Field2d advantageScopeField = new Field2d();
+  private final StructPublisher<Pose2d> odomPosePublisher =
+      NetworkTableInstance.getDefault()
+          .getStructTopic("AdvantageScope/Pose/Odometry", Pose2d.struct)
+          .publish();
+  private final StructPublisher<Pose2d> fusedPosePublisher =
+      NetworkTableInstance.getDefault()
+          .getStructTopic("AdvantageScope/Pose/Fused", Pose2d.struct)
+          .publish();
+  private final StructLogEntry<Pose2d> odomPoseLogEntry =
+      StructLogEntry.create(DataLogManager.getLog(), "AdvantageScope/Pose/Odometry", Pose2d.struct);
+  private final StructLogEntry<Pose2d> fusedPoseLogEntry =
+      StructLogEntry.create(DataLogManager.getLog(), "AdvantageScope/Pose/Fused", Pose2d.struct);
 
   /**
    * Initialize {@link SwerveDrive} with the directory provided.
@@ -94,7 +123,7 @@ public class SwerveSubsystem extends SubsystemBase {
     swerveDrive.setHeadingCorrection(
         false); // Heading correction should only be used while controlling the robot via angle.
     swerveDrive.setCosineCompensator(
-        false); // !SwerveDriveTelemetry.isSimulation); // Disables cosine compensation for
+        true); // Keep enabled on real robot for better tracking during rapid module angle changes.
     // simulations since it causes discrepancies not seen in real life.
     swerveDrive.setAngularVelocityCompensation(
         true, true,
@@ -106,12 +135,21 @@ public class SwerveSubsystem extends SubsystemBase {
     // swerveDrive.pushOffsetsToEncoders(); // Set the absolute encoder to be used
     // over the internal
     // encoder and push the offsets onto it. Throws warning if not possible
+    initVisionChoosers();
+    SmartDashboard.putData("AdvantageScope/Field", advantageScopeField);
+
     if (visionDriveTest) {
-      setupPhotonVision();
+      try {
+        setupPhotonVision();
+      } catch (Exception e) {
+        DriverStation.reportError(
+            "[Vision] setupPhotonVision() failed: " + e.getMessage(), e.getStackTrace());
+      }
       // Stop the odometry thread if we are using vision that way we can synchronize
       // updates better.
       swerveDrive.stopOdometryThread();
     }
+    autonomousCommands = new SwerveAutonomousCommands(this, swerveDrive, () -> vision);
     setupPathPlanner();
   }
 
@@ -123,25 +161,87 @@ public class SwerveSubsystem extends SubsystemBase {
    */
   public SwerveSubsystem(
       SwerveDriveConfiguration driveCfg, SwerveControllerConfiguration controllerCfg) {
+    initVisionChoosers();
+    SmartDashboard.putData("AdvantageScope/Field", advantageScopeField);
     swerveDrive =
         new SwerveDrive(
             driveCfg,
             controllerCfg,
             Constants.MAX_SPEED,
             new Pose2d(new Translation2d(Meter.of(2), Meter.of(0)), Rotation2d.fromDegrees(0)));
+    autonomousCommands = new SwerveAutonomousCommands(this, swerveDrive, () -> vision);
+  }
+
+  private void initVisionChoosers() {
+    visionEstimatorModeChooser = new SendableChooser<>();
+    visionEstimatorModeChooser.setDefaultOption(
+        "Advanced (Default)", Vision.EstimatorMode.ADVANCED);
+    visionEstimatorModeChooser.addOption("Basic", Vision.EstimatorMode.BASIC);
+    visionEstimatorModeChooser.addOption("Off (No Pose Updates)", Vision.EstimatorMode.OFF);
+    SmartDashboard.putData("Vision/EstimatorMode", visionEstimatorModeChooser);
+    visionDebugTelemetryChooser = new SendableChooser<>();
+    visionDebugTelemetryChooser.setDefaultOption("On (Default)", true);
+    visionDebugTelemetryChooser.addOption("Off", false);
+    SmartDashboard.putData("Vision/DebugTelemetry", visionDebugTelemetryChooser);
   }
 
   /** Setup the photon vision class. */
   public void setupPhotonVision() {
-    vision = new Vision(swerveDrive::getPose, swerveDrive.field);
+    vision =
+        new Vision(
+            swerveDrive::getPose,
+            swerveDrive.field,
+            this::getActiveVisionEstimatorMode,
+            visionDebugTelemetryChooser::getSelected);
+  }
+
+  private Vision.EstimatorMode getActiveVisionEstimatorMode() {
+    Vision.EstimatorMode overriddenMode = visionEstimatorModeOverride.get();
+    if (overriddenMode != null) {
+      return overriddenMode;
+    }
+    if (visionEstimatorModeChooser == null) {
+      return Vision.EstimatorMode.ADVANCED;
+    }
+    Vision.EstimatorMode selectedMode = visionEstimatorModeChooser.getSelected();
+    return selectedMode == null ? Vision.EstimatorMode.ADVANCED : selectedMode;
+  }
+
+  void setVisionEstimatorModeOverride(Vision.EstimatorMode mode) {
+    visionEstimatorModeOverride.set(mode);
+  }
+
+  void clearVisionEstimatorModeOverride() {
+    visionEstimatorModeOverride.set(null);
   }
 
   @Override
   public void periodic() {
+    Pose2d odomPose = swerveDrive.getPose();
+    advantageScopeField.setRobotPose(odomPose);
+    odomPosePublisher.set(odomPose);
+    odomPoseLogEntry.append(odomPose);
+
     // When vision is enabled we must manually update odometry in SwerveDrive
     if (visionDriveTest) {
       swerveDrive.updateOdometry();
-      vision.updatePoseEstimation(swerveDrive);
+      try {
+        vision.process(swerveDrive);
+        vision.updateVisionField();
+      } catch (Exception e) {
+        DriverStation.reportError("[Vision] process() threw: " + e.getMessage(), e.getStackTrace());
+      }
+    }
+
+    Optional<Pose2d> fusedPose =
+        vision == null ? Optional.empty() : vision.getLastSelectedFusedPose();
+    if (fusedPose.isPresent()) {
+      Pose2d fused = fusedPose.get();
+      fusedPosePublisher.set(fused);
+      fusedPoseLogEntry.append(fused);
+      advantageScopeField.getObject("VisionFused").setPose(fused);
+    } else {
+      advantageScopeField.getObject("VisionFused").setPoses(List.of());
     }
   }
 
@@ -161,9 +261,9 @@ public class SwerveSubsystem extends SubsystemBase {
       AutoBuilder.configure(
           this::getPose,
           // Robot pose supplier
-          this::resetOdometry,
+          this::resetPose,
           // Method to reset odometry (will be called if your auto has a starting pose)
-          this::getRobotVelocity,
+          this::getRobotRelativeSpeeds,
           // ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
           (speedsRobotRelative, moduleFeedForwards) -> {
             if (enableFeedforward) {
@@ -224,20 +324,17 @@ public class SwerveSubsystem extends SubsystemBase {
 
     return run(
         () -> {
-          Optional<PhotonPipelineResult> resultO = camera.getBestResult();
-          if (resultO.isPresent()) {
-            var result = resultO.get();
-            if (result.hasTargets()) {
-              drive(
-                  getTargetSpeeds(
-                      0,
-                      0,
-                      Rotation2d.fromDegrees(
-                          result
-                              .getBestTarget()
-                              .getYaw()))); // Not sure if this will work, more math may be
-              // required.
-            }
+          var result = camera.getCamera().getLatestResult();
+          if (result.hasTargets()) {
+            drive(
+                getTargetSpeeds(
+                    0,
+                    0,
+                    Rotation2d.fromDegrees(
+                        result
+                            .getBestTarget()
+                            .getYaw()))); // Not sure if this will work, more math may be
+            // required.
           }
         });
   }
@@ -249,9 +346,7 @@ public class SwerveSubsystem extends SubsystemBase {
    * @return {@link AutoBuilder#followPath(PathPlannerPath)} path command.
    */
   public Command getAutonomousCommand(String pathName) {
-    // Create a path following command using AutoBuilder. This will also trigger
-    // event markers.
-    return new PathPlannerAuto(pathName);
+    return autonomousCommands.getAutonomousCommand(pathName);
   }
 
   /**
@@ -261,20 +356,90 @@ public class SwerveSubsystem extends SubsystemBase {
    * @return PathFinding command
    */
   public Command driveToPose(Pose2d pose) {
-    // Create the constraints to use while pathfinding
-    PathConstraints constraints =
-        new PathConstraints(
-            swerveDrive.getMaximumChassisVelocity(),
-            0.2, // 4.0
-            swerveDrive.getMaximumChassisAngularVelocity(),
-            Units.degreesToRadians(720));
+    return autonomousCommands.driveToPose(pose);
+  }
 
-    // Since AutoBuilder is configured, we can use it to build pathfinding commands
-    return AutoBuilder.pathfindToPose(
-        pose,
-        constraints,
-        edu.wpi.first.units.Units.MetersPerSecond.of(0) // Goal end velocity in meters/sec
-        );
+  public Command fuelPalantirCommand(FuelPalantir.FuelPalantirMode mode) {
+    Command baseCommand = autonomousCommands.fuelPalantirCommand(mode);
+    return baseCommand
+        .beforeStarting(
+            () -> {
+              System.out.println("[FuelPalantir] beforeStarting: disabling AprilTag fusion");
+              setVisionEstimatorModeOverride(Vision.EstimatorMode.OFF);
+            })
+        .finallyDo(
+            () -> {
+              System.out.println("[FuelPalantir] finallyDo: re-enabling AprilTag fusion");
+              clearVisionEstimatorModeOverride();
+            })
+        .withName("FuelPalantirCommand-" + mode.name() + "-NoAprilTagFusion");
+  }
+
+  public Command rejoinPathAtNearestPoseCommand(String pathName) {
+    return autonomousCommands.rejoinPathAtNearestPoseCommand(pathName);
+  }
+
+  static double calculateRotationFromYawDeg(double yawDeg) {
+    return MathUtil.clamp(
+        -Math.toRadians(yawDeg) * ANGULAR_TRACKING_GAIN,
+        -SEARCH_ROTATION_RAD_PER_SEC,
+        SEARCH_ROTATION_RAD_PER_SEC);
+  }
+
+  public boolean resetOdometryFromAprilTags() {
+    return resetOdometryFromAprilTags(1);
+  }
+
+  public boolean resetOdometryFromAprilTags(int minTagCount) {
+    if (vision == null) {
+      System.out.println("[PoseReset] source=APRILTAG failed=vision_not_initialized");
+      return false;
+    }
+
+    Map<Cameras, Vision.CameraSnapshot> cameraData = vision.getLatestCameraData();
+    if (cameraData == null || cameraData.isEmpty()) {
+      System.out.println("[PoseReset] source=APRILTAG failed=no_camera_data");
+      return false;
+    }
+
+    List<Vision.PoseEstimationResult> estimations =
+        vision.estimateCameraPosesFromAprilTags(cameraData);
+    Optional<EstimatedRobotPose> bestEstimate = Optional.empty();
+    Vision.PoseEstimationResult bestResult = null;
+    int bestTagCount = -1;
+    double bestTimestampSec = Double.NEGATIVE_INFINITY;
+
+    for (Vision.PoseEstimationResult est : estimations) {
+      if (est.estimatedPose().isEmpty()) {
+        continue;
+      }
+      int tagCount = est.estimatedPose().get().targetsUsed.size();
+      double ts = est.estimatedPose().get().timestampSeconds;
+      if (tagCount > bestTagCount || (tagCount == bestTagCount && ts > bestTimestampSec)) {
+        bestEstimate = est.estimatedPose();
+        bestResult = est;
+        bestTagCount = tagCount;
+        bestTimestampSec = ts;
+      }
+    }
+
+    if (bestEstimate.isEmpty()) {
+      System.out.println("[PoseReset] source=APRILTAG failed=no_visible_tags");
+      return false;
+    }
+    if (bestTagCount < minTagCount) {
+      System.out.printf(
+          "[PoseReset] source=APRILTAG failed=insufficient_tags tags=%d min=%d%n",
+          bestTagCount, minTagCount);
+      return false;
+    }
+
+    Pose2d pose = bestEstimate.get().estimatedPose.toPose2d();
+    swerveDrive.addVisionMeasurement(pose, bestTimestampSec, bestResult.stdDevs());
+    System.out.printf(
+        "[PoseReset] source=APRILTAG fused_pose=(%.3f, %.3f, %.1fdeg) tags=%d ts=%.3f%n",
+        pose.getX(), pose.getY(), pose.getRotation().getDegrees(), bestTagCount, bestTimestampSec);
+    return true;
   }
 
   /**
@@ -524,6 +689,11 @@ public class SwerveSubsystem extends SubsystemBase {
     swerveDrive.resetOdometry(initialHolonomicPose);
   }
 
+  /** PathPlanner-style alias for pose reset. */
+  public void resetPose(Pose2d pose) {
+    resetOdometry(pose);
+  }
+
   /**
    * Gets the current pose (position and rotation) of the robot, as reported by odometry.
    *
@@ -662,6 +832,11 @@ public class SwerveSubsystem extends SubsystemBase {
    */
   public ChassisSpeeds getRobotVelocity() {
     return swerveDrive.getRobotVelocity();
+  }
+
+  /** PathPlanner-style alias for robot-relative speed supplier. */
+  public ChassisSpeeds getRobotRelativeSpeeds() {
+    return getRobotVelocity();
   }
 
   /**
