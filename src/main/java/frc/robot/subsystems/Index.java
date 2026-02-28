@@ -7,8 +7,6 @@ import static edu.wpi.first.units.Units.RPM;
 import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Seconds;
 
-import java.util.Optional;
-
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
@@ -17,6 +15,7 @@ import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
+import java.util.Optional;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
 import yams.mechanisms.config.FlyWheelConfig;
@@ -97,9 +96,7 @@ public class Index extends SubsystemBase {
     indexer.setMechanismVelocitySetpoint(speed);
   }
 
-  /**
-   * Get the index velocity setpoint.
-   */
+  /** Get the index velocity setpoint. */
   public Optional<AngularVelocity> getVelocitySetpointindex() {
     return Optional.of(indexer.getMechanismSetpointVelocity().orElse(RPM.of(0)));
   }
@@ -202,9 +199,7 @@ public class Index extends SubsystemBase {
     funneler.setMechanismVelocitySetpoint(speed);
   }
 
-  /**
-   * Get the funnel velocity setpoint.
-   */
+  /** Get the funnel velocity setpoint. */
   public Optional<AngularVelocity> getVelocitySetpointfunnel() {
     return Optional.of(funneler.getMechanismSetpointVelocity().orElse(RPM.of(0)));
   }
