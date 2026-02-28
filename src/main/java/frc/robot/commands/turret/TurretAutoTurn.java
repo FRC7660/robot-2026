@@ -19,6 +19,12 @@ public class TurretAutoTurn extends Command {
     addRequirements(turret);
   }
 
+  public void initialize() {
+    System.out.println("TurretAutoTurn initialized");
+
+    lastPrintSec = 0.0; // reset the print timer
+  }
+
   @Override
   public void execute() {
     Rotation2d robotRelative = turret.getRobotRelativeAngle();

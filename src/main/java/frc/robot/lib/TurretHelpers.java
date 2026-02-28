@@ -18,18 +18,21 @@ public final class TurretHelpers {
   public static final double GOAL_Y_IN_HIGH = 220.0;
   public static final double GOAL_Y_LOW = Units.inchesToMeters(GOAL_Y_IN_LOW);
   public static final double GOAL_Y_HIGH = Units.inchesToMeters(GOAL_Y_IN_HIGH);
+  public static final double GOAL_X_RED = (RED_THRESHOLD_X + ((MAX_X - RED_THRESHOLD_X) / 2.0));
+  public static final double GOAL_X_BLUE = (BLUE_THRESHOLD_X / 2.0);
 
   // Representative centers for each goal area (meters). These are placeholders
   // suitable for computing angles; replace with precise coordinates if available.
+
   // Provide distinct hub centers for Red and Blue teams so callers can differentiate.
   public static final Translation2d HUB_CENTER_RED =
-      new Translation2d(RED_THRESHOLD_X + (MAX_X - RED_THRESHOLD_X) / 2.0, THRESHOLD_Y);
+      new Translation2d(RED_THRESHOLD_X, THRESHOLD_Y);
   public static final Translation2d HUB_CENTER_BLUE =
-      new Translation2d(BLUE_THRESHOLD_X / 2.0, THRESHOLD_Y);
-  public static final Translation2d GOAL_R1_CENTER = new Translation2d(MAX_X, GOAL_Y_LOW);
-  public static final Translation2d GOAL_R2_CENTER = new Translation2d(MAX_X, GOAL_Y_HIGH);
-  public static final Translation2d GOAL_B1_CENTER = new Translation2d(0.0, GOAL_Y_LOW);
-  public static final Translation2d GOAL_B2_CENTER = new Translation2d(0.0, GOAL_Y_HIGH);
+      new Translation2d(BLUE_THRESHOLD_X, THRESHOLD_Y);
+  public static final Translation2d GOAL_R1_CENTER = new Translation2d(GOAL_X_RED, GOAL_Y_LOW);
+  public static final Translation2d GOAL_R2_CENTER = new Translation2d(GOAL_X_RED, GOAL_Y_HIGH);
+  public static final Translation2d GOAL_B1_CENTER = new Translation2d(GOAL_X_BLUE, GOAL_Y_LOW);
+  public static final Translation2d GOAL_B2_CENTER = new Translation2d(GOAL_X_BLUE, GOAL_Y_HIGH);
 
   /**
    * Decide which goal area to aim at based purely on the robot position and alliance. Mirrors the
