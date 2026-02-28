@@ -8,7 +8,10 @@ import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.Turret;
 import java.util.Locale;
 
-/** (NOT) the Default command for the turret: periodically compute a target and set a turret setpoint. */
+/**
+ * (NOT) the Default command for the turret: periodically compute a target and set a turret
+ * setpoint.
+ */
 public class TurretAutoTurn extends Command {
   private final Turret turret;
   private static final double PRINT_PERIOD_SEC = 0.5;

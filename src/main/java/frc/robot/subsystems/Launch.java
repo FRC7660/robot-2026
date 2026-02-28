@@ -108,9 +108,7 @@ public class Launch extends SubsystemBase {
     return shooter.run(velocity);
   }
 
-  /**
-   * Calculate and return a velocity setpoint based on distance
-   */
+  /** Calculate and return a velocity setpoint based on distance */
   public AngularVelocity getOptimalVelocity() {
     return RPM.of(2000);
   }
@@ -148,9 +146,8 @@ public class Launch extends SubsystemBase {
    */
   Supplier<AngularVelocity> s_velSupplier = () -> getVelocity();
 
-  Supplier<AngularVelocity> s_velSetpointSupplier =
-      () -> getOptimalVelocity();
-  
+  Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity();
+
   public Trigger optimalVelocityReached =
       new Trigger(
           () -> (s_velSupplier.get().in(RPM) * 0.99 >= s_velSetpointSupplier.get().in(RPM)));
@@ -163,7 +160,8 @@ public class Launch extends SubsystemBase {
             Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(70.0))),
             Commands.run(
                 () -> {
-                  // PLACEHOLDER: getOptimalVelocity should not just return 2000; attach the distance and SWM calculations
+                  // PLACEHOLDER: getOptimalVelocity should not just return 2000; attach the
+                  // distance and SWM calculations
                   this.setVelocitySetpoint(s_velSetpointSupplier.get());
                 }),
             Commands.waitUntil(optimalVelocityReached),
