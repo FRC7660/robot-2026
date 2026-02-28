@@ -23,7 +23,6 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.lib.TurretHelpers;
 import frc.robot.lib.TurretZeroPoint;
-
 import java.util.Optional;
 import java.util.function.Supplier;
 import yams.gearing.GearBox;
@@ -126,7 +125,7 @@ public class Turret extends SubsystemBase {
    * @param robotRelativeAngle turret angle relative to robot forward
    */
   public void setTurretSetpoint(Rotation2d robotRelativeAngle) {
-    //TODO: need to add "only move if greater than"
+    // TODO: need to add "only move if greater than"
     turretSmartMotorController.setPosition(robotRelativeAngle.getMeasure());
     this.lastSetpoint = robotRelativeAngle;
   }
@@ -139,7 +138,7 @@ public class Turret extends SubsystemBase {
   public Command autoSetAngle() {
     return turretPivot.setAngle(() -> getRobotRelativeAngle().getMeasure());
   }
-  
+
   /**
    * Compute the desired turret angle relative to the robot using the stored pose supplier and
    * TurretHelpers decision logic.
