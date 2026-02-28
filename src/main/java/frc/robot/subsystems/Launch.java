@@ -147,7 +147,7 @@ public class Launch extends SubsystemBase {
      */
     Supplier<AngularVelocity> s_velSupplier = () -> getVelocity();
     Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity();
-    public Trigger optimalVelocityReached =
+    Trigger optimalVelocityReached =
         new Trigger(
             () -> (s_velSupplier.get().in(RPM) * 0.99 >= s_velSetpointSupplier.get().in(RPM)));
     
