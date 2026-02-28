@@ -25,6 +25,7 @@ import frc.robot.subsystems.LowerShooterSubsystem;
 import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.UpperShooterSubsystem;
 import frc.robot.subsystems.swervedrive.FuelPalantir.FuelPalantirMode;
+import frc.robot.subsystems.IntakeLaunch;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
 import swervelib.SwerveInputStream;
@@ -42,8 +43,7 @@ public class RobotContainer {
   // The robot's subsystems and commands are defined here...
   private final SwerveSubsystem drivebase = createDrivebase();
 
-  private final UpperShooterSubsystem upperShooter = new UpperShooterSubsystem();
-  private final LowerShooterSubsystem lowerShooter = new LowerShooterSubsystem();
+  private final IntakeLaunch intakeLaunch = new IntakeLaunch();
 
   // Turret subsystem, constructed with a supplier that returns the current odometry pose
   private final Turret turret = createTurret();
@@ -222,68 +222,22 @@ public class RobotContainer {
       // JV bot shooter commands
 
       // INTAKE
-      driverXbox
-          .leftBumper()
-          .whileTrue(
-              Commands.startEnd(
-                  () -> {
-                    upperShooter.setUpperMotor(0.85);
-                    lowerShooter.setLowerMotor(-0.85);
-                  },
-                  () -> {
-                    upperShooter.setUpperMotor(0);
-                    lowerShooter.setLowerMotor(0);
-                  },
-                  upperShooter,
-                  lowerShooter));
+      driverXbox.leftBumper().whileTrue(intakeLaunch.runIntake());
 
       // EXPEL(OUTTAKE)
 
-      driverXbox
-          .rightBumper()
-          .whileTrue(
-              Commands.startEnd(
-                  () -> {
-                    upperShooter.setUpperMotor(-0.85);
-                    lowerShooter.setLowerMotor(0.85);
-                  },
-                  () -> {
-                    upperShooter.setUpperMotor(0);
-                    lowerShooter.setLowerMotor(0);
-                  },
-                  upperShooter,
-                  lowerShooter));
+      driverXbox.rightBumper().whileTrue(intakeLaunch.runOuttake());
 
       // SHOOT
       driverXbox
           .leftTrigger(0.1)
-          .whileTrue(
-              Commands.startEnd(
-                  () -> {
-                    upperShooter.setUpperMotor(0.85);
-                    lowerShooter.setLowerMotor(0.85);
-                  },
-                  () -> {
-                    upperShooter.setUpperMotor(0);
-                    lowerShooter.setLowerMotor(0);
-                  },
-                  upperShooter,
-                  lowerShooter));
+          .whileTrue(intakeLaunch.shootDefault())
+          .onFalse(intakeLaunch.stopShooting());
 
       driverXbox
           .rightTrigger(0.1)
-          .whileTrue(
-              Commands.runEnd(
-                  () -> {
-                    upperShooter.setUpperMotor(driverXbox.getRightTriggerAxis());
-                    lowerShooter.setLowerMotor(0.85);
-                  },
-                  () -> {
-                    upperShooter.setUpperMotor(0);
-                    lowerShooter.setLowerMotor(0);
-                  },
-                  upperShooter,
-                  lowerShooter));
+          .whileTrue(intakeLaunch.shootDefault())
+          .onFalse(intakeLaunch.stopShooting());
 
       // UNSTICK
       driverXbox
@@ -302,6 +256,7 @@ public class RobotContainer {
                   lowerShooter));
 
       driverXbox.b().whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.TELEOP));
+
     }
   }
 
