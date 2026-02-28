@@ -154,9 +154,7 @@ public class Launch extends SubsystemBase {
     Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(70.0)));
     return Commands.repeatingSequence(
             // Pause the funnel to allow the flywheel to re-spool
-            Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(50.0))),
-            // Indexing should always run
-            Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(70.0))),
+            Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
             Commands.run(
                 () -> {
                   // PLACEHOLDER: getOptimalVelocity should not just return 2000; attach the
