@@ -170,6 +170,11 @@ public class Launch extends SubsystemBase {
   private void shotSequenceEnd(Index indexSystem) {
     indexSystem.setVelocitySetpointindex(RPM.of(0.0));
     indexSystem.setVelocitySetpointfunnel(RPM.of(0.0));
+    /**
+      * This should set the voltage output of the flywheel to 0. Theoretically 
+      * will bypass the velocity setpoint due to the command being interrupted 
+      * and just cause the launcher to spin down.
+      **/
     shooter.set(0);
   }
 }
