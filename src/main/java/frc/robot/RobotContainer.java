@@ -20,10 +20,6 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OperatorConstants;
 import frc.robot.autonomous.AutonomousManager;
-import frc.robot.commands.turret.DefaultCommand;
-import frc.robot.subsystems.LowerShooterSubsystem;
-import frc.robot.subsystems.Turret;
-import frc.robot.subsystems.UpperShooterSubsystem;
 import frc.robot.subsystems.swervedrive.FuelPalantir.FuelPalantirMode;
 import frc.robot.subsystems.IntakeLaunch;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
@@ -45,17 +41,10 @@ public class RobotContainer {
 
   private final IntakeLaunch intakeLaunch = new IntakeLaunch();
 
-  // Turret subsystem, constructed with a supplier that returns the current odometry pose
-  private final Turret turret = createTurret();
-
   private final AutonomousManager autonomousManager;
 
   private SwerveSubsystem createDrivebase() {
     return new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-jv0"));
-  }
-
-  private Turret createTurret() {
-    return new Turret(drivebase::getPose);
   }
 
   private double getRightXCorrected() {
@@ -148,9 +137,6 @@ public class RobotContainer {
     }
 
     autonomousManager = new AutonomousManager(drivebase);
-
-    // Set the turret default command to compute targets from odometry
-    turret.setDefaultCommand(new DefaultCommand(turret));
   }
 
   /**
@@ -240,20 +226,7 @@ public class RobotContainer {
           .onFalse(intakeLaunch.stopShooting());
 
       // UNSTICK
-      driverXbox
-          .y()
-          .whileTrue(
-              Commands.startEnd(
-                  () -> {
-                    upperShooter.setUpperMotor(-0.85);
-                    lowerShooter.setLowerMotor(-0.85);
-                  },
-                  () -> {
-                    upperShooter.setUpperMotor(0);
-                    lowerShooter.setLowerMotor(0);
-                  },
-                  upperShooter,
-                  lowerShooter));
+      driverXbox.y().whileTrue(intakeLaunch.runUnstick());
 
       driverXbox.b().whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.TELEOP));
 

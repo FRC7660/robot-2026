@@ -70,4 +70,5 @@ public final class Constants {
     public static final double UNSTICK_UPPER_DUTY_CYCLE = -0.85;
     public static final double UNSTICK_LOWER_DUTY_CYCLE = -0.85;
   }
+
 }
