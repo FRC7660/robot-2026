@@ -2,10 +2,10 @@ package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Degrees;
-import static edu.wpi.first.units.Units.DegreesPerSecond;
-import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
 import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.Pounds;
+import static edu.wpi.first.units.Units.RPM;
+import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Seconds;
 
 import com.revrobotics.spark.SparkFlex;
@@ -89,16 +89,11 @@ public class Turret extends SubsystemBase {
                 Constants.Turret.TURRET_P,
                 Constants.Turret.TURRET_I,
                 Constants.Turret.TURRET_D,
-                DegreesPerSecond.of(800),
-                DegreesPerSecondPerSecond.of(36000))
+                RPM.of(110),
+                RPM.per(Second).of(1000))
             .withFeedforward(new SimpleMotorFeedforward(0.25, 0.22, 0.0))
-            .withSimClosedLoopController(
-                Constants.Turret.TURRET_P,
-                Constants.Turret.TURRET_I,
-                Constants.Turret.TURRET_D,
-                DegreesPerSecond.of(800),
-                DegreesPerSecondPerSecond.of(36000))
-            .withSimFeedforward(new SimpleMotorFeedforward(0.25, 0.22, 0.0))
+            .withSimClosedLoopController(1, 0, 0, RPM.of(110), RPM.per(Second).of(1000))
+            .withSimFeedforward(new SimpleMotorFeedforward(0.0, 4.6, 0.0))
             // Telemetry name and verbosity level
             .withTelemetry("TurretMotorConfig", TelemetryVerbosity.HIGH)
             // Gearing from motor rotor to turret.
@@ -114,9 +109,9 @@ public class Turret extends SubsystemBase {
 
     PivotConfig pivotConfig =
         new PivotConfig(turretSmartMotorController)
-            .withHardLimit(Degrees.of(30), Degrees.of(330))
+            .withHardLimit(Degrees.of(0), Degrees.of(360))
             .withSoftLimits(Degrees.of(30), Degrees.of(330))
-            .withStartingPosition(Degrees.of(30))
+            .withStartingPosition(Degrees.of(180))
             .withTelemetry("TurretPivot", TelemetryVerbosity.HIGH)
             .withMOI(Meters.of(0.254), Pounds.of(2));
 
