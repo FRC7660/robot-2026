@@ -312,8 +312,7 @@ final class SwerveAutonomousCommands {
                           Commands.runOnce(
                               () -> {
                                 debugAuto("REJOIN driveToPose START, disabling vision");
-                                subsystem.setVisionEstimatorModeOverride(
-                                    Vision.EstimatorMode.OFF);
+                                subsystem.setVisionEstimatorModeOverride(Vision.EstimatorMode.OFF);
                               }),
                           Commands.deadline(
                               driveToPose(targetPose),
