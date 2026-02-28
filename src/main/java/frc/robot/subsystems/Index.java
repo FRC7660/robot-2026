@@ -130,6 +130,7 @@ public class Index extends SubsystemBase {
     indexer.updateTelemetry();
     funneler.updateTelemetry();
     setVelocityindex(getVelocitySetpointindex().get());
+    setVelocityfunnel(getVelocitySetpointfunnel().get());
   }
 
   @Override
@@ -199,6 +200,13 @@ public class Index extends SubsystemBase {
    */
   public void setVelocitySetpointfunnel(AngularVelocity speed) {
     funneler.setMechanismVelocitySetpoint(speed);
+  }
+
+  /**
+   * Get the funnel velocity setpoint.
+   */
+  public Optional<AngularVelocity> getVelocitySetpointfunnel() {
+    return Optional.of(funneler.getMechanismSetpointVelocity().orElse(RPM.of(0)));
   }
 
   /**
