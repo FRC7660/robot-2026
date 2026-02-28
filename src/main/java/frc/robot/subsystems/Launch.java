@@ -176,6 +176,5 @@ public class Launch extends SubsystemBase {
      * down.
      */
     shooter.setDutyCycleSetpoint(0);
-    shooter.set(0);
   }
 }
