@@ -12,7 +12,6 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonPoseEstimator;
-import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 
 /** Camera Enum to select each camera */
 public enum Cameras {
@@ -102,10 +101,7 @@ public enum Cameras {
       latencyAlert =
           new Alert("'" + name + "' Camera is experiencing high latency.", AlertType.kWarning);
       camera = new PhotonCamera(name);
-      poseEstimator =
-          new PhotonPoseEstimator(
-              Vision.fieldLayout, PoseStrategy.MULTI_TAG_PNP_ON_COPROCESSOR, robotToCamTransform);
-      poseEstimator.setMultiTagFallbackStrategy(PoseStrategy.LOWEST_AMBIGUITY);
+      poseEstimator = new PhotonPoseEstimator(Vision.fieldLayout, robotToCamTransform);
     }
   }
 
