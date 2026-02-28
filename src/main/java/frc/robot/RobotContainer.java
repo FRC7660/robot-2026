@@ -47,6 +47,12 @@ public class RobotContainer {
     return new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-jv0"));
   }
 
+  private Command fuelPalantirAutonomousCommand() {
+    return drivebase
+        .fuelPalantirCommand(FuelPalantirMode.AUTONOMOUS)
+        .deadlineFor(intakeLaunch.runIntake());
+  }
+
   private double getRightXCorrected() {
     double base = driverXbox.getRightX();
     if (DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue)
@@ -119,10 +125,8 @@ public class RobotContainer {
     // Create the NamedCommands that will be used in PathPlanner
     try {
       NamedCommands.registerCommand("test", Commands.print("I EXIST"));
-      NamedCommands.registerCommand(
-          "FuelPalantir", drivebase.fuelPalantirCommand(FuelPalantirMode.AUTONOMOUS));
-      NamedCommands.registerCommand(
-          "LogoFuelPalantir", drivebase.fuelPalantirCommand(FuelPalantirMode.AUTONOMOUS));
+      NamedCommands.registerCommand("FuelPalantir", fuelPalantirAutonomousCommand());
+      NamedCommands.registerCommand("LogoFuelPalantir", fuelPalantirAutonomousCommand());
       NamedCommands.registerCommand(
           "ResetPoseFromAprilTags",
           Commands.runOnce(
