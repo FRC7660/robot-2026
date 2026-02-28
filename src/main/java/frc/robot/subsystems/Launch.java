@@ -175,6 +175,7 @@ public class Launch extends SubsystemBase {
      * velocity setpoint due to the command being interrupted and just cause the launcher to spin
      * down.
      */
+    shooter.setDutyCycleSetpoint(0);
     shooter.set(0);
   }
 }
