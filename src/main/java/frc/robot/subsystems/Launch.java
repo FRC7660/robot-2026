@@ -140,7 +140,7 @@ public class Launch extends SubsystemBase {
   }
 
   public Command shotSequenceStart(Index indexSystem) {
-      /**
+    /**
      * PLACEHOLDER: This trigger will check the velocity of the flywheel (in the right UNIT) and
      * return true if said velocity is greater than or equal to the distance-based velocity setpoint
      * with a error margin of 1% (should be tested)
@@ -171,10 +171,10 @@ public class Launch extends SubsystemBase {
     indexSystem.setVelocitySetpointindex(RPM.of(0.0));
     indexSystem.setVelocitySetpointfunnel(RPM.of(0.0));
     /**
-      * This should set the voltage output of the flywheel to 0. Theoretically 
-      * will bypass the velocity setpoint due to the command being interrupted 
-      * and just cause the launcher to spin down.
-      **/
+     * This should set the voltage output of the flywheel to 0. Theoretically will bypass the
+     * velocity setpoint due to the command being interrupted and just cause the launcher to spin
+     * down.
+     */
     shooter.set(0);
   }
 }
