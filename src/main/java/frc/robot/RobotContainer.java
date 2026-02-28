@@ -13,9 +13,11 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.trajectory.TrapezoidProfile.Constraints;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -28,10 +30,12 @@ import frc.robot.commands.turret.DefaultCommand;
 import frc.robot.commands.turret.TurretAutoTurn;
 import frc.robot.subsystems.Index;
 import frc.robot.subsystems.Intake;
+import frc.robot.subsystems.Launch;
 import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.FuelPalantir.FuelPalantirMode;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
+import java.util.function.DoubleSupplier;
 import swervelib.SwerveInputStream;
 
 /**
@@ -45,6 +49,21 @@ public class RobotContainer {
   // Replace with CommandPS4Controller or CommandJoystick if needed
   final CommandXboxController driverXbox = new CommandXboxController(0);
   private final Intake intakeSystem = new Intake();
+
+  // Trigger (CLASS) which will initiate trigger (INPUT) control of the arm
+  private Trigger liftPressureDetected = new Trigger(() -> (driverXbox.getLeftTriggerAxis() > 0.1));
+  private Trigger liftPressureMaxed = new Trigger(() -> (driverXbox.getLeftTriggerAxis() > 0.9));
+  private Trigger liftSimPressureDetected = new Trigger(() -> (driverXbox.getRawAxis(1) > 0.1));
+
+  private DoubleSupplier dx_leftTriggerSupplier = driverXbox::getLeftTriggerAxis;
+
+  // how did I figure this out
+  private double getRaw1() {
+    return driverXbox.getRawAxis(1);
+  }
+
+  private DoubleSupplier dx_axis1Supplier = this::getRaw1;
+
   // The robot's subsystems and commands are defined here...
   private final SwerveSubsystem drivebase = createDrivebase();
   private final String chassisDirectory = "swerve/7660-chassis1";
@@ -53,6 +72,8 @@ public class RobotContainer {
   private final Index indexSystem = new Index();
   // Turret subsystem, constructed with a supplier that returns the current odometry pose
   private final Turret turret = createTurret();
+  // Launch subsystem
+  private final Launch launchSystem = new Launch();
 
   private final AutonomousManager autonomousManager;
 
@@ -221,10 +242,20 @@ public class RobotContainer {
       driverXbox.rightBumper().whileTrue(intakeSystem.setAngle(30.0));
       driverXbox.leftBumper().whileTrue(intakeSystem.setAngle(-10.0));
 
-      // driverXbox
-      //    .a()
-      //    .whileTrue(
-      //        indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
+      // Trigger-based linear arm angle control (KEYBOARD COMPATIBLE)
+      liftSimPressureDetected.whileTrue(
+          Commands.run(
+              () -> {
+                double angle = 110 - dx_axis1Supplier.getAsDouble() * (110 + 25);
+                intakeSystem.setAngle(angle).schedule();
+                SmartDashboard.putNumber("AXIS1", dx_axis1Supplier.getAsDouble() * (110 + 25));
+              }));
+      liftSimPressureDetected.whileFalse(intakeSystem.setAngle(110.0));
+
+      driverXbox
+          .a()
+          .whileTrue(
+              indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
     }
     if (DriverStation.isTest()) {
       drivebase.setDefaultCommand(
@@ -234,8 +265,13 @@ public class RobotContainer {
       driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
       driverXbox.back().whileTrue(drivebase.centerModulesCommand());
       driverXbox.leftBumper().whileTrue(new YAGSLPitCheck(drivebase));
-      driverXbox.rightBumper().onTrue(Commands.runOnce(misalignCorrection::execute));
-      driverXbox.b().whileTrue(Commands.runOnce(() -> indexSystem.setfunnel(0.1)));
+      driverXbox.rightBumper().onTrue(launchSystem.setVelocity(50.0));
+      driverXbox.rightBumper().onFalse(launchSystem.setVelocity(0));
+      // driverXbox.b().whileTrue(indexSystem.setVelocityindex(60.0));
+      driverXbox
+          .b()
+          .whileTrue(
+              indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
       driverXbox
           .y()
           .whileTrue(
@@ -243,8 +279,24 @@ public class RobotContainer {
                   () -> {
                     return .99;
                   }));
-      driverXbox.a().onTrue(intakeSystem.setAngle(-25.0));
-      driverXbox.x().onTrue(intakeSystem.setAngle(110.0));
+
+      // Replaced by the trigger command below
+      // driverXbox.a().onTrue(intakeSystem.setAngle(-25.0));
+      // driverXbox.x().onTrue(intakeSystem.setAngle(110.0));
+
+      // Trigger-based linear arm angle control
+      liftPressureDetected.whileTrue(
+          Commands.run(
+                  () -> {
+                    double angle = 110 - dx_leftTriggerSupplier.getAsDouble() * (110 + 25);
+                    intakeSystem.setAngle(angle).schedule();
+                    SmartDashboard.putNumber(
+                        "AXIS1", dx_leftTriggerSupplier.getAsDouble() * (110 + 25));
+                  })
+              .onlyIf(() -> !liftPressureMaxed.getAsBoolean()));
+      liftPressureDetected.onFalse(intakeSystem.setAngle(110.0));
+      liftPressureMaxed.whileTrue(intakeSystem.fullIntake());
+      liftPressureMaxed.onFalse(Commands.runOnce(() -> intakeSystem.stopRoller()));
       driverXbox
           .rightTrigger(0.5)
           .whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.TELEOP));
