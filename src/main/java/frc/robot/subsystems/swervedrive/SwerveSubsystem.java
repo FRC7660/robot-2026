@@ -23,8 +23,13 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.trajectory.Trajectory;
+import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.networktables.StructPublisher;
+import edu.wpi.first.util.datalog.StructLogEntry;
+import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -72,6 +77,19 @@ public class SwerveSubsystem extends SubsystemBase {
   private SendableChooser<Boolean> visionDebugTelemetryChooser;
   private final AtomicReference<Vision.EstimatorMode> visionEstimatorModeOverride =
       new AtomicReference<>(null);
+  private final Field2d advantageScopeField = new Field2d();
+  private final StructPublisher<Pose2d> odomPosePublisher =
+      NetworkTableInstance.getDefault()
+          .getStructTopic("AdvantageScope/Pose/Odometry", Pose2d.struct)
+          .publish();
+  private final StructPublisher<Pose2d> fusedPosePublisher =
+      NetworkTableInstance.getDefault()
+          .getStructTopic("AdvantageScope/Pose/Fused", Pose2d.struct)
+          .publish();
+  private final StructLogEntry<Pose2d> odomPoseLogEntry =
+      StructLogEntry.create(DataLogManager.getLog(), "AdvantageScope/Pose/Odometry", Pose2d.struct);
+  private final StructLogEntry<Pose2d> fusedPoseLogEntry =
+      StructLogEntry.create(DataLogManager.getLog(), "AdvantageScope/Pose/Fused", Pose2d.struct);
 
   /**
    * Initialize {@link SwerveDrive} with the directory provided.
@@ -118,6 +136,7 @@ public class SwerveSubsystem extends SubsystemBase {
     // over the internal
     // encoder and push the offsets onto it. Throws warning if not possible
     initVisionChoosers();
+    SmartDashboard.putData("AdvantageScope/Field", advantageScopeField);
 
     if (visionDriveTest) {
       try {
@@ -143,6 +162,7 @@ public class SwerveSubsystem extends SubsystemBase {
   public SwerveSubsystem(
       SwerveDriveConfiguration driveCfg, SwerveControllerConfiguration controllerCfg) {
     initVisionChoosers();
+    SmartDashboard.putData("AdvantageScope/Field", advantageScopeField);
     swerveDrive =
         new SwerveDrive(
             driveCfg,
@@ -197,14 +217,30 @@ public class SwerveSubsystem extends SubsystemBase {
 
   @Override
   public void periodic() {
+    Pose2d odomPose = swerveDrive.getPose();
+    advantageScopeField.setRobotPose(odomPose);
+    odomPosePublisher.set(odomPose);
+    odomPoseLogEntry.append(odomPose);
+
     // When vision is enabled we must manually update odometry in SwerveDrive
     if (visionDriveTest) {
       swerveDrive.updateOdometry();
       try {
         vision.process(swerveDrive);
+        vision.updateVisionField();
       } catch (Exception e) {
         DriverStation.reportError("[Vision] process() threw: " + e.getMessage(), e.getStackTrace());
       }
+    }
+
+    Optional<Pose2d> fusedPose = vision == null ? Optional.empty() : vision.getLastSelectedFusedPose();
+    if (fusedPose.isPresent()) {
+      Pose2d fused = fusedPose.get();
+      fusedPosePublisher.set(fused);
+      fusedPoseLogEntry.append(fused);
+      advantageScopeField.getObject("VisionFused").setPose(fused);
+    } else {
+      advantageScopeField.getObject("VisionFused").setPoses(List.of());
     }
   }
 

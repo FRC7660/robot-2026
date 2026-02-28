@@ -160,6 +160,7 @@ public class Vision {
   private final long[] pipelineStepCount = new long[PIPELINE_STEP_COUNT];
   private Pose2d lastLoggedOdomPose = null;
   private Pose2d lastLoggedFusedPose = null;
+  private Optional<Pose2d> lastSelectedFusedPose = Optional.empty();
   private final EnumMap<Cameras, CameraTagObservation> lastLoggedCameraTagObs =
       new EnumMap<>(Cameras.class);
   // volatile: defensive guard so any future move of process() to a background thread stays safe.
@@ -680,6 +681,7 @@ public class Vision {
 
     // Select the best pose candidate
     SelectionResult selection = selectBestPose(estimations, swerveDrive);
+    lastSelectedFusedPose = selection.bestCandidate().map(FusionCandidate::pose);
     long t3 = System.nanoTime();
 
     // Apply the vision measurement to the swerve drive
@@ -699,6 +701,11 @@ public class Vision {
     logAprilTagTelemetryOnChange(cameraData, swerveDrive.getPose(), selection.bestCandidate());
     logTeleopAprilTagRecord(cameraData, estimations);
     logPipelineCycle(t0, t1, t2, t3, t4);
+  }
+
+  /** Returns the latest selected fused pose from the vision pipeline. */
+  public Optional<Pose2d> getLastSelectedFusedPose() {
+    return lastSelectedFusedPose;
   }
 
   private Optional<CameraTagObservation> getClosestTagObservation(CameraSnapshot snapshot) {
