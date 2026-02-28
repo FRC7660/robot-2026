@@ -151,20 +151,21 @@ public class Launch extends SubsystemBase {
         new Trigger(
             () -> (s_velSupplier.get().in(RPM) * 0.99 >= s_velSetpointSupplier.get().in(RPM)));
     // Indexing should always run
-    Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(70.0)));
-    return Commands.repeatingSequence(
-            // Pause the funnel to allow the flywheel to re-spool
-            Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
-            Commands.run(
-                () -> {
-                  // PLACEHOLDER: getOptimalVelocity should not just return 2000; attach the
-                  // distance and SWM calculations
-                  this.setVelocitySetpoint(s_velSetpointSupplier.get());
-                }),
-            Commands.waitUntil(optimalVelocityReached),
-            // PLACEHOLDER: Should probably index faster than this
-            Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(70.0))))
-        .handleInterrupt(() -> shotSequenceEnd(indexSystem));
+    return Commands.sequence(
+      Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(100.0))),
+      Commands.repeatingSequence(
+              // Pause the funnel to allow the flywheel to re-spool
+              Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
+              Commands.run(
+                  () -> {
+                    // PLACEHOLDER: getOptimalVelocity should not just return 2000; attach the
+                    // distance and SWM calculations
+                    this.setVelocitySetpoint(s_velSetpointSupplier.get());
+                  }),
+              Commands.waitUntil(optimalVelocityReached),
+              // PLACEHOLDER: Should probably index faster than this
+              Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(70.0))))
+          .handleInterrupt(() -> shotSequenceEnd(indexSystem)));
   }
 
   private void shotSequenceEnd(Index indexSystem) {
