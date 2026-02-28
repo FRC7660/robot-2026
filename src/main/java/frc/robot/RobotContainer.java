@@ -281,7 +281,7 @@ public class RobotContainer {
                     double angle = 110 - dx_leftTriggerSupplier.getAsDouble() * (110 + 25);
                     intakeSystem.setAngle(angle).schedule();
                     SmartDashboard.putNumber(
-                        "AXIS1", dx_leftTriggerSupplier.getAsDouble() * (110 + 25));
+                        "AXIS1 - LIFT (DEGREES)", dx_leftTriggerSupplier.getAsDouble() * (110 + 25));
                   })
               .onlyIf(() -> !liftPressureMaxed.getAsBoolean()));
       liftPressureDetected.onFalse(intakeSystem.setAngle(110.0));
