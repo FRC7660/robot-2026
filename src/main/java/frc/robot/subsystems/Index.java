@@ -1,10 +1,11 @@
 package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.DegreesPerSecond;
+import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Pounds;
 import static edu.wpi.first.units.Units.RPM;
-import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Seconds;
 
 import com.revrobotics.spark.SparkFlex;
@@ -38,11 +39,13 @@ public class Index extends SubsystemBase {
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
           // Feedback Constants (PID Constants)
-          .withClosedLoopController(0, 0, 0, RPM.of(1000), RPM.per(Second).of(4000))
-          .withSimClosedLoopController(0, 0, 0, RPM.of(1000), RPM.per(Second).of(4000))
+          .withClosedLoopController(
+              50, 0, 0, DegreesPerSecond.of(90), DegreesPerSecondPerSecond.of(45))
+          .withSimClosedLoopController(
+              50, 0, 0, DegreesPerSecond.of(90), DegreesPerSecondPerSecond.of(45))
           // Feedforward Constants
-          .withFeedforward(new SimpleMotorFeedforward(0.115, 6.5, 3))
-          .withSimFeedforward(new SimpleMotorFeedforward(0.115, 6.5, 3))
+          .withFeedforward(new SimpleMotorFeedforward(0, 0, 0))
+          .withSimFeedforward(new SimpleMotorFeedforward(0, 0, 0))
           // Telemetry name and verbosity level
           .withTelemetry("indexerMotor", TelemetryVerbosity.HIGH)
           // Gearing from the motor rotor to final shaft.
@@ -134,11 +137,13 @@ public class Index extends SubsystemBase {
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
           // Feedback Constants (PID Constants)
-          .withClosedLoopController(0, 0, 0, RPM.of(1000), RPM.per(Second).of(4000))
-          .withSimClosedLoopController(0, 0, 0, RPM.of(1000), RPM.per(Second).of(4000))
+          .withClosedLoopController(
+              50, 0, 0, DegreesPerSecond.of(90), DegreesPerSecondPerSecond.of(45))
+          .withSimClosedLoopController(
+              50, 0, 0, DegreesPerSecond.of(90), DegreesPerSecondPerSecond.of(45))
           // Feedforward Constants
-          .withFeedforward(new SimpleMotorFeedforward(0.115, 6.5, 3))
-          .withSimFeedforward(new SimpleMotorFeedforward(0.115, 6.5, 3))
+          .withFeedforward(new SimpleMotorFeedforward(0, 0, 0))
+          .withSimFeedforward(new SimpleMotorFeedforward(0, 0, 0))
           // Telemetry name and verbosity level
           .withTelemetry("ShooterMotor", TelemetryVerbosity.HIGH)
           // Gearing from the motor rotor to final shaft.
@@ -146,7 +151,7 @@ public class Index extends SubsystemBase {
           // the gearbox attached to your motor.
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(3, 4)))
           // Motor properties to prevent over currenting.
-          .withMotorInverted(true)
+          .withMotorInverted(false)
           .withIdleMode(MotorMode.COAST)
           .withStatorCurrentLimit(Amps.of(40))
           .withClosedLoopRampRate(Seconds.of(0.25))
