@@ -234,7 +234,8 @@ public class SwerveSubsystem extends SubsystemBase {
       }
     }
 
-    Optional<Pose2d> fusedPose = vision == null ? Optional.empty() : vision.getLastSelectedFusedPose();
+    Optional<Pose2d> fusedPose =
+        vision == null ? Optional.empty() : vision.getLastSelectedFusedPose();
     if (fusedPose.isPresent()) {
       Pose2d fused = fusedPose.get();
       fusedPosePublisher.set(fused);
@@ -364,8 +365,7 @@ public class SwerveSubsystem extends SubsystemBase {
     return baseCommand
         .beforeStarting(
             () -> {
-              System.out.println(
-                  "[FuelPalantir] beforeStarting: disabling AprilTag fusion");
+              System.out.println("[FuelPalantir] beforeStarting: disabling AprilTag fusion");
               setVisionEstimatorModeOverride(Vision.EstimatorMode.OFF);
             })
         .finallyDo(

@@ -20,8 +20,8 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OperatorConstants;
 import frc.robot.autonomous.AutonomousManager;
-import frc.robot.subsystems.swervedrive.FuelPalantir.FuelPalantirMode;
 import frc.robot.subsystems.IntakeLaunch;
+import frc.robot.subsystems.swervedrive.FuelPalantir.FuelPalantirMode;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
 import swervelib.SwerveInputStream;
@@ -233,7 +233,6 @@ public class RobotContainer {
       driverXbox.y().whileTrue(intakeLaunch.runUnstick());
 
       driverXbox.b().whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.TELEOP));
-
     }
   }
 
