@@ -89,12 +89,16 @@ public class Turret extends SubsystemBase {
                 Constants.Turret.TURRET_P,
                 Constants.Turret.TURRET_I,
                 Constants.Turret.TURRET_D,
-                DegreesPerSecond.of(180),
-                DegreesPerSecondPerSecond.of(90))
-            .withFeedforward(new SimpleMotorFeedforward(0.27937, 0.089836, 0.014557))
+                DegreesPerSecond.of(800),
+                DegreesPerSecondPerSecond.of(36000))
+            .withFeedforward(new SimpleMotorFeedforward(0.25, 0.22, 0.0))
             .withSimClosedLoopController(
-                .15, 0, 0, DegreesPerSecond.of(360), DegreesPerSecondPerSecond.of(360))
-            .withSimFeedforward(new SimpleMotorFeedforward(0, 4.6, 0))
+                Constants.Turret.TURRET_P,
+                Constants.Turret.TURRET_I,
+                Constants.Turret.TURRET_D,
+                DegreesPerSecond.of(800),
+                DegreesPerSecondPerSecond.of(36000))
+            .withSimFeedforward(new SimpleMotorFeedforward(0.25, 0.22, 0.0))
             // Telemetry name and verbosity level
             .withTelemetry("TurretMotorConfig", TelemetryVerbosity.HIGH)
             // Gearing from motor rotor to turret.
@@ -110,8 +114,8 @@ public class Turret extends SubsystemBase {
 
     PivotConfig pivotConfig =
         new PivotConfig(turretSmartMotorController)
-            .withHardLimit(Degrees.of(0), Degrees.of(330))
-            .withSoftLimits(Degrees.of(30), Degrees.of(270))
+            .withHardLimit(Degrees.of(30), Degrees.of(330))
+            .withSoftLimits(Degrees.of(30), Degrees.of(330))
             .withStartingPosition(Degrees.of(30))
             .withTelemetry("TurretPivot", TelemetryVerbosity.HIGH)
             .withMOI(Meters.of(0.254), Pounds.of(2));
@@ -210,4 +214,3 @@ public class Turret extends SubsystemBase {
     turretPivot.simIterate();
   }
 }
-
