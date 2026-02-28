@@ -77,10 +77,23 @@ public class Vision {
       Matrix<N3, N1> stdDevs,
       double score) {}
 
+  /** A candidate that was rejected during selection. */
+  public record RejectedCandidate(
+      Cameras camera,
+      String reason,
+      Pose2d pose,
+      double timestampSec,
+      int tagCount,
+      double translationError,
+      double rotationErrorDeg,
+      Matrix<N3, N1> stdDevs,
+      List<PhotonTrackedTarget> targetsUsed) {}
+
   /** Output of the selection step. */
   public record SelectionResult(
       Optional<FusionCandidate> bestCandidate,
       List<FusionCandidate> acceptedCandidates,
+      List<RejectedCandidate> rejectedCandidates,
       int rejectedNoEstimate,
       int rejectedStale,
       int rejectedLowTagFar,
@@ -118,6 +131,8 @@ public class Vision {
   static final double MAX_CAMERA_LATENCY_SEC = 0.20;
   static final double MAX_SINGLE_TAG_SPEED_MPS = 2.5;
   static final double MAX_SINGLE_TAG_ANGULAR_SPEED_RAD_PER_SEC = 4.0;
+  private static final int HIGH_STD_SNAPSHOT_TAG_ID = 7;
+  private static final double HIGH_STD_SNAPSHOT_COOLDOWN_SEC = 3.0;
   private static final double FUSION_STATUS_LOG_PERIOD_SEC = 1.0;
   private static final double PIPELINE_STATS_LOG_PERIOD_SEC = 5.0;
   private static final double POSE_LOG_TRANSLATION_DELTA_METERS = 0.05;
@@ -165,6 +180,7 @@ public class Vision {
   private Optional<Pose2d> lastSelectedFusedPose = Optional.empty();
   private final EnumMap<Cameras, CameraTagObservation> lastLoggedCameraTagObs =
       new EnumMap<>(Cameras.class);
+  private final EnumMap<Cameras, Double> lastHighStdSnapshotSec = new EnumMap<>(Cameras.class);
   // volatile: defensive guard so any future move of process() to a background thread stays safe.
   private volatile Map<Cameras, CameraSnapshot> latestCameraData = new EnumMap<>(Cameras.class);
   private double lastTeleopTagRecordLogSec = Double.NEGATIVE_INFINITY;
@@ -189,6 +205,7 @@ public class Vision {
 
     for (Cameras camera : Cameras.values()) {
       lastFusedTimestampSec.put(camera, Double.NEGATIVE_INFINITY);
+      lastHighStdSnapshotSec.put(camera, Double.NEGATIVE_INFINITY);
     }
     for (int i = 0; i < PIPELINE_STEP_COUNT; i++) {
       pipelineStepMinMs[i] = Double.POSITIVE_INFINITY;
@@ -452,6 +469,7 @@ public class Vision {
     int rejOutOfField = 0;
     FusionCandidate best = null;
     List<FusionCandidate> acceptedCandidates = new ArrayList<>();
+    List<RejectedCandidate> rejectedCandidates = new ArrayList<>();
 
     double fieldLength = fieldLayout.getFieldLength();
     double fieldWidth = fieldLayout.getFieldWidth();
@@ -460,6 +478,10 @@ public class Vision {
     for (PoseEstimationResult est : estimations) {
       if (est.estimatedPose().isEmpty()) {
         rejNoEst++;
+        rejectedCandidates.add(
+            new RejectedCandidate(
+                est.camera(), "no_estimate", null, est.cameraLatestTimestampSec(), 0, Double.NaN,
+                Double.NaN, null, List.of()));
         logRejectCandidate(
             est,
             "no_estimate",
@@ -481,6 +503,17 @@ public class Vision {
       double lastTs = lastFusedTimestamps.getOrDefault(est.camera(), Double.NEGATIVE_INFINITY);
       if (pose.timestampSeconds <= lastTs + STALE_TIMESTAMP_EPSILON_SEC) {
         rejStale++;
+        rejectedCandidates.add(
+            new RejectedCandidate(
+                est.camera(),
+                "stale_timestamp",
+                pose2d,
+                pose.timestampSeconds,
+                tagCount,
+                Double.NaN,
+                Double.NaN,
+                null,
+                pose.targetsUsed));
         logRejectCandidate(
             est,
             "stale_timestamp",
@@ -496,6 +529,17 @@ public class Vision {
       }
       if ((nowSec - pose.timestampSeconds) > MAX_VISION_MEASUREMENT_AGE_SEC) {
         rejStale++;
+        rejectedCandidates.add(
+            new RejectedCandidate(
+                est.camera(),
+                "stale_age",
+                pose2d,
+                pose.timestampSeconds,
+                tagCount,
+                Double.NaN,
+                Double.NaN,
+                null,
+                pose.targetsUsed));
         logRejectCandidate(
             est,
             "stale_age",
@@ -512,6 +556,17 @@ public class Vision {
       double cameraLatencySec = Math.max(0.0, nowSec - est.cameraLatestTimestampSec());
       if (cameraLatencySec > MAX_CAMERA_LATENCY_SEC) {
         rejStale++;
+        rejectedCandidates.add(
+            new RejectedCandidate(
+                est.camera(),
+                "stale_latency",
+                pose2d,
+                pose.timestampSeconds,
+                tagCount,
+                Double.NaN,
+                Double.NaN,
+                null,
+                pose.targetsUsed));
         logRejectCandidate(
             est,
             "stale_latency",
@@ -531,6 +586,17 @@ public class Vision {
       double y = pose2d.getY();
       if (x < 0 || x > fieldLength || y < 0 || y > fieldWidth) {
         rejOutOfField++;
+        rejectedCandidates.add(
+            new RejectedCandidate(
+                est.camera(),
+                "out_of_field",
+                pose2d,
+                pose.timestampSeconds,
+                tagCount,
+                Double.NaN,
+                Double.NaN,
+                null,
+                pose.targetsUsed));
         logRejectCandidate(
             est,
             "out_of_field",
@@ -556,9 +622,21 @@ public class Vision {
         }
         if (worstAmbiguity > MAX_SINGLE_TAG_AMBIGUITY) {
           rejAmbiguity++;
+          String reason = String.format("ambiguity=%.3f", worstAmbiguity);
+          rejectedCandidates.add(
+              new RejectedCandidate(
+                  est.camera(),
+                  reason,
+                  pose2d,
+                  pose.timestampSeconds,
+                  tagCount,
+                  Double.NaN,
+                  Double.NaN,
+                  null,
+                  pose.targetsUsed));
           logRejectCandidate(
               est,
-              String.format("ambiguity=%.3f", worstAmbiguity),
+              reason,
               tagCount,
               Double.NaN,
               Double.NaN,
@@ -580,6 +658,17 @@ public class Vision {
       if (tagCount < MIN_TAGS_FOR_DIRECT_ACCEPT
           && translationError > MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS) {
         rejLowTagFar++;
+        rejectedCandidates.add(
+            new RejectedCandidate(
+                est.camera(),
+                "single_tag_far_from_odom",
+                pose2d,
+                pose.timestampSeconds,
+                tagCount,
+                translationError,
+                rotationErrorDeg,
+                null,
+                pose.targetsUsed));
         logRejectCandidate(
             est,
             "single_tag_far_from_odom",
@@ -597,6 +686,17 @@ public class Vision {
           && (robotSpeedMps > MAX_SINGLE_TAG_SPEED_MPS
               || Math.abs(robotOmegaRadPerSec) > MAX_SINGLE_TAG_ANGULAR_SPEED_RAD_PER_SEC)) {
         rejHighStd++;
+        rejectedCandidates.add(
+            new RejectedCandidate(
+                est.camera(),
+                "single_tag_motion_gate",
+                pose2d,
+                pose.timestampSeconds,
+                tagCount,
+                translationError,
+                rotationErrorDeg,
+                null,
+                pose.targetsUsed));
         logRejectCandidate(
             est,
             "single_tag_motion_gate",
@@ -614,6 +714,17 @@ public class Vision {
       Matrix<N3, N1> stdDevs = est.stdDevs();
       if (stdDevs == null) {
         rejNoEst++;
+        rejectedCandidates.add(
+            new RejectedCandidate(
+                est.camera(),
+                "no_stddevs",
+                pose2d,
+                pose.timestampSeconds,
+                tagCount,
+                translationError,
+                rotationErrorDeg,
+                null,
+                pose.targetsUsed));
         logRejectCandidate(
             est,
             "no_stddevs",
@@ -632,6 +743,17 @@ public class Vision {
       double stdTheta = stdDevs.get(2, 0);
       if (stdX > MAX_STD_XY_METERS || stdY > MAX_STD_XY_METERS || stdTheta > MAX_STD_THETA_RAD) {
         rejHighStd++;
+        rejectedCandidates.add(
+            new RejectedCandidate(
+                est.camera(),
+                "high_std",
+                pose2d,
+                pose.timestampSeconds,
+                tagCount,
+                translationError,
+                rotationErrorDeg,
+                stdDevs,
+                pose.targetsUsed));
         logRejectCandidate(
             est,
             "high_std",
@@ -654,6 +776,17 @@ public class Vision {
               : MAX_TRANSLATION_OUTLIER_METERS;
       if (translationError > outlierThreshold && !forceAcceptOutlier) {
         rejOutlier++;
+        rejectedCandidates.add(
+            new RejectedCandidate(
+                est.camera(),
+                "translation_outlier",
+                pose2d,
+                pose.timestampSeconds,
+                tagCount,
+                translationError,
+                rotationErrorDeg,
+                stdDevs,
+                pose.targetsUsed));
         logRejectCandidate(
             est,
             "translation_outlier",
@@ -673,6 +806,17 @@ public class Vision {
               : MAX_SINGLE_TAG_ROTATION_OUTLIER_DEG;
       if (rotationErrorDeg > rotationOutlierThresholdDeg && !forceAcceptOutlier) {
         rejOutlier++;
+        rejectedCandidates.add(
+            new RejectedCandidate(
+                est.camera(),
+                "rotation_outlier",
+                pose2d,
+                pose.timestampSeconds,
+                tagCount,
+                translationError,
+                rotationErrorDeg,
+                stdDevs,
+                pose.targetsUsed));
         logRejectCandidate(
             est,
             "rotation_outlier",
@@ -714,6 +858,7 @@ public class Vision {
     return new SelectionResult(
         Optional.ofNullable(best),
         acceptedCandidates,
+        rejectedCandidates,
         rejNoEst,
         rejStale,
         rejLowTagFar,
@@ -791,7 +936,8 @@ public class Vision {
         Comparator.comparingDouble(FusionCandidate::timestampSec)
             .thenComparingDouble(FusionCandidate::score));
     return new SelectionResult(
-        Optional.ofNullable(best), acceptedCandidates, rejNoEst, rejStale, 0, 0, 0, 0, 0);
+        Optional.ofNullable(best), acceptedCandidates, List.of(), rejNoEst, rejStale, 0, 0, 0, 0,
+        0);
   }
 
   // ── Pipeline: selectBestPose (instance) ──────────────────────────────────
@@ -811,7 +957,7 @@ public class Vision {
     }
     if (selectedMode == EstimatorMode.OFF) {
       consecutiveOutlierCount = 0;
-      return new SelectionResult(Optional.empty(), List.of(), 0, 0, 0, 0, 0, 0, 0);
+      return new SelectionResult(Optional.empty(), List.of(), List.of(), 0, 0, 0, 0, 0, 0, 0);
     }
     double nowSec = Timer.getFPGATimestamp();
     var robotVelocity = swerveDrive.getRobotVelocity();
@@ -907,6 +1053,7 @@ public class Vision {
     // Select the best pose candidate
     SelectionResult selection = selectBestPose(estimations, swerveDrive);
     lastSelectedFusedPose = selection.bestCandidate().map(FusionCandidate::pose);
+    maybeCaptureHighStdSnapshots(cameraData, selection);
     long t3 = System.nanoTime();
 
     // Apply the vision measurement to the swerve drive
@@ -926,6 +1073,70 @@ public class Vision {
     logAprilTagTelemetryOnChange(cameraData, swerveDrive.getPose(), selection.bestCandidate());
     logTeleopAprilTagRecord(cameraData, estimations);
     logPipelineCycle(t0, t1, t2, t3, t4);
+  }
+
+  private void maybeCaptureHighStdSnapshots(
+      Map<Cameras, CameraSnapshot> cameraData, SelectionResult selection) {
+    double nowSec = Timer.getFPGATimestamp();
+
+    for (RejectedCandidate rejected : selection.rejectedCandidates()) {
+      if (!shouldCaptureHighStdSnapshot(rejected, HIGH_STD_SNAPSHOT_TAG_ID)) {
+        continue;
+      }
+
+      double lastCaptureSec =
+          lastHighStdSnapshotSec.getOrDefault(rejected.camera(), Double.NEGATIVE_INFINITY);
+      if ((nowSec - lastCaptureSec) < HIGH_STD_SNAPSHOT_COOLDOWN_SEC) {
+        continue;
+      }
+
+      CameraSnapshot snapshot = cameraData.get(rejected.camera());
+      if (snapshot == null || snapshot.latestResult() == null || !snapshot.latestResult().hasTargets()) {
+        continue;
+      }
+
+      rejected.camera().getCamera().takeInputSnapshot();
+      rejected.camera().getCamera().takeOutputSnapshot();
+      lastHighStdSnapshotSec.put(rejected.camera(), nowSec);
+
+      Matrix<N3, N1> stdDevs = rejected.stdDevs();
+      double stdX = stdDevs == null ? Double.NaN : stdDevs.get(0, 0);
+      double stdY = stdDevs == null ? Double.NaN : stdDevs.get(1, 0);
+      double stdTheta = stdDevs == null ? Double.NaN : stdDevs.get(2, 0);
+      Pose2d pose = rejected.pose();
+
+      BufferedLogger.getInstance()
+          .printf(
+              "[VisionPipeline] SNAPSHOT camera=%s reason=tag_%d_high_std ts=%.3f pose=(%.3f, %.3f, %.1fdeg) err=%.3f rotErr=%.1f std=(%.3f, %.3f, %.3f)",
+              rejected.camera().name(),
+              HIGH_STD_SNAPSHOT_TAG_ID,
+              rejected.timestampSec(),
+              pose == null ? Double.NaN : pose.getX(),
+              pose == null ? Double.NaN : pose.getY(),
+              pose == null ? Double.NaN : pose.getRotation().getDegrees(),
+              rejected.translationError(),
+              rejected.rotationErrorDeg(),
+              stdX,
+              stdY,
+              stdTheta);
+    }
+  }
+
+  private static boolean shouldCaptureHighStdSnapshot(RejectedCandidate rejected, int tagId) {
+    if (!"high_std".equals(rejected.reason())) {
+      return false;
+    }
+    if (rejected.tagCount() != 1) {
+      return false;
+    }
+    if (rejected.targetsUsed() == null || rejected.targetsUsed().isEmpty()) {
+      return false;
+    }
+    PhotonTrackedTarget target = rejected.targetsUsed().get(0);
+    if (target.getFiducialId() != tagId) {
+      return false;
+    }
+    return true;
   }
 
   /** Returns the latest selected fused pose from the vision pipeline. */
