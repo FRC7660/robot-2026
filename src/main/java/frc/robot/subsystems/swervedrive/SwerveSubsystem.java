@@ -47,7 +47,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.json.simple.parser.ParseException;
-import org.photonvision.EstimatedRobotPose;
 import swervelib.SwerveController;
 import swervelib.SwerveDrive;
 import swervelib.SwerveDriveTest;
@@ -404,41 +403,40 @@ public class SwerveSubsystem extends SubsystemBase {
 
     List<Vision.PoseEstimationResult> estimations =
         vision.estimateCameraPosesFromAprilTags(cameraData);
-    Optional<EstimatedRobotPose> bestEstimate = Optional.empty();
-    Vision.PoseEstimationResult bestResult = null;
-    int bestTagCount = -1;
-    double bestTimestampSec = Double.NEGATIVE_INFINITY;
-
-    for (Vision.PoseEstimationResult est : estimations) {
-      if (est.estimatedPose().isEmpty()) {
-        continue;
+    Vision.SelectionResult selection =
+        vision.selectBestPoseForReset(estimations, swerveDrive, minTagCount);
+    if (selection.bestCandidate().isEmpty()) {
+      int bestObservedTagCount =
+          estimations.stream()
+              .filter(est -> est.estimatedPose().isPresent())
+              .mapToInt(est -> est.estimatedPose().get().targetsUsed.size())
+              .max()
+              .orElse(0);
+      boolean insufficientTags =
+          selection.rejectedCandidates().stream()
+              .anyMatch(candidate -> "insufficient_tags".equals(candidate.reason()));
+      if (insufficientTags && bestObservedTagCount > 0 && bestObservedTagCount < minTagCount) {
+        System.out.printf(
+            "[PoseReset] source=APRILTAG failed=insufficient_tags tags=%d min=%d%n",
+            bestObservedTagCount, minTagCount);
+      } else if (bestObservedTagCount == 0) {
+        System.out.println("[PoseReset] source=APRILTAG failed=no_visible_tags");
+      } else {
+        System.out.println("[PoseReset] source=APRILTAG failed=no_acceptable_pose");
       }
-      int tagCount = est.estimatedPose().get().targetsUsed.size();
-      double ts = est.estimatedPose().get().timestampSeconds;
-      if (tagCount > bestTagCount || (tagCount == bestTagCount && ts > bestTimestampSec)) {
-        bestEstimate = est.estimatedPose();
-        bestResult = est;
-        bestTagCount = tagCount;
-        bestTimestampSec = ts;
-      }
-    }
-
-    if (bestEstimate.isEmpty()) {
-      System.out.println("[PoseReset] source=APRILTAG failed=no_visible_tags");
-      return false;
-    }
-    if (bestTagCount < minTagCount) {
-      System.out.printf(
-          "[PoseReset] source=APRILTAG failed=insufficient_tags tags=%d min=%d%n",
-          bestTagCount, minTagCount);
       return false;
     }
 
-    Pose2d pose = bestEstimate.get().estimatedPose.toPose2d();
-    swerveDrive.addVisionMeasurement(pose, bestTimestampSec, bestResult.stdDevs());
+    Vision.FusionCandidate bestCandidate = selection.bestCandidate().get();
+    Pose2d pose = bestCandidate.pose();
+    swerveDrive.addVisionMeasurement(pose, bestCandidate.timestampSec(), bestCandidate.stdDevs());
     System.out.printf(
         "[PoseReset] source=APRILTAG fused_pose=(%.3f, %.3f, %.1fdeg) tags=%d ts=%.3f%n",
-        pose.getX(), pose.getY(), pose.getRotation().getDegrees(), bestTagCount, bestTimestampSec);
+        pose.getX(),
+        pose.getY(),
+        pose.getRotation().getDegrees(),
+        bestCandidate.tagCount(),
+        bestCandidate.timestampSec());
     return true;
   }
 
