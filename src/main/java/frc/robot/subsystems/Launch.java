@@ -116,11 +116,6 @@ public class Launch extends SubsystemBase {
     return RPM.of(2000);
   }
 
-  /** Calculate and return a velocity setpoint based on distance */
-  public AngularVelocity getOptimalVelocity() {
-    return RPM.of(2000);
-  }
-
   public void stop() {
     shooter.run(RPM.of(0));
   }
@@ -164,7 +159,7 @@ public class Launch extends SubsystemBase {
       Commands.repeatingSequence(
               // Pause the funnel to allow the flywheel to re-spool
               Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
-              Commands.run(
+              Commands.runOnce(
                   () -> {
                     // PLACEHOLDER: getOptimalVelocity should not just return 2000; attach the
                     // distance and SWM calculations
@@ -172,8 +167,9 @@ public class Launch extends SubsystemBase {
                   }),
               Commands.waitUntil(optimalVelocityReached),
               // PLACEHOLDER: Should probably index faster than this
-              Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(70.0))))
-          .handleInterrupt(() -> shotSequenceEnd(indexSystem)));
+              Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
+              Commands.waitUntil(optimalVelocityReached.negate())))
+          .handleInterrupt(() -> shotSequenceEnd(indexSystem));
   }
 
   private void shotSequenceEnd(Index indexSystem) {
