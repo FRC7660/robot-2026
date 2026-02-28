@@ -195,14 +195,19 @@ public class Turret extends SubsystemBase {
     turretPivot.updateTelemetry();
     Optional<Angle> sp = turretSmartMotorController.getMechanismPositionSetpoint();
     double setPoint = sp.isPresent() ? sp.get().in(Degrees) : -1.0;
-    SmartDashboard.putNumber("Turret/PositionRot", (turretMotor.getEncoder().getPosition() / Constants.Turret.TURRET_GEAR_RATIO) * 360);
+    SmartDashboard.putNumber(
+        "Turret/PositionRot",
+        (turretMotor.getEncoder().getPosition() / Constants.Turret.TURRET_GEAR_RATIO) * 360);
     SmartDashboard.putNumber("Turret/Setpoint (Calc)", getRobotRelativeAngle().getDegrees());
-    SmartDashboard.putNumber("Turret/Position", turretSmartMotorController.getMechanismPosition().in(Degrees));
+    SmartDashboard.putNumber(
+        "Turret/Position", turretSmartMotorController.getMechanismPosition().in(Degrees));
     SmartDashboard.putNumber("Turret/FieldAngle", lastFieldAngle.getDegrees());
     SmartDashboard.putNumber("Turret/RobotAngle", getPose.get().getRotation().getDegrees());
     SmartDashboard.putNumber("Turret/Setpoint", setPoint);
+    SmartDashboard.putString(
+        "Turret/Target", "(" + lastTarget.getX() + "," + lastTarget.getY() + ")");
   }
-  
+
   @Override
   public void simulationPeriodic() {
     // Update simulation physics and visualization
