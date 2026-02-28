@@ -139,20 +139,18 @@ public class Launch extends SubsystemBase {
     shooter.simIterate();
   }
 
-  /**
-   * PLACEHOLDER: This trigger will check the velocity of the flywheel (in the right UNIT) and
-   * return true if said velocity is greater than or equal to the distance-based velocity setpoint
-   * with a error margin of 1% (should be tested)
-   */
-  Supplier<AngularVelocity> s_velSupplier = () -> getVelocity();
-
-  Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity();
-
-  public Trigger optimalVelocityReached =
-      new Trigger(
-          () -> (s_velSupplier.get().in(RPM) * 0.99 >= s_velSetpointSupplier.get().in(RPM)));
-
   public Command shotSequenceStart(Index indexSystem) {
+      /**
+     * PLACEHOLDER: This trigger will check the velocity of the flywheel (in the right UNIT) and
+     * return true if said velocity is greater than or equal to the distance-based velocity setpoint
+     * with a error margin of 1% (should be tested)
+     */
+    Supplier<AngularVelocity> s_velSupplier = () -> getVelocity();
+    Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity();
+    public Trigger optimalVelocityReached =
+        new Trigger(
+            () -> (s_velSupplier.get().in(RPM) * 0.99 >= s_velSetpointSupplier.get().in(RPM)));
+    
     return Commands.repeatingSequence(
             // Pause the funnel to allow the flywheel to re-spool
             Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(50.0))),
