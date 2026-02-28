@@ -1,13 +1,11 @@
 package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Amps;
-import static edu.wpi.first.units.Units.DegreesPerSecond;
-import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Pounds;
 import static edu.wpi.first.units.Units.RPM;
-import static edu.wpi.first.units.Units.Seconds;
 import static edu.wpi.first.units.Units.Second;
+import static edu.wpi.first.units.Units.Seconds;
 
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
@@ -40,10 +38,8 @@ public class Index extends SubsystemBase {
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
           // Feedback Constants (PID Constants)
-          .withClosedLoopController(
-               0, 0, 0, RPM.of(470), RPM.per(Second).of(2000))
-          .withSimClosedLoopController(
-               0, 0, 0, RPM.of(470), RPM.per(Second).of(2000))
+          .withClosedLoopController(0, 0, 0, RPM.of(470), RPM.per(Second).of(2000))
+          .withSimClosedLoopController(0, 0, 0, RPM.of(470), RPM.per(Second).of(2000))
           // Feedforward Constants
           .withFeedforward(new SimpleMotorFeedforward(0, 1.5, 0))
           .withSimFeedforward(new SimpleMotorFeedforward(0, 1.5, 0))
@@ -138,10 +134,8 @@ public class Index extends SubsystemBase {
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
           // Feedback Constants (PID Constants)
-          .withClosedLoopController(
-              0, 0, 0, RPM.of(470), RPM.per(Second).of(2000))
-          .withSimClosedLoopController(
-              0, 0, 0, RPM.of(470), RPM.per(Second).of(2000))
+          .withClosedLoopController(0, 0, 0, RPM.of(470), RPM.per(Second).of(2000))
+          .withSimClosedLoopController(0, 0, 0, RPM.of(470), RPM.per(Second).of(2000))
           // Feedforward Constants
           .withFeedforward(new SimpleMotorFeedforward(0, 0, 0))
           .withSimFeedforward(new SimpleMotorFeedforward(0, 1.5, 0))
