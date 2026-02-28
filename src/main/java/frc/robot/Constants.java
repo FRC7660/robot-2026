@@ -91,8 +91,8 @@ public final class Constants {
     // Turret gearing: motor rotations -> turret rotations
     public static final double TURRET_GEAR_RATIO = 40.0;
     // PID for turret position (motor rotations)
-    public static final double TURRET_P = 0.2;
-    public static final double TURRET_I = 0.0;
+    public static final double TURRET_P = 7.0;
+    public static final double TURRET_I = 1.0;
     public static final double TURRET_D = 0.0;
   }
 }
