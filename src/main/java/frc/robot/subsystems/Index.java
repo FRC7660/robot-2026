@@ -8,6 +8,8 @@ import static edu.wpi.first.units.Units.Pounds;
 import static edu.wpi.first.units.Units.RPM;
 import static edu.wpi.first.units.Units.Seconds;
 
+import java.util.Optional;
+
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
@@ -99,6 +101,13 @@ public class Index extends SubsystemBase {
   }
 
   /**
+   * Get the index velocity setpoint.
+   */
+  public Optional<AngularVelocity> getVelocitySetpointindex() {
+    return Optional.of(indexer.getMechanismSetpointVelocity().orElse(RPM.of(0)));
+  }
+
+  /**
    * Set the index velocity.
    *
    * @param speed Speed to set.
@@ -123,6 +132,7 @@ public class Index extends SubsystemBase {
     // This method will be called once per scheduler run
     indexer.updateTelemetry();
     funneler.updateTelemetry();
+    setVelocityindex(getVelocitySetpointindex().get());
   }
 
   @Override
