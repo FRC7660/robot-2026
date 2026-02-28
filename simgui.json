@@ -67,6 +67,7 @@
       "/SmartDashboard/Field": "Field2d",
       "/SmartDashboard/IMU": "Alerts",
       "/SmartDashboard/JSON": "Alerts",
+      "/SmartDashboard/Mechanisms/Commands/Index/Live Tuning": "Command",
       "/SmartDashboard/Mechanisms/Commands/Intake/Live Tuning": "Command",
       "/SmartDashboard/Mechanisms/Commands/Launch/Live Tuning": "Command",
       "/SmartDashboard/Mechanisms/Commands/LiftMotor/Down": "Command",
@@ -75,6 +76,9 @@
       "/SmartDashboard/Mechanisms/Commands/ShooterMotor/Down": "Command",
       "/SmartDashboard/Mechanisms/Commands/ShooterMotor/Up": "Command",
       "/SmartDashboard/Mechanisms/Commands/ShooterMotor/ZeroEncoder": "Command",
+      "/SmartDashboard/Mechanisms/Commands/indexerMotor/Down": "Command",
+      "/SmartDashboard/Mechanisms/Commands/indexerMotor/Up": "Command",
+      "/SmartDashboard/Mechanisms/Commands/indexerMotor/ZeroEncoder": "Command",
       "/SmartDashboard/Motors": "Alerts",
       "/SmartDashboard/PathPlanner": "Alerts",
       "/SmartDashboard/PhotonAlerts": "Alerts",
@@ -84,16 +88,13 @@
       "/SmartDashboard/ShooterConfig/mechanism": "Mechanism2d",
       "/SmartDashboard/Swerve Drive": "Alerts",
       "/SmartDashboard/VisionSystemSim-Vision/Sim Field": "Field2d",
+      "/SmartDashboard/funnel/mechanism": "Mechanism2d",
+      "/SmartDashboard/indexer/mechanism": "Mechanism2d",
       "/SmartDashboard/navX-Sensor[1]": "Gyro",
       "/SmartDashboard/navX-Sensor[4]": "Gyro"
     },
     "windows": {
       "/FMSInfo": {
-        "window": {
-          "visible": true
-        }
-      },
-      "/SmartDashboard/Arm/mechanism": {
         "window": {
           "visible": true
         }
@@ -133,26 +134,212 @@
         "window": {
           "visible": true
         }
+      },
+      "/SmartDashboard/Mechanisms/Commands/Index/Live Tuning": {
+        "window": {
+          "visible": true
+        }
+      },
+      "/SmartDashboard/funnel/mechanism": {
+        "window": {
+          "visible": true
+        }
+      },
+      "/SmartDashboard/indexer/mechanism": {
+        "window": {
+          "visible": true
+        }
       }
     }
   },
   "NetworkTables": {
     "transitory": {
-      "FMSInfo": {
-        "open": true
+      "Mechanisms": {
+        "funnel": {
+          "ShooterMotor": {
+            "closedloop": {
+              "open": true,
+              "setpoint": {
+                "open": true
+              }
+            },
+            "mechanism": {
+              "open": true
+            },
+            "open": true
+          }
+        },
+        "indexer": {
+          "indexerMotor": {
+            "closedloop": {
+              "open": true,
+              "setpoint": {
+                "open": true
+              }
+            },
+            "current": {
+              "open": true
+            },
+            "mechanism": {
+              "open": true
+            },
+            "motor": {
+              "open": true
+            },
+            "open": true
+          },
+          "open": true
+        }
       },
       "SmartDashboard": {
         "Field": {
           "open": true
         },
-        "open": true,
         "swerve": {
           "open": true
         }
+      },
+      "Tuning": {
+        "funnel": {
+          "ShooterMotor": {
+            "closedloop": {
+              "feedback": {
+                "open": true
+              },
+              "feedforward": {
+                "open": true
+              },
+              "motionprofile": {
+                "open": true
+              },
+              "open": true,
+              "setpoint": {
+                "open": true
+              }
+            },
+            "current": {
+              "limit": {
+                "open": true
+              },
+              "open": true
+            },
+            "mechanism": {
+              "limit": {
+                "open": true
+              },
+              "open": true
+            },
+            "open": true,
+            "ramprate": {
+              "dutycycle": {
+                "open": true
+              },
+              "open": true
+            }
+          }
+        },
+        "indexer": {
+          "indexerMotor": {
+            "closedloop": {
+              "feedback": {
+                "open": true
+              },
+              "feedforward": {
+                "open": true
+              },
+              "motionprofile": {
+                "open": true
+              },
+              "open": true,
+              "setpoint": {
+                "open": true
+              }
+            },
+            "open": true
+          },
+          "open": true
+        },
+        "open": true
       }
     }
   },
   "NetworkTables Info": {
+    "Server": {
+      "open": true
+    },
     "visible": true
+  },
+  "Plot": {
+    "Plot <0>": {
+      "plots": [
+        {
+          "axis": [
+            {
+              "autoFit": true
+            }
+          ],
+          "backgroundColor": [
+            0.9399999976158142,
+            0.9399999976158142,
+            0.9399999976158142,
+            1.0
+          ],
+          "height": 421,
+          "series": [
+            {
+              "color": [
+                0.2980392277240753,
+                0.44705885648727417,
+                0.6901960968971252,
+                1.0
+              ],
+              "id": "NT:/Mechanisms/funnel/ShooterMotor/closedloop/setpoint/velocity"
+            },
+            {
+              "color": [
+                0.8666667342185974,
+                0.5176470875740051,
+                0.32156863808631897,
+                1.0
+              ],
+              "id": "NT:/Mechanisms/funnel/ShooterMotor/mechanism/velocity"
+            }
+          ]
+        }
+      ]
+    },
+    "Plot <1>": {
+      "plots": [
+        {
+          "backgroundColor": [
+            0.9399999976158142,
+            0.9399999976158142,
+            0.9399999976158142,
+            1.0
+          ],
+          "height": 430,
+          "series": [
+            {
+              "color": [
+                0.6901960968971252,
+                0.2980392277240753,
+                0.6727670431137085,
+                1.0
+              ],
+              "id": "NT:/Mechanisms/indexer/indexerMotor/mechanism/velocity"
+            },
+            {
+              "color": [
+                0.9518518447875977,
+                0.059931401163339615,
+                0.059931401163339615,
+                1.0
+              ],
+              "id": "NT:/Mechanisms/indexer/indexerMotor/closedloop/setpoint/velocity"
+            }
+          ]
+        }
+      ]
+    }
   }
 }
