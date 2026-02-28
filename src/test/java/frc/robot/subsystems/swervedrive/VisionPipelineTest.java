@@ -9,6 +9,8 @@ import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import java.util.ArrayList;
@@ -28,13 +30,20 @@ class VisionPipelineTest {
   // ── Helper methods ──────────────────────────────────────────────────────
 
   private static PhotonTrackedTarget makeTarget(int fiducialId) {
-    return makeTarget(fiducialId, 0.1);
+    return makeTarget(fiducialId, 0.1, Math.max(0.0, fiducialId));
   }
 
   private static PhotonTrackedTarget makeTarget(int fiducialId, double ambiguity) {
+    return makeTarget(fiducialId, ambiguity, Math.max(0.0, fiducialId));
+  }
+
+  private static PhotonTrackedTarget makeTarget(
+      int fiducialId, double ambiguity, double cameraDistanceMeters) {
     PhotonTrackedTarget target = mock(PhotonTrackedTarget.class);
     when(target.getFiducialId()).thenReturn(fiducialId);
     when(target.getPoseAmbiguity()).thenReturn(ambiguity);
+    when(target.getBestCameraToTarget())
+        .thenReturn(new Transform3d(new Translation3d(cameraDistanceMeters, 0.0, 0.0), new Rotation3d()));
     return target;
   }
 
@@ -108,7 +117,7 @@ class VisionPipelineTest {
   @Test
   void computeStdDevs_singleTagFar_returnsMaxValue() {
     // Tag 1 at (1,0,0). Robot estimated at (-4,0,0). Distance = 5m > 4m threshold.
-    PhotonTrackedTarget target = makeTarget(1);
+    PhotonTrackedTarget target = makeTarget(1, 0.1, 5.0);
     EstimatedRobotPose est = makeEstimatedPose(-4.0, 0.0, 1.0, List.of(target));
 
     Matrix<N3, N1> result =
@@ -153,8 +162,8 @@ class VisionPipelineTest {
     when(layout.getTagPose(1)).thenReturn(Optional.of(new Pose3d(0, 0, 0, new Rotation3d())));
     when(layout.getTagPose(2)).thenReturn(Optional.of(new Pose3d(0, 0, 0, new Rotation3d())));
 
-    PhotonTrackedTarget target1 = makeTarget(1);
-    PhotonTrackedTarget target2 = makeTarget(2);
+    PhotonTrackedTarget target1 = makeTarget(1, 0.1, 0.0);
+    PhotonTrackedTarget target2 = makeTarget(2, 0.1, 0.0);
     EstimatedRobotPose est = makeEstimatedPose(0.0, 0.0, 1.0, List.of(target1, target2));
 
     Matrix<N3, N1> result =
@@ -339,7 +348,7 @@ class VisionPipelineTest {
     Cameras cam = Cameras.values()[0];
     PhotonTrackedTarget target1 = makeTarget(1);
     PhotonTrackedTarget target2 = makeTarget(2);
-    EstimatedRobotPose est = makeEstimatedPose(0.9, 0.0, 1.0, List.of(target1, target2));
+    EstimatedRobotPose est = makeEstimatedPose(0.4, 0.0, 1.0, List.of(target1, target2));
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
@@ -608,5 +617,75 @@ class VisionPipelineTest {
 
     assertTrue(result.bestCandidate().isEmpty());
     assertEquals(1, result.rejectedOutlier());
+  }
+
+  @Test
+  void selectResetPose_prefersHigherTagCountOverCloserOdometry() {
+    Cameras[] cams = Cameras.values();
+    assertTrue(cams.length >= 2);
+
+    PhotonTrackedTarget nearTarget = makeTarget(1);
+    EstimatedRobotPose nearEstimate = makeEstimatedPose(0.1, 0.0, 1.0, List.of(nearTarget));
+    Matrix<N3, N1> nearStdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    PhotonTrackedTarget farTarget1 = makeTarget(1);
+    PhotonTrackedTarget farTarget2 = makeTarget(2);
+    EstimatedRobotPose farEstimate = makeEstimatedPose(2.0, 0.0, 2.0, List.of(farTarget1, farTarget2));
+    Matrix<N3, N1> farStdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(
+            new Vision.PoseEstimationResult(
+                cams[0], Optional.of(nearEstimate), nearStdDevs, 1, 2.0, Double.NaN, Double.NaN),
+            new Vision.PoseEstimationResult(
+                cams[1], Optional.of(farEstimate), farStdDevs, 1, 2.0, Double.NaN, Double.NaN));
+
+    Vision.SelectionResult result =
+        Vision.selectResetPose(estimations, new Pose2d(), 2.0, 0.0, 0.0, 1);
+
+    assertTrue(result.bestCandidate().isPresent());
+    assertEquals(cams[1], result.bestCandidate().get().camera());
+    assertEquals(2, result.bestCandidate().get().tagCount());
+  }
+
+  @Test
+  void selectResetPose_minTagCountRejectsSingleTagCandidate() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target = makeTarget(1);
+    EstimatedRobotPose estimate = makeEstimatedPose(0.1, 0.0, 2.0, List.of(target));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(estimate), stdDevs, 1, 2.0, Double.NaN, Double.NaN));
+
+    Vision.SelectionResult result =
+        Vision.selectResetPose(estimations, new Pose2d(), 2.0, 0.0, 0.0, 2);
+
+    assertTrue(result.bestCandidate().isEmpty());
+    assertTrue(
+        result.rejectedCandidates().stream()
+            .anyMatch(candidate -> "insufficient_tags".equals(candidate.reason())));
+  }
+
+  @Test
+  void selectResetPose_ignoresTranslationOutlierToAllowRecovery() {
+    Cameras cam = Cameras.values()[0];
+    PhotonTrackedTarget target1 = makeTarget(1);
+    PhotonTrackedTarget target2 = makeTarget(2);
+    EstimatedRobotPose estimate = makeEstimatedPose(2.5, 0.0, 2.0, List.of(target1, target2));
+    Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
+
+    List<Vision.PoseEstimationResult> estimations =
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(estimate), stdDevs, 1, 2.0, Double.NaN, Double.NaN));
+
+    Vision.SelectionResult result =
+        Vision.selectResetPose(estimations, new Pose2d(), 2.0, 0.0, 0.0, 2);
+
+    assertTrue(result.bestCandidate().isPresent());
+    assertEquals(0, result.rejectedOutlier());
   }
 }

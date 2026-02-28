@@ -45,7 +45,7 @@ public class Vision {
     BASIC
   }
 
-  // -- Data records for pipeline stages --------------------------------------
+  // ── Data records for pipeline stages ──────────────────────────────────────
 
   /** Raw data from one camera in a single cycle. */
   public record CameraSnapshot(
@@ -59,7 +59,9 @@ public class Vision {
       Optional<EstimatedRobotPose> estimatedPose,
       Matrix<N3, N1> stdDevs,
       int processedResultCount,
-      double cameraLatestTimestampSec) {}
+      double cameraLatestTimestampSec,
+      double avgCameraDistanceMeters,
+      double avgFieldDistanceMeters) {}
 
   /** A candidate that passed rejection filters. */
   public record FusionCandidate(
@@ -75,10 +77,23 @@ public class Vision {
       Matrix<N3, N1> stdDevs,
       double score) {}
 
+  /** A candidate that was rejected during selection. */
+  public record RejectedCandidate(
+      Cameras camera,
+      String reason,
+      Pose2d pose,
+      double timestampSec,
+      int tagCount,
+      double translationError,
+      double rotationErrorDeg,
+      Matrix<N3, N1> stdDevs,
+      List<PhotonTrackedTarget> targetsUsed) {}
+
   /** Output of the selection step. */
   public record SelectionResult(
       Optional<FusionCandidate> bestCandidate,
       List<FusionCandidate> acceptedCandidates,
+      List<RejectedCandidate> rejectedCandidates,
       int rejectedNoEstimate,
       int rejectedStale,
       int rejectedLowTagFar,
@@ -91,7 +106,40 @@ public class Vision {
   public record CameraTagObservation(
       int tagId, double yawDeg, double distanceMeters, double tsSec) {}
 
-  // -- Constants -------------------------------------------------------------
+  private enum CandidateScoreMode {
+    ADVANCED,
+    BASIC,
+    RESET
+  }
+
+  private record SelectionPolicy(
+      boolean rejectPreviouslyFused,
+      boolean rejectMeasurementAge,
+      boolean rejectCameraLatency,
+      boolean rejectOutOfField,
+      boolean rejectSingleTagAmbiguity,
+      boolean rejectSingleTagFarFromOdometry,
+      boolean rejectSingleTagMotion,
+      boolean rejectHighStd,
+      boolean rejectTranslationOutlier,
+      boolean rejectRotationOutlier,
+      int minTagCount,
+      boolean forceAcceptOutliers,
+      CandidateScoreMode scoreMode) {}
+
+  private record CandidateMetrics(
+      EstimatedRobotPose estimatedPose,
+      Pose2d pose2d,
+      int tagCount,
+      double translationError,
+      double rotationErrorDeg,
+      double worstAmbiguity,
+      Matrix<N3, N1> stdDevs,
+      double stdX,
+      double stdY,
+      double stdTheta) {}
+
+  // ── Constants ─────────────────────────────────────────────────────────────
 
   /** April Tag Field Layout of the year. */
   public static final AprilTagFieldLayout fieldLayout =
@@ -116,6 +164,8 @@ public class Vision {
   static final double MAX_CAMERA_LATENCY_SEC = 0.20;
   static final double MAX_SINGLE_TAG_SPEED_MPS = 2.5;
   static final double MAX_SINGLE_TAG_ANGULAR_SPEED_RAD_PER_SEC = 4.0;
+  private static final int HIGH_STD_SNAPSHOT_TAG_ID = 7;
+  private static final double HIGH_STD_SNAPSHOT_COOLDOWN_SEC = 3.0;
   private static final double FUSION_STATUS_LOG_PERIOD_SEC = 1.0;
   private static final double PIPELINE_STATS_LOG_PERIOD_SEC = 5.0;
   private static final double POSE_LOG_TRANSLATION_DELTA_METERS = 0.05;
@@ -132,7 +182,7 @@ public class Vision {
   private static final int STEP_TOTAL = 4;
   private static final String[] PIPELINE_STEP_LABELS = {"fetch", "est", "select", "apply", "total"};
 
-  // -- Instance state --------------------------------------------------------
+  // ── Instance state ────────────────────────────────────────────────────────
 
   /** Current pose from the pose estimator using wheel odometry. */
   private Supplier<Pose2d> currentPose;
@@ -163,6 +213,7 @@ public class Vision {
   private Optional<Pose2d> lastSelectedFusedPose = Optional.empty();
   private final EnumMap<Cameras, CameraTagObservation> lastLoggedCameraTagObs =
       new EnumMap<>(Cameras.class);
+  private final EnumMap<Cameras, Double> lastHighStdSnapshotSec = new EnumMap<>(Cameras.class);
   // volatile: defensive guard so any future move of process() to a background thread stays safe.
   private volatile Map<Cameras, CameraSnapshot> latestCameraData = new EnumMap<>(Cameras.class);
   private double lastTeleopTagRecordLogSec = Double.NEGATIVE_INFINITY;
@@ -187,6 +238,7 @@ public class Vision {
 
     for (Cameras camera : Cameras.values()) {
       lastFusedTimestampSec.put(camera, Double.NEGATIVE_INFINITY);
+      lastHighStdSnapshotSec.put(camera, Double.NEGATIVE_INFINITY);
     }
     for (int i = 0; i < PIPELINE_STEP_COUNT; i++) {
       pipelineStepMinMs[i] = Double.POSITIVE_INFINITY;
@@ -196,7 +248,7 @@ public class Vision {
     }
   }
 
-  // -- Pipeline Step 1: getCameraData() --------------------------------------
+  // ── Pipeline Step 1: getCameraData() ──────────────────────────────────────
 
   /**
    * Fetch raw results from all cameras.
@@ -216,7 +268,7 @@ public class Vision {
     return data;
   }
 
-  // -- Pipeline Step 2: estimateCameraPosesFromAprilTags() --------------------------------
+  // ── Pipeline Step 2: estimateCameraPosesFromAprilTags() ────────────────────────────────
 
   /**
    * Run pose estimation on each camera's results.
@@ -235,6 +287,8 @@ public class Vision {
       Optional<EstimatedRobotPose> visionEst = Optional.empty();
       Matrix<N3, N1> stdDevs = camera.getSingleTagStdDevs();
       int processedCount = 0;
+      double avgCameraDistanceMeters = Double.NaN;
+      double avgFieldDistanceMeters = Double.NaN;
 
       // Feed every unread frame to the estimator so its internal timestamp tracking stays
       // accurate. Only the final (most recent) estimate is surfaced; intermediate estimates
@@ -243,6 +297,8 @@ public class Vision {
         visionEst = camera.getPoseEstimator().update(result);
         List<PhotonTrackedTarget> targets =
             visionEst.isPresent() ? visionEst.get().targetsUsed : result.getTargets();
+        avgCameraDistanceMeters = computeAverageCameraDistanceMeters(targets);
+        avgFieldDistanceMeters = computeAverageFieldDistanceMeters(visionEst, targets, fieldLayout);
         stdDevs =
             computeStdDevs(
                 visionEst,
@@ -255,12 +311,20 @@ public class Vision {
 
       double latestTs =
           snapshot.latestResult() != null ? snapshot.latestResult().getTimestampSeconds() : 0.0;
-      results.add(new PoseEstimationResult(camera, visionEst, stdDevs, processedCount, latestTs));
+      results.add(
+          new PoseEstimationResult(
+              camera,
+              visionEst,
+              stdDevs,
+              processedCount,
+              latestTs,
+              avgCameraDistanceMeters,
+              avgFieldDistanceMeters));
     }
     return results;
   }
 
-  // -- Pipeline Step 2b: computeStdDevs() (pure static) ---------------------
+  // ── Pipeline Step 2b: computeStdDevs() (pure static) ─────────────────────
 
   /**
    * Compute standard deviations for a pose estimate.
@@ -284,7 +348,7 @@ public class Vision {
 
     var estStdDevs = singleTagStdDevs;
     int numTags = 0;
-    double avgDist = 0;
+    double avgFieldDist = 0;
 
     for (var tgt : targets) {
       var tagPose = fieldTags.getTagPose(tgt.getFiducialId());
@@ -292,7 +356,7 @@ public class Vision {
         continue;
       }
       numTags++;
-      avgDist +=
+      avgFieldDist +=
           tagPose
               .get()
               .toPose2d()
@@ -304,19 +368,99 @@ public class Vision {
       return singleTagStdDevs;
     }
 
-    avgDist /= numTags;
+    avgFieldDist /= numTags;
+    double avgCameraDist = computeAverageCameraDistanceMeters(targets);
+    double stdScaleDistanceMeters =
+        Double.isFinite(avgCameraDist) ? avgCameraDist : avgFieldDist;
+
     if (numTags > 1) {
       estStdDevs = multiTagStdDevs;
     }
-    if (numTags == 1 && avgDist > SINGLE_TAG_MAX_TRUSTED_DISTANCE_METERS) {
+    if (numTags == 1 && stdScaleDistanceMeters > SINGLE_TAG_MAX_TRUSTED_DISTANCE_METERS) {
       estStdDevs = VecBuilder.fill(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE);
     } else {
-      estStdDevs = estStdDevs.times(1 + (avgDist / 5));
+      estStdDevs = estStdDevs.times(1 + (stdScaleDistanceMeters / 5));
     }
     return estStdDevs;
   }
 
-  // -- Pipeline Step 3: selectAdvancedPose() ---------------------------------
+  private static double computeAverageCameraDistanceMeters(List<PhotonTrackedTarget> targets) {
+    if (targets == null || targets.isEmpty()) {
+      return Double.NaN;
+    }
+    int count = 0;
+    double sum = 0.0;
+    for (PhotonTrackedTarget target : targets) {
+      if (target.getFiducialId() <= 0) {
+        continue;
+      }
+      double dist = target.getBestCameraToTarget().getTranslation().getNorm();
+      if (!Double.isFinite(dist)) {
+        continue;
+      }
+      sum += dist;
+      count++;
+    }
+    return count == 0 ? Double.NaN : sum / count;
+  }
+
+  private static double computeAverageFieldDistanceMeters(
+      Optional<EstimatedRobotPose> estimatedPose,
+      List<PhotonTrackedTarget> targets,
+      AprilTagFieldLayout fieldTags) {
+    if (estimatedPose.isEmpty() || targets == null || targets.isEmpty()) {
+      return Double.NaN;
+    }
+    int count = 0;
+    double sum = 0.0;
+    for (PhotonTrackedTarget target : targets) {
+      var tagPose = fieldTags.getTagPose(target.getFiducialId());
+      if (tagPose.isEmpty()) {
+        continue;
+      }
+      sum +=
+          tagPose
+              .get()
+              .toPose2d()
+              .getTranslation()
+              .getDistance(estimatedPose.get().estimatedPose.toPose2d().getTranslation());
+      count++;
+    }
+    return count == 0 ? Double.NaN : sum / count;
+  }
+
+  private static void logRejectCandidate(
+      PoseEstimationResult est,
+      String reason,
+      int tagCount,
+      double translationErrorMeters,
+      double rotationErrorDeg,
+      double stdX,
+      double stdY,
+      double stdTheta,
+      double robotSpeedMps,
+      double robotOmegaRadPerSec) {
+    BufferedLogger.getInstance()
+        .printf(
+            "[VisionPipeline] REJECT camera=%s reason=%s ts=%.3f tags=%d"
+                + " err=%.3f rotErr=%.1f std=(%.3f, %.3f, %.3f)"
+                + " distCam=%.3f distField=%.3f speed=%.2f omega=%.2f",
+            est.camera().name(),
+            reason,
+            est.cameraLatestTimestampSec(),
+            tagCount,
+            translationErrorMeters,
+            rotationErrorDeg,
+            stdX,
+            stdY,
+            stdTheta,
+            est.avgCameraDistanceMeters(),
+            est.avgFieldDistanceMeters(),
+            robotSpeedMps,
+            robotOmegaRadPerSec);
+  }
+
+  // ── Pipeline Step 3: selectAdvancedPose() ─────────────────────────────────
 
   /**
    * Filter and score pose estimation results using advanced rejection filters, selecting the best
@@ -349,6 +493,56 @@ public class Vision {
       double nowSec,
       double robotSpeedMps,
       double robotOmegaRadPerSec) {
+    return selectPose(
+        estimations,
+        currentPose,
+        lastFusedTimestamps,
+        nowSec,
+        robotSpeedMps,
+        robotOmegaRadPerSec,
+        advancedSelectionPolicy(consecutiveOutliers));
+  }
+
+  static SelectionResult selectBasicPose(
+      List<PoseEstimationResult> estimations,
+      Pose2d currentPose,
+      Map<Cameras, Double> lastFusedTimestamps,
+      double nowSec) {
+    return selectPose(
+        estimations,
+        currentPose,
+        lastFusedTimestamps,
+        nowSec,
+        0.0,
+        0.0,
+        basicSelectionPolicy());
+  }
+
+  static SelectionResult selectResetPose(
+      List<PoseEstimationResult> estimations,
+      Pose2d currentPose,
+      double nowSec,
+      double robotSpeedMps,
+      double robotOmegaRadPerSec,
+      int minTagCount) {
+    return selectPose(
+        estimations,
+        currentPose,
+        new EnumMap<>(Cameras.class),
+        nowSec,
+        robotSpeedMps,
+        robotOmegaRadPerSec,
+        resetSelectionPolicy(minTagCount));
+  }
+
+  private static SelectionResult selectPose(
+      List<PoseEstimationResult> estimations,
+      Pose2d currentPose,
+      Map<Cameras, Double> lastFusedTimestamps,
+      double nowSec,
+      double robotSpeedMps,
+      double robotOmegaRadPerSec,
+      SelectionPolicy policy) {
     int rejNoEst = 0;
     int rejStale = 0;
     int rejLowTagFar = 0;
@@ -358,123 +552,184 @@ public class Vision {
     int rejOutOfField = 0;
     FusionCandidate best = null;
     List<FusionCandidate> acceptedCandidates = new ArrayList<>();
+    List<RejectedCandidate> rejectedCandidates = new ArrayList<>();
 
     double fieldLength = fieldLayout.getFieldLength();
     double fieldWidth = fieldLayout.getFieldWidth();
-    boolean forceAcceptOutlier = consecutiveOutliers >= CONSECUTIVE_OUTLIER_OVERRIDE_COUNT;
 
     for (PoseEstimationResult est : estimations) {
-      if (est.estimatedPose().isEmpty()) {
+      CandidateMetrics metrics = buildCandidateMetrics(est, currentPose);
+      if (metrics == null) {
         rejNoEst++;
+        rejectCandidate(
+            rejectedCandidates, est, null, "no_estimate", robotSpeedMps, robotOmegaRadPerSec);
         continue;
       }
-
-      var pose = est.estimatedPose().get();
-      Pose2d pose2d = pose.estimatedPose.toPose2d();
 
       double lastTs = lastFusedTimestamps.getOrDefault(est.camera(), Double.NEGATIVE_INFINITY);
-      if (pose.timestampSeconds <= lastTs + STALE_TIMESTAMP_EPSILON_SEC) {
+      if (policy.rejectPreviouslyFused()
+          && metrics.estimatedPose().timestampSeconds <= lastTs + STALE_TIMESTAMP_EPSILON_SEC) {
         rejStale++;
+        rejectCandidate(
+            rejectedCandidates,
+            est,
+            metrics,
+            "stale_timestamp",
+            robotSpeedMps,
+            robotOmegaRadPerSec);
         continue;
       }
-      if ((nowSec - pose.timestampSeconds) > MAX_VISION_MEASUREMENT_AGE_SEC) {
+      if (policy.rejectMeasurementAge()
+          && (nowSec - metrics.estimatedPose().timestampSeconds) > MAX_VISION_MEASUREMENT_AGE_SEC) {
         rejStale++;
+        rejectCandidate(
+            rejectedCandidates, est, metrics, "stale_age", robotSpeedMps, robotOmegaRadPerSec);
         continue;
       }
       double cameraLatencySec = Math.max(0.0, nowSec - est.cameraLatestTimestampSec());
-      if (cameraLatencySec > MAX_CAMERA_LATENCY_SEC) {
+      if (policy.rejectCameraLatency() && cameraLatencySec > MAX_CAMERA_LATENCY_SEC) {
         rejStale++;
+        rejectCandidate(
+            rejectedCandidates,
+            est,
+            metrics,
+            "stale_latency",
+            robotSpeedMps,
+            robotOmegaRadPerSec);
         continue;
       }
 
-      // Reject poses outside the field
-      double x = pose2d.getX();
-      double y = pose2d.getY();
-      if (x < 0 || x > fieldLength || y < 0 || y > fieldWidth) {
+      if (metrics.tagCount() < policy.minTagCount()) {
+        rejectCandidate(
+            rejectedCandidates,
+            est,
+            metrics,
+            "insufficient_tags",
+            robotSpeedMps,
+            robotOmegaRadPerSec);
+        continue;
+      }
+
+      double x = metrics.pose2d().getX();
+      double y = metrics.pose2d().getY();
+      if (policy.rejectOutOfField() && (x < 0 || x > fieldLength || y < 0 || y > fieldWidth)) {
         rejOutOfField++;
+        rejectCandidate(
+            rejectedCandidates,
+            est,
+            metrics,
+            "out_of_field",
+            robotSpeedMps,
+            robotOmegaRadPerSec);
         continue;
       }
 
-      int tagCount = pose.targetsUsed.size();
-
-      // Reject high-ambiguity single-tag estimates
-      if (tagCount < MIN_TAGS_FOR_DIRECT_ACCEPT) {
-        double worstAmbiguity = 0;
-        for (var target : pose.targetsUsed) {
-          double ambiguity = target.getPoseAmbiguity();
-          if (ambiguity != -1 && ambiguity > worstAmbiguity) {
-            worstAmbiguity = ambiguity;
-          }
-        }
-        if (worstAmbiguity > MAX_SINGLE_TAG_AMBIGUITY) {
-          rejAmbiguity++;
-          continue;
-        }
+      if (policy.rejectSingleTagAmbiguity()
+          && metrics.tagCount() < MIN_TAGS_FOR_DIRECT_ACCEPT
+          && metrics.worstAmbiguity() > MAX_SINGLE_TAG_AMBIGUITY) {
+        rejAmbiguity++;
+        rejectCandidate(
+            rejectedCandidates,
+            est,
+            metrics,
+            String.format("ambiguity=%.3f", metrics.worstAmbiguity()),
+            robotSpeedMps,
+            robotOmegaRadPerSec);
+        continue;
       }
 
-      double translationError = currentPose.getTranslation().getDistance(pose2d.getTranslation());
-      double rotationErrorDeg =
-          Math.abs(pose2d.getRotation().minus(currentPose.getRotation()).getDegrees());
-      if (rotationErrorDeg > 180.0) {
-        rotationErrorDeg = 360.0 - rotationErrorDeg;
-      }
-      if (tagCount < MIN_TAGS_FOR_DIRECT_ACCEPT
-          && translationError > MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS) {
+      if (policy.rejectSingleTagFarFromOdometry()
+          && metrics.tagCount() < MIN_TAGS_FOR_DIRECT_ACCEPT
+          && metrics.translationError() > MAX_SINGLE_TAG_TRANSLATION_ERROR_METERS) {
         rejLowTagFar++;
+        rejectCandidate(
+            rejectedCandidates,
+            est,
+            metrics,
+            "single_tag_far_from_odom",
+            robotSpeedMps,
+            robotOmegaRadPerSec);
         continue;
       }
-      if (tagCount < MIN_TAGS_FOR_DIRECT_ACCEPT
+      if (policy.rejectSingleTagMotion()
+          && metrics.tagCount() < MIN_TAGS_FOR_DIRECT_ACCEPT
           && (robotSpeedMps > MAX_SINGLE_TAG_SPEED_MPS
               || Math.abs(robotOmegaRadPerSec) > MAX_SINGLE_TAG_ANGULAR_SPEED_RAD_PER_SEC)) {
         rejHighStd++;
+        rejectCandidate(
+            rejectedCandidates,
+            est,
+            metrics,
+            "single_tag_motion_gate",
+            robotSpeedMps,
+            robotOmegaRadPerSec);
         continue;
       }
 
-      Matrix<N3, N1> stdDevs = est.stdDevs();
-      if (stdDevs == null) {
+      if (metrics.stdDevs() == null) {
         rejNoEst++;
+        rejectCandidate(
+            rejectedCandidates, est, metrics, "no_stddevs", robotSpeedMps, robotOmegaRadPerSec);
         continue;
       }
-      double stdX = stdDevs.get(0, 0);
-      double stdY = stdDevs.get(1, 0);
-      double stdTheta = stdDevs.get(2, 0);
-      if (stdX > MAX_STD_XY_METERS || stdY > MAX_STD_XY_METERS || stdTheta > MAX_STD_THETA_RAD) {
+      if (policy.rejectHighStd()
+          && (metrics.stdX() > MAX_STD_XY_METERS
+              || metrics.stdY() > MAX_STD_XY_METERS
+              || metrics.stdTheta() > MAX_STD_THETA_RAD)) {
         rejHighStd++;
+        rejectCandidate(
+            rejectedCandidates, est, metrics, "high_std", robotSpeedMps, robotOmegaRadPerSec);
         continue;
       }
 
-      // Outlier check: multi-tag gets a more generous threshold, and consecutive
-      // outlier override allows recovery when odometry has drifted significantly
       double outlierThreshold =
-          tagCount >= MIN_TAGS_FOR_DIRECT_ACCEPT
+          metrics.tagCount() >= MIN_TAGS_FOR_DIRECT_ACCEPT
               ? MAX_MULTI_TAG_TRANSLATION_OUTLIER_METERS
               : MAX_TRANSLATION_OUTLIER_METERS;
-      if (translationError > outlierThreshold && !forceAcceptOutlier) {
+      if (policy.rejectTranslationOutlier()
+          && metrics.translationError() > outlierThreshold
+          && !policy.forceAcceptOutliers()) {
         rejOutlier++;
+        rejectCandidate(
+            rejectedCandidates,
+            est,
+            metrics,
+            "translation_outlier",
+            robotSpeedMps,
+            robotOmegaRadPerSec);
         continue;
       }
       double rotationOutlierThresholdDeg =
-          tagCount >= MIN_TAGS_FOR_DIRECT_ACCEPT
+          metrics.tagCount() >= MIN_TAGS_FOR_DIRECT_ACCEPT
               ? MAX_MULTI_TAG_ROTATION_OUTLIER_DEG
               : MAX_SINGLE_TAG_ROTATION_OUTLIER_DEG;
-      if (rotationErrorDeg > rotationOutlierThresholdDeg && !forceAcceptOutlier) {
+      if (policy.rejectRotationOutlier()
+          && metrics.rotationErrorDeg() > rotationOutlierThresholdDeg
+          && !policy.forceAcceptOutliers()) {
         rejOutlier++;
+        rejectCandidate(
+            rejectedCandidates,
+            est,
+            metrics,
+            "rotation_outlier",
+            robotSpeedMps,
+            robotOmegaRadPerSec);
         continue;
       }
 
-      double score = (stdX + stdY) + (0.5 * stdTheta) + (0.25 * translationError);
+      double score = scoreCandidate(metrics, policy.scoreMode());
       FusionCandidate candidate =
           new FusionCandidate(
               est.camera(),
-              pose2d,
-              pose.timestampSeconds,
-              stdX,
-              stdY,
-              stdTheta,
-              tagCount,
-              translationError,
+              metrics.pose2d(),
+              metrics.estimatedPose().timestampSeconds,
+              metrics.stdX(),
+              metrics.stdY(),
+              metrics.stdTheta(),
+              metrics.tagCount(),
+              metrics.translationError(),
               true,
-              stdDevs,
+              metrics.stdDevs(),
               score);
       acceptedCandidates.add(candidate);
       if (best == null || candidate.score() < best.score()) {
@@ -489,6 +744,7 @@ public class Vision {
     return new SelectionResult(
         Optional.ofNullable(best),
         acceptedCandidates,
+        rejectedCandidates,
         rejNoEst,
         rejStale,
         rejLowTagFar,
@@ -498,78 +754,155 @@ public class Vision {
         rejOutOfField);
   }
 
-  static SelectionResult selectBasicPose(
-      List<PoseEstimationResult> estimations,
-      Pose2d currentPose,
-      Map<Cameras, Double> lastFusedTimestamps,
-      double nowSec) {
-    int rejNoEst = 0;
-    int rejStale = 0;
-    FusionCandidate best = null;
-    List<FusionCandidate> acceptedCandidates = new ArrayList<>();
+  private static SelectionPolicy advancedSelectionPolicy(int consecutiveOutliers) {
+    return new SelectionPolicy(
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        0,
+        consecutiveOutliers >= CONSECUTIVE_OUTLIER_OVERRIDE_COUNT,
+        CandidateScoreMode.ADVANCED);
+  }
 
-    for (PoseEstimationResult est : estimations) {
-      if (est.estimatedPose().isEmpty()) {
-        rejNoEst++;
-        continue;
-      }
+  private static SelectionPolicy basicSelectionPolicy() {
+    return new SelectionPolicy(
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        0,
+        false,
+        CandidateScoreMode.BASIC);
+  }
 
-      var pose = est.estimatedPose().get();
-      double lastTs = lastFusedTimestamps.getOrDefault(est.camera(), Double.NEGATIVE_INFINITY);
-      if (pose.timestampSeconds <= lastTs + STALE_TIMESTAMP_EPSILON_SEC) {
-        rejStale++;
-        continue;
-      }
-      if ((nowSec - pose.timestampSeconds) > MAX_VISION_MEASUREMENT_AGE_SEC) {
-        rejStale++;
-        continue;
-      }
-      double cameraLatencySec = Math.max(0.0, nowSec - est.cameraLatestTimestampSec());
-      if (cameraLatencySec > MAX_CAMERA_LATENCY_SEC) {
-        rejStale++;
-        continue;
-      }
+  private static SelectionPolicy resetSelectionPolicy(int minTagCount) {
+    return new SelectionPolicy(
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        minTagCount,
+        false,
+        CandidateScoreMode.RESET);
+  }
 
-      Pose2d pose2d = pose.estimatedPose.toPose2d();
-      int tagCount = pose.targetsUsed.size();
-      double translationError = currentPose.getTranslation().getDistance(pose2d.getTranslation());
-      Matrix<N3, N1> stdDevs = est.stdDevs();
-      if (stdDevs == null) {
-        rejNoEst++;
-        continue;
-      }
-      double stdX = stdDevs.get(0, 0);
-      double stdY = stdDevs.get(1, 0);
-      double stdTheta = stdDevs.get(2, 0);
-      double score = translationError;
+  private static CandidateMetrics buildCandidateMetrics(
+      PoseEstimationResult est, Pose2d currentPose) {
+    if (est.estimatedPose().isEmpty()) {
+      return null;
+    }
 
-      FusionCandidate candidate =
-          new FusionCandidate(
-              est.camera(),
-              pose2d,
-              pose.timestampSeconds,
-              stdX,
-              stdY,
-              stdTheta,
-              tagCount,
-              translationError,
-              true,
-              stdDevs,
-              score);
-      acceptedCandidates.add(candidate);
-      if (best == null || candidate.score() < best.score()) {
-        best = candidate;
+    EstimatedRobotPose pose = est.estimatedPose().get();
+    Pose2d pose2d = pose.estimatedPose.toPose2d();
+    int tagCount = pose.targetsUsed.size();
+    double translationError = currentPose.getTranslation().getDistance(pose2d.getTranslation());
+    double rotationErrorDeg =
+        Math.abs(pose2d.getRotation().minus(currentPose.getRotation()).getDegrees());
+    if (rotationErrorDeg > 180.0) {
+      rotationErrorDeg = 360.0 - rotationErrorDeg;
+    }
+
+    double worstAmbiguity = 0.0;
+    for (PhotonTrackedTarget target : pose.targetsUsed) {
+      double ambiguity = target.getPoseAmbiguity();
+      if (ambiguity != -1 && ambiguity > worstAmbiguity) {
+        worstAmbiguity = ambiguity;
       }
     }
 
-    acceptedCandidates.sort(
-        Comparator.comparingDouble(FusionCandidate::timestampSec)
-            .thenComparingDouble(FusionCandidate::score));
-    return new SelectionResult(
-        Optional.ofNullable(best), acceptedCandidates, rejNoEst, rejStale, 0, 0, 0, 0, 0);
+    Matrix<N3, N1> stdDevs = est.stdDevs();
+    double stdX = stdDevs == null ? Double.NaN : stdDevs.get(0, 0);
+    double stdY = stdDevs == null ? Double.NaN : stdDevs.get(1, 0);
+    double stdTheta = stdDevs == null ? Double.NaN : stdDevs.get(2, 0);
+
+    return new CandidateMetrics(
+        pose,
+        pose2d,
+        tagCount,
+        translationError,
+        rotationErrorDeg,
+        worstAmbiguity,
+        stdDevs,
+        stdX,
+        stdY,
+        stdTheta);
   }
 
-  // -- Pipeline: selectBestPose (instance) ----------------------------------
+  private static void rejectCandidate(
+      List<RejectedCandidate> rejectedCandidates,
+      PoseEstimationResult est,
+      CandidateMetrics metrics,
+      String reason,
+      double robotSpeedMps,
+      double robotOmegaRadPerSec) {
+    Pose2d pose2d =
+        metrics != null
+            ? metrics.pose2d()
+            : est.estimatedPose().map(pose -> pose.estimatedPose.toPose2d()).orElse(null);
+    double timestampSec =
+        metrics != null ? metrics.estimatedPose().timestampSeconds : est.cameraLatestTimestampSec();
+    int tagCount = metrics != null ? metrics.tagCount() : 0;
+    double translationError = metrics != null ? metrics.translationError() : Double.NaN;
+    double rotationErrorDeg = metrics != null ? metrics.rotationErrorDeg() : Double.NaN;
+    Matrix<N3, N1> stdDevs = metrics != null ? metrics.stdDevs() : null;
+    List<PhotonTrackedTarget> targetsUsed =
+        metrics != null ? metrics.estimatedPose().targetsUsed : List.of();
+
+    rejectedCandidates.add(
+        new RejectedCandidate(
+            est.camera(),
+            reason,
+            pose2d,
+            timestampSec,
+            tagCount,
+            translationError,
+            rotationErrorDeg,
+            stdDevs,
+            targetsUsed));
+    logRejectCandidate(
+        est,
+        reason,
+        tagCount,
+        translationError,
+        rotationErrorDeg,
+        metrics != null ? metrics.stdX() : Double.NaN,
+        metrics != null ? metrics.stdY() : Double.NaN,
+        metrics != null ? metrics.stdTheta() : Double.NaN,
+        robotSpeedMps,
+        robotOmegaRadPerSec);
+  }
+
+  private static double scoreCandidate(CandidateMetrics metrics, CandidateScoreMode scoreMode) {
+    return switch (scoreMode) {
+      case ADVANCED ->
+          (metrics.stdX() + metrics.stdY())
+              + (0.5 * metrics.stdTheta())
+              + (0.25 * metrics.translationError());
+      case BASIC -> metrics.translationError();
+      case RESET -> (-1000.0 * metrics.tagCount()) - metrics.estimatedPose().timestampSeconds;
+    };
+  }
+
+  // ── Pipeline: selectBestPose (instance) ──────────────────────────────────
 
   /**
    * Select the best pose candidate using the current estimator mode.
@@ -586,7 +919,7 @@ public class Vision {
     }
     if (selectedMode == EstimatorMode.OFF) {
       consecutiveOutlierCount = 0;
-      return new SelectionResult(Optional.empty(), List.of(), 0, 0, 0, 0, 0, 0, 0);
+      return new SelectionResult(Optional.empty(), List.of(), List.of(), 0, 0, 0, 0, 0, 0, 0);
     }
     double nowSec = Timer.getFPGATimestamp();
     var robotVelocity = swerveDrive.getRobotVelocity();
@@ -595,19 +928,43 @@ public class Vision {
     double robotOmegaRadPerSec = robotVelocity.omegaRadiansPerSecond;
     if (selectedMode == EstimatorMode.BASIC) {
       consecutiveOutlierCount = 0;
-      return selectBasicPose(estimations, swerveDrive.getPose(), lastFusedTimestampSec, nowSec);
+      return selectPose(
+          estimations,
+          swerveDrive.getPose(),
+          lastFusedTimestampSec,
+          nowSec,
+          robotSpeedMps,
+          robotOmegaRadPerSec,
+          basicSelectionPolicy());
     }
-    return selectAdvancedPose(
+    return selectPose(
         estimations,
         swerveDrive.getPose(),
         lastFusedTimestampSec,
-        consecutiveOutlierCount,
         nowSec,
         robotSpeedMps,
-        robotOmegaRadPerSec);
+        robotOmegaRadPerSec,
+        advancedSelectionPolicy(consecutiveOutlierCount));
   }
 
-  // -- Pipeline: setVisionMeasurement -------------------------------------
+  public SelectionResult selectBestPoseForReset(
+      List<PoseEstimationResult> estimations, SwerveDrive swerveDrive, int minTagCount) {
+    double nowSec = Timer.getFPGATimestamp();
+    var robotVelocity = swerveDrive.getRobotVelocity();
+    double robotSpeedMps =
+        Math.hypot(robotVelocity.vxMetersPerSecond, robotVelocity.vyMetersPerSecond);
+    double robotOmegaRadPerSec = robotVelocity.omegaRadiansPerSecond;
+    return selectPose(
+        estimations,
+        swerveDrive.getPose(),
+        new EnumMap<>(Cameras.class),
+        nowSec,
+        robotSpeedMps,
+        robotOmegaRadPerSec,
+        resetSelectionPolicy(minTagCount));
+  }
+
+  // ── Pipeline: setVisionMeasurement ─────────────────────────────────────
 
   /**
    * Apply the best vision candidate to the swerve drive pose estimator.
@@ -656,7 +1013,7 @@ public class Vision {
     rejectedOutOfField += selection.rejectedOutOfField();
   }
 
-  // -- Pipeline Orchestrator -------------------------------------------------
+  // ── Pipeline Orchestrator ─────────────────────────────────────────────────
 
   /**
    * Run the full vision pipeline. Runs every cycle regardless of mode (teleop + auto).
@@ -682,6 +1039,7 @@ public class Vision {
     // Select the best pose candidate
     SelectionResult selection = selectBestPose(estimations, swerveDrive);
     lastSelectedFusedPose = selection.bestCandidate().map(FusionCandidate::pose);
+    maybeCaptureHighStdSnapshots(cameraData, selection);
     long t3 = System.nanoTime();
 
     // Apply the vision measurement to the swerve drive
@@ -701,6 +1059,70 @@ public class Vision {
     logAprilTagTelemetryOnChange(cameraData, swerveDrive.getPose(), selection.bestCandidate());
     logTeleopAprilTagRecord(cameraData, estimations);
     logPipelineCycle(t0, t1, t2, t3, t4);
+  }
+
+  private void maybeCaptureHighStdSnapshots(
+      Map<Cameras, CameraSnapshot> cameraData, SelectionResult selection) {
+    double nowSec = Timer.getFPGATimestamp();
+
+    for (RejectedCandidate rejected : selection.rejectedCandidates()) {
+      if (!shouldCaptureHighStdSnapshot(rejected, HIGH_STD_SNAPSHOT_TAG_ID)) {
+        continue;
+      }
+
+      double lastCaptureSec =
+          lastHighStdSnapshotSec.getOrDefault(rejected.camera(), Double.NEGATIVE_INFINITY);
+      if ((nowSec - lastCaptureSec) < HIGH_STD_SNAPSHOT_COOLDOWN_SEC) {
+        continue;
+      }
+
+      CameraSnapshot snapshot = cameraData.get(rejected.camera());
+      if (snapshot == null || snapshot.latestResult() == null || !snapshot.latestResult().hasTargets()) {
+        continue;
+      }
+
+      rejected.camera().getCamera().takeInputSnapshot();
+      rejected.camera().getCamera().takeOutputSnapshot();
+      lastHighStdSnapshotSec.put(rejected.camera(), nowSec);
+
+      Matrix<N3, N1> stdDevs = rejected.stdDevs();
+      double stdX = stdDevs == null ? Double.NaN : stdDevs.get(0, 0);
+      double stdY = stdDevs == null ? Double.NaN : stdDevs.get(1, 0);
+      double stdTheta = stdDevs == null ? Double.NaN : stdDevs.get(2, 0);
+      Pose2d pose = rejected.pose();
+
+      BufferedLogger.getInstance()
+          .printf(
+              "[VisionPipeline] SNAPSHOT camera=%s reason=tag_%d_high_std ts=%.3f pose=(%.3f, %.3f, %.1fdeg) err=%.3f rotErr=%.1f std=(%.3f, %.3f, %.3f)",
+              rejected.camera().name(),
+              HIGH_STD_SNAPSHOT_TAG_ID,
+              rejected.timestampSec(),
+              pose == null ? Double.NaN : pose.getX(),
+              pose == null ? Double.NaN : pose.getY(),
+              pose == null ? Double.NaN : pose.getRotation().getDegrees(),
+              rejected.translationError(),
+              rejected.rotationErrorDeg(),
+              stdX,
+              stdY,
+              stdTheta);
+    }
+  }
+
+  private static boolean shouldCaptureHighStdSnapshot(RejectedCandidate rejected, int tagId) {
+    if (!"high_std".equals(rejected.reason())) {
+      return false;
+    }
+    if (rejected.tagCount() != 1) {
+      return false;
+    }
+    if (rejected.targetsUsed() == null || rejected.targetsUsed().isEmpty()) {
+      return false;
+    }
+    PhotonTrackedTarget target = rejected.targetsUsed().get(0);
+    if (target.getFiducialId() != tagId) {
+      return false;
+    }
+    return true;
   }
 
   /** Returns the latest selected fused pose from the vision pipeline. */
@@ -1077,7 +1499,7 @@ public class Vision {
     return latestCameraData;
   }
 
-  // -- Legacy methods (still used by other subsystems) -----------------------
+  // ── Legacy methods (still used by other subsystems) ───────────────────────
 
   /**
    * Calculates a target pose relative to an AprilTag on the field.
