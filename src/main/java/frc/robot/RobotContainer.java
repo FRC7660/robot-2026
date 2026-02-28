@@ -63,6 +63,10 @@ public class RobotContainer {
 
   private DoubleSupplier dx_axis1Supplier = this::getRaw1;
 
+  // Trigger (CLASS) which will initiate trigger (INPUT) control of the launch and turret
+  private Trigger shotPressureDetected = new Trigger(() -> (driverXbox.getRightTriggerAxis() > 0.25));
+  private Trigger shotPressureMaxed = new Trigger(() -> (driverXbox.getRightTriggerAxis() > 0.85));
+
   // The robot's subsystems and commands are defined here...
   private final String chassisDirectory = "swerve/7660-chassis1";
   private final SwerveSubsystem drivebase =
@@ -288,11 +292,13 @@ public class RobotContainer {
       liftPressureMaxed.whileTrue(intakeSystem.fullIntake());
       liftPressureMaxed.onFalse(Commands.runOnce(() -> intakeSystem.stopRoller()));
 
-      // Shooting Command
-      Trigger shotPressureDetected = new Trigger(() -> driverXbox.getRightTriggerAxis() > 0.1);
+      // Trigger-based shot control
       Command startSequence = launchSystem.shotSequenceStart(indexSystem);
       startSequence.addRequirements(launchSystem, indexSystem);
-      shotPressureDetected.whileTrue(startSequence);
+      // Medium pressure: start AutoTurn
+      shotPressureDetected.whileTrue(new TurretAutoTurn(turret));
+      // Full pressure: start shooting and indexing sequence
+      shotPressureMaxed.whileTrue(startSequence);
 
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
