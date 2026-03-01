@@ -4,7 +4,6 @@
 
 package frc.robot;
 
-import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -15,14 +14,14 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OperatorConstants;
+import frc.robot.autonomous.AutonomousManager;
 import frc.robot.subsystems.IntakeLaunch;
+import frc.robot.subsystems.swervedrive.FuelPalantir.FuelPalantirMode;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
 import swervelib.SwerveInputStream;
@@ -38,18 +37,26 @@ public class RobotContainer {
   // Replace with CommandPS4Controller or CommandJoystick if needed
   final CommandXboxController driverXbox = new CommandXboxController(0);
   // The robot's subsystems and commands are defined here...
-  private final SwerveSubsystem drivebase =
-      new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-jv0"));
+  private final SwerveSubsystem drivebase = createDrivebase();
 
   private final IntakeLaunch intakeLaunch = new IntakeLaunch();
 
-  // Establish a Sendable Chooser that will be able to be sent to the SmartDashboard, allowing
-  // selection of desired auto
-  private final SendableChooser<Command> autoChooser;
+  private final AutonomousManager autonomousManager;
+
+  private SwerveSubsystem createDrivebase() {
+    return new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-jv0"));
+  }
+
+  private Command fuelPalantirAutonomousCommand() {
+    return drivebase
+        .fuelPalantirCommand(FuelPalantirMode.AUTONOMOUS)
+        .deadlineFor(intakeLaunch.runIntake());
+  }
 
   private double getRightXCorrected() {
     double base = driverXbox.getRightX();
-    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
+    if (DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue)
+        != DriverStation.Alliance.Red) {
       base *= -1;
     }
     return base;
@@ -57,7 +64,8 @@ public class RobotContainer {
 
   private double getRightYCorrected() {
     double base = driverXbox.getRightY();
-    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
+    if (DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue)
+        != DriverStation.Alliance.Red) {
       base *= -1;
     }
     return base;
@@ -115,19 +123,24 @@ public class RobotContainer {
     DriverStation.silenceJoystickConnectionWarning(true);
 
     // Create the NamedCommands that will be used in PathPlanner
-    NamedCommands.registerCommand("test", Commands.print("I EXIST"));
+    try {
+      NamedCommands.registerCommand("test", Commands.print("I EXIST"));
+      NamedCommands.registerCommand("FuelPalantir", fuelPalantirAutonomousCommand());
+      NamedCommands.registerCommand("LogoFuelPalantir", fuelPalantirAutonomousCommand());
+      NamedCommands.registerCommand(
+          "ResetPoseFromAprilTags",
+          Commands.runOnce(
+              () -> {
+                boolean reset = drivebase.resetOdometryFromAprilTags();
+                System.out.printf("[PoseReset] source=APRILTAG commandResult=%s%n", reset);
+              },
+              drivebase));
+    } catch (Exception e) {
+      DriverStation.reportError(
+          "[NamedCommands] registration failed: " + e.getMessage(), e.getStackTrace());
+    }
 
-    // Have the autoChooser pull in all PathPlanner autos as options
-    autoChooser = AutoBuilder.buildAutoChooser();
-
-    // Set the default auto (do nothing)
-    autoChooser.setDefaultOption("Do Nothing", Commands.none());
-
-    // Add a simple auto option to have the robot drive forward for 1 second then stop
-    autoChooser.addOption("Drive Forward", drivebase.driveForward().withTimeout(1));
-
-    // Put the autoChooser on the SmartDashboard
-    SmartDashboard.putData("Auto Chooser", autoChooser);
+    autonomousManager = new AutonomousManager(drivebase);
   }
 
   /**
@@ -156,7 +169,6 @@ public class RobotContainer {
     } else {
       drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
     }
-
     if (Robot.isSimulation()) {
       Pose2d target = new Pose2d(new Translation2d(1, 4), Rotation2d.fromDegrees(90));
       // drivebase.getSwerveDrive().field.getObject("targetPose").setPose(target);
@@ -191,15 +203,13 @@ public class RobotContainer {
       driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
       driverXbox.back().whileTrue(drivebase.centerModulesCommand());
       driverXbox.leftBumper().onTrue(Commands.none());
-      driverXbox.rightBumper().onTrue(Commands.none());
+      driverXbox.rightBumper().whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.TELEOP));
     } else {
       driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
       driverXbox.start().whileTrue(Commands.none());
       driverXbox.back().whileTrue(Commands.none());
-      // driverXbox.leftBumper().whileTrue(Commands.runOnce(drivebase::lock,
-      // drivebase).repeatedly());
-      // driverXbox.rightBumper().onTrue(Commands.none());
+      // JV bot shooter commands
 
       // INTAKE
       driverXbox.leftBumper().whileTrue(intakeLaunch.runIntake());
@@ -222,13 +232,7 @@ public class RobotContainer {
       // UNSTICK
       driverXbox.y().whileTrue(intakeLaunch.runUnstick());
 
-      driverXbox
-          .b()
-          .whileTrue(
-              drivebase.driveToPose(
-                  new Pose2d(new Translation2d(14, 4), Rotation2d.fromDegrees(0))));
-
-      driverXbox.y().whileTrue(drivebase.sysIdDriveMotorCommand());
+      driverXbox.b().whileTrue(drivebase.fuelPalantirCommand(FuelPalantirMode.TELEOP));
     }
   }
 
@@ -238,8 +242,11 @@ public class RobotContainer {
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
-    // Pass in the selected auto from the SmartDashboard as our desired autnomous commmand
-    return autoChooser.getSelected();
+    return autonomousManager.getAutonomousCommand();
+  }
+
+  public void prepareAutonomous() {
+    autonomousManager.prepareAutonomousStart();
   }
 
   public void setMotorBrake(boolean brake) {

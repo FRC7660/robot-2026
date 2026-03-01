@@ -46,8 +46,8 @@ public class IntakeLaunch extends SubsystemBase {
       new SparkWrapper(upperMotor, DCMotor.getNEO(1), upperMotorConfig);
   private final FlyWheelConfig upperFlyWheelConfig =
       new FlyWheelConfig(upperMotorController)
-         .withTelemetry("upperFlyWheel", TelemetryVerbosity.HIGH)
-         .withMOI(KilogramSquareMeters.of(0.02));
+          .withTelemetry("upperFlyWheel", TelemetryVerbosity.HIGH)
+          .withMOI(KilogramSquareMeters.of(0.02));
   private final FlyWheel upperFlyWheel = new FlyWheel(upperFlyWheelConfig);
   private final Timer atSpeedTimer = new Timer();
 
