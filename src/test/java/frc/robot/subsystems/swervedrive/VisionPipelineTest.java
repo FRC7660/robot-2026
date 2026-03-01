@@ -182,7 +182,8 @@ class VisionPipelineTest {
     List<Vision.PoseEstimationResult> estimations = new ArrayList<>();
     for (Cameras cam : Cameras.values()) {
       estimations.add(
-          new Vision.PoseEstimationResult(cam, Optional.empty(), SINGLE_TAG_STD, 0, 0.0));
+          new Vision.PoseEstimationResult(
+              cam, Optional.empty(), SINGLE_TAG_STD, 0, 0.0, Double.NaN, Double.NaN));
     }
 
     Vision.SelectionResult result =
@@ -201,7 +202,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Map<Cameras, Double> lastFused = new EnumMap<>(Cameras.class);
     lastFused.put(cam, 5.0);
@@ -222,7 +225,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectAdvancedPose(
@@ -241,7 +246,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(6.0, 6.0, 1.0); // stdX > 5.0
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectAdvancedPose(
@@ -260,7 +267,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectAdvancedPose(
@@ -281,7 +290,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectAdvancedPose(
@@ -300,7 +311,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 2.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectAdvancedPose(
@@ -332,8 +345,10 @@ class VisionPipelineTest {
 
     List<Vision.PoseEstimationResult> estimations =
         List.of(
-            new Vision.PoseEstimationResult(cams[0], Optional.of(est1), stdDevs1, 1, 0.0),
-            new Vision.PoseEstimationResult(cams[1], Optional.of(est2), stdDevs2, 1, 0.0));
+            new Vision.PoseEstimationResult(
+                cams[0], Optional.of(est1), stdDevs1, 1, 0.0, Double.NaN, Double.NaN),
+            new Vision.PoseEstimationResult(
+                cams[1], Optional.of(est2), stdDevs2, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectAdvancedPose(
@@ -352,7 +367,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectAdvancedPose(
@@ -370,7 +387,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectAdvancedPose(
@@ -388,7 +407,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectAdvancedPose(
@@ -407,7 +428,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectAdvancedPose(
@@ -426,7 +449,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectAdvancedPose(
@@ -446,7 +471,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectAdvancedPose(
@@ -468,7 +495,8 @@ class VisionPipelineTest {
     List<Vision.PoseEstimationResult> estimations = new ArrayList<>();
     for (Cameras cam : Cameras.values()) {
       estimations.add(
-          new Vision.PoseEstimationResult(cam, Optional.empty(), SINGLE_TAG_STD, 0, 0.0));
+          new Vision.PoseEstimationResult(
+              cam, Optional.empty(), SINGLE_TAG_STD, 0, 0.0, Double.NaN, Double.NaN));
     }
 
     Vision.SelectionResult result =
@@ -486,7 +514,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Map<Cameras, Double> lastFused = new EnumMap<>(Cameras.class);
     lastFused.put(cam, 5.0);
@@ -506,7 +536,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0.0);
@@ -531,8 +563,10 @@ class VisionPipelineTest {
 
     List<Vision.PoseEstimationResult> estimations =
         List.of(
-            new Vision.PoseEstimationResult(cams[0], Optional.of(est1), stdDevs1, 1, 0.0),
-            new Vision.PoseEstimationResult(cams[1], Optional.of(est2), stdDevs2, 1, 0.0));
+            new Vision.PoseEstimationResult(
+                cams[0], Optional.of(est1), stdDevs1, 1, 0.0, Double.NaN, Double.NaN),
+            new Vision.PoseEstimationResult(
+                cams[1], Optional.of(est2), stdDevs2, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0.0);
@@ -548,7 +582,9 @@ class VisionPipelineTest {
     EstimatedRobotPose est = makeEstimatedPose(0.0, 0.0, 1.0, List.of(target));
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), null, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), null, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0.0);
@@ -566,7 +602,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectBasicPose(estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0.0);
@@ -586,7 +624,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectAdvancedPose(
@@ -609,7 +649,9 @@ class VisionPipelineTest {
     Matrix<N3, N1> stdDevs = VecBuilder.fill(1.0, 1.0, 1.0);
 
     List<Vision.PoseEstimationResult> estimations =
-        List.of(new Vision.PoseEstimationResult(cam, Optional.of(est), stdDevs, 1, 0.0));
+        List.of(
+            new Vision.PoseEstimationResult(
+                cam, Optional.of(est), stdDevs, 1, 0.0, Double.NaN, Double.NaN));
 
     Vision.SelectionResult result =
         Vision.selectAdvancedPose(
