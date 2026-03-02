@@ -129,11 +129,8 @@ class TurretTest {
     TurretZeroPoint z = new TurretZeroPoint(); // not latched initially per test spec
     double delta = z.updateAndCompute(idealDeg, currentDeg);
 
-    // compute final absolute angle and normalize to [0,360)
-    double finalDeg = (currentDeg + delta) % 360.0;
-    if (finalDeg < 0) {
-      finalDeg += 360.0;
-    }
+    // compute final angle and normalize to signed degrees [-180, 180]
+    double finalDeg = normalizeToSigned180(currentDeg + delta);
 
     assertEquals(expectedFinalDeg, finalDeg, 1e-3);
   }
@@ -141,9 +138,9 @@ class TurretTest {
   static Stream<Arguments> zeroPointProvider() {
     return Stream.of(
         // Target within sticky band AND zero lies on shortest path -> command to zero.
-        Arguments.of(350.0, 15.0, 0.0),
-        Arguments.of(340.0, 10.0, 0.0),
-        Arguments.of(355.0, 20.0, 0.0),
+        Arguments.of(-10.0, 15.0, 0.0),
+        Arguments.of(-20.0, 10.0, 0.0),
+        Arguments.of(-5.0, 20.0, 0.0),
 
         // Target within sticky band BUT zero not on shortest path -> command toward target.
         Arguments.of(30.0, 20.0, 20.0),
@@ -151,13 +148,21 @@ class TurretTest {
         Arguments.of(88.0, 19.0, 19.0),
 
         // Long Route Test Cases
-        Arguments.of(340.0, 30.0, 30.0),
-        Arguments.of(340.0, 21.0, 21.0),
-        Arguments.of(350.0, 40.0, 40.0),
+        Arguments.of(-20.0, 30.0, 30.0),
+        Arguments.of(-20.0, 21.0, 21.0),
+        Arguments.of(-10.0, 40.0, 40.0),
 
         // Short Route Test Cases
-        Arguments.of(230.0, 200.0, 200.0),
-        Arguments.of(214.0, 235.0, 235.0),
-        Arguments.of(318.0, 355.0, 355.0));
+        Arguments.of(-130.0, -160.0, -160.0),
+        Arguments.of(-146.0, -125.0, -125.0),
+        Arguments.of(-42.0, -5.0, -5.0));
+  }
+
+  private static double normalizeToSigned180(double degrees) {
+    double normalized = ((degrees + 180.0) % 360.0 + 360.0) % 360.0 - 180.0;
+    if (normalized == -180.0) {
+      return 180.0;
+    }
+    return normalized;
   }
 }
