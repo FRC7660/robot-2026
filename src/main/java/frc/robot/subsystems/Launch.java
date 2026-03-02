@@ -143,24 +143,26 @@ public class Launch extends SubsystemBase {
     Supplier<AngularVelocity> s_velSupplier = () -> getVelocity();
     Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity();
     Trigger optimalVelocityReached =
-        new Trigger(() -> (s_velSupplier.get().in(RPM) >= (s_velSetpointSupplier.get().in(RPM)*60)*0.97));
-        // *60 because units are broken
-        // 3% margin of error
+        new Trigger(
+            () ->
+                (s_velSupplier.get().in(RPM) >= (s_velSetpointSupplier.get().in(RPM) * 60) * 0.97));
+    // *60 because units are broken
+    // 3% margin of error
     return Commands.repeatingSequence(
-              // Pause the funnel/index to allow the flywheel to re-spool
-              Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(0.0))),
-              Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
-              Commands.runOnce(
-                  () -> {
-                    // PLACEHOLDER: getOptimalVelocity should not just return 2000; attach the
-                    // distance and SWM calculations
-                    this.setVelocitySetpoint(s_velSetpointSupplier.get());
-                  }),
-              Commands.waitUntil(() -> optimalVelocityReached.getAsBoolean()),
-              // Resume funnel/index
-              Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
-              Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(120.0))),
-              Commands.waitUntil(() -> optimalVelocityReached.negate().getAsBoolean()))
+            // Pause the funnel/index to allow the flywheel to re-spool
+            Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(0.0))),
+            Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
+            Commands.runOnce(
+                () -> {
+                  // PLACEHOLDER: getOptimalVelocity should not just return 2000; attach the
+                  // distance and SWM calculations
+                  this.setVelocitySetpoint(s_velSetpointSupplier.get());
+                }),
+            Commands.waitUntil(() -> optimalVelocityReached.getAsBoolean()),
+            // Resume funnel/index
+            Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
+            Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(120.0))),
+            Commands.waitUntil(() -> optimalVelocityReached.negate().getAsBoolean()))
         .handleInterrupt(() -> shotSequenceEnd(indexSystem));
   }
 
