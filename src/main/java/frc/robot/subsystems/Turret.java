@@ -108,9 +108,9 @@ public class Turret extends SubsystemBase {
 
     PivotConfig pivotConfig =
         new PivotConfig(turretSmartMotorController)
-            .withHardLimit(Degrees.of(0), Degrees.of(360))
-            .withSoftLimits(Degrees.of(30), Degrees.of(330))
-            .withStartingPosition(Degrees.of(180))
+            .withHardLimit(Degrees.of(-175), Degrees.of(175))
+            .withSoftLimits(Degrees.of(-165), Degrees.of(165))
+            .withStartingPosition(Degrees.of(0))
             .withTelemetry("TurretPivot", TelemetryVerbosity.HIGH)
             .withMOI(Meters.of(0.254), Pounds.of(2));
 
@@ -126,8 +126,10 @@ public class Turret extends SubsystemBase {
    */
   public void setTurretSetpoint(Rotation2d robotRelativeAngle) {
     // TODO: need to add "only move if greater than"
-    turretSmartMotorController.setPosition(robotRelativeAngle.getMeasure());
-    this.lastSetpoint = robotRelativeAngle;
+    Rotation2d signedAngle =
+        Rotation2d.fromDegrees(normalizeToSigned180(robotRelativeAngle.getDegrees()));
+    turretSmartMotorController.setPosition(signedAngle.getMeasure());
+    this.lastSetpoint = signedAngle;
   }
 
   /** Get the most recent turret setpoint (robot-relative angle). Primarily useful for testing. */
@@ -157,6 +159,7 @@ public class Turret extends SubsystemBase {
     Rotation2d fieldAngle = TurretHelpers.getFieldRelativeAngle(robotPos, target);
     this.lastFieldAngle = fieldAngle;
     Rotation2d robotRelative = TurretHelpers.getRobotRelative(fieldAngle, pose.getRotation());
+    robotRelative = Rotation2d.fromDegrees(normalizeToSigned180(robotRelative.getDegrees()));
     return robotRelative;
   }
 
@@ -193,18 +196,30 @@ public class Turret extends SubsystemBase {
   public void periodic() {
     turretPivot.updateTelemetry();
     Optional<Angle> sp = turretSmartMotorController.getMechanismPositionSetpoint();
-    double setPoint = sp.isPresent() ? sp.get().in(Degrees) : -1.0;
+    double setPoint = sp.isPresent() ? normalizeToSigned180(sp.get().in(Degrees)) : -1.0;
+    double currentDegSigned =
+        normalizeToSigned180(turretSmartMotorController.getMechanismPosition().in(Degrees));
+    double calcSetpointDegSigned = getRobotRelativeAngle().getDegrees();
+    double fieldAngleDegSigned = normalizeToSigned180(lastFieldAngle.getDegrees());
+    double robotAngleDegSigned = normalizeToSigned180(getPose.get().getRotation().getDegrees());
     SmartDashboard.putNumber(
         "Turret/PositionRot",
         (turretMotor.getEncoder().getPosition() / Constants.Turret.TURRET_GEAR_RATIO) * 360);
-    SmartDashboard.putNumber("Turret/Setpoint (Calc)", getRobotRelativeAngle().getDegrees());
-    SmartDashboard.putNumber(
-        "Turret/Position", turretSmartMotorController.getMechanismPosition().in(Degrees));
-    SmartDashboard.putNumber("Turret/FieldAngle", lastFieldAngle.getDegrees());
-    SmartDashboard.putNumber("Turret/RobotAngle", getPose.get().getRotation().getDegrees());
-    SmartDashboard.putNumber("Turret/Setpoint", setPoint);
+    SmartDashboard.putNumber("Turret/SetpointCalcDegSigned", calcSetpointDegSigned);
+    SmartDashboard.putNumber("Turret/PositionDegSigned", currentDegSigned);
+    SmartDashboard.putNumber("Turret/FieldAngleDegSigned", fieldAngleDegSigned);
+    SmartDashboard.putNumber("Turret/RobotAngleDegSigned", robotAngleDegSigned);
+    SmartDashboard.putNumber("Turret/SetpointDegSigned", setPoint);
     SmartDashboard.putString(
         "Turret/Target", "(" + lastTarget.getX() + "," + lastTarget.getY() + ")");
+  }
+
+  private static double normalizeToSigned180(double degrees) {
+    double normalized = ((degrees + 180.0) % 360.0 + 360.0) % 360.0 - 180.0;
+    if (normalized == -180.0) {
+      return 180.0;
+    }
+    return normalized;
   }
 
   @Override

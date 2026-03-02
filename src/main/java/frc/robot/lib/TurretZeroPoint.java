@@ -25,7 +25,7 @@ public final class TurretZeroPoint {
     this.zeroDeadbandDeg = zeroDeadbandDeg;
   }
 
-  /** Angular error between -180 and +180 degrees (signed). Works with degrees 0..359. */
+  /** Angular error between -180 and +180 degrees (signed). */
   public static double angularErrorDeg(double targetDeg, double currentDeg) {
     double error = ((targetDeg - currentDeg + 180.0) % 360.0) - 180.0;
     // Java % can be negative, normalize
@@ -41,11 +41,13 @@ public final class TurretZeroPoint {
    * Update the internal latch state and return a rotation command in degrees (signed). rotation
    * command indicates the signed angle delta the controller should move (degrees).
    *
-   * @param targetAngleDeg desired target angle in degrees [0,360)
-   * @param currentAngleDeg current turret angle in degrees [0,360)
+   * @param targetAngleDeg desired target angle in signed degrees [-180,180]
+   * @param currentAngleDeg current turret angle in signed degrees [-180,180]
    * @return rotation command in degrees (signed, within [-180,180])
    */
   public double updateAndCompute(double targetAngleDeg, double currentAngleDeg) {
+    targetAngleDeg = normalizeToSigned180(targetAngleDeg);
+    currentAngleDeg = normalizeToSigned180(currentAngleDeg);
     double error = angularErrorDeg(targetAngleDeg, currentAngleDeg);
 
     // Determine how close the target is to the configured zero angle. The "sticky" behavior
@@ -97,5 +99,13 @@ public final class TurretZeroPoint {
 
   public void setStuckAtZero(boolean stuck) {
     this.isStuckAtZero = stuck;
+  }
+
+  private static double normalizeToSigned180(double degrees) {
+    double normalized = ((degrees + 180.0) % 360.0 + 360.0) % 360.0 - 180.0;
+    if (normalized == -180.0) {
+      return 180.0;
+    }
+    return normalized;
   }
 }
