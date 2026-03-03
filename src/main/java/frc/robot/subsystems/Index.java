@@ -126,8 +126,6 @@ public class Index extends SubsystemBase {
     // This method will be called once per scheduler run
     indexer.updateTelemetry();
     funneler.updateTelemetry();
-    setVelocityindex(getVelocitySetpointindex().get());
-    setVelocityfunnel(getVelocitySetpointfunnel().get());
   }
 
   @Override
