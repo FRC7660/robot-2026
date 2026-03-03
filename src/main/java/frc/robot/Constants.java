@@ -76,6 +76,7 @@ public final class Constants {
     public static final int ROLLER_MOTOR_ID = 17;
     public static final double ROLLER_SPEED = 0.5;
     public static final int ROLLER_CURRENT_LIMIT = 25; // amps
+    public static final int LIMIT_SWITCH_PORT = 0; // DIO port - change to your actual port
   }
 
   // Launch Constants
