@@ -178,8 +178,7 @@ public class Intake extends SubsystemBase {
 
   public Command zeroArm() {
     return run(() -> {
-          liftSmartMotorController.setEncoderPosition(Degrees.of(-25.0));
-          // Run the lift motor in positive direction
+          // Run the lift motor in positive direction, bypassing soft limits
           liftMotor.set(0.2); // 20% power in positive direction
         })
         .until(
@@ -191,8 +190,8 @@ public class Intake extends SubsystemBase {
             () -> {
               // Stop the motor
               liftMotor.set(0);
-              // Reset the arm position to 110 degrees
-              liftSmartMotorController.setEncoderPosition(Degrees.of(110.0));
+              // Set the arm position setpoint to 110 degrees after calibration
+              setAngleSetpoint(110.0);
             })
         .handleInterrupt(() -> liftMotor.set(0.0));
   }
