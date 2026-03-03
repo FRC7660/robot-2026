@@ -177,8 +177,8 @@ public class Intake extends SubsystemBase {
   }
 
   public Command zeroArm() {
-    liftSmartMotorController.setEncoderPosition(Degrees.of(-25.0));
     return run(() -> {
+          liftSmartMotorController.setEncoderPosition(Degrees.of(-25.0));
           // Run the lift motor in positive direction
           liftMotor.set(0.2); // 20% power in positive direction
         })
