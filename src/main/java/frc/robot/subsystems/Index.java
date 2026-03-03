@@ -15,6 +15,7 @@ import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
+import java.util.Optional;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
 import yams.mechanisms.config.FlyWheelConfig;
@@ -93,6 +94,11 @@ public class Index extends SubsystemBase {
    */
   public void setVelocitySetpointindex(AngularVelocity speed) {
     indexer.setMechanismVelocitySetpoint(speed);
+  }
+
+  /** Get the index velocity setpoint. */
+  public Optional<AngularVelocity> getVelocitySetpointindex() {
+    return Optional.of(indexer.getMechanismSetpointVelocity().orElse(RPM.of(0)));
   }
 
   /**
@@ -189,6 +195,11 @@ public class Index extends SubsystemBase {
    */
   public void setVelocitySetpointfunnel(AngularVelocity speed) {
     funneler.setMechanismVelocitySetpoint(speed);
+  }
+
+  /** Get the funnel velocity setpoint. */
+  public Optional<AngularVelocity> getVelocitySetpointfunnel() {
+    return Optional.of(funneler.getMechanismSetpointVelocity().orElse(RPM.of(0)));
   }
 
   /**

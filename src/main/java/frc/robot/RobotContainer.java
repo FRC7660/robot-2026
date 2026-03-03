@@ -259,7 +259,7 @@ public class RobotContainer {
       // driverXbox.leftBumper().onTrue(Commands.runOnce(pitCheck::start,
       // drivebase).andThen(pitCheck::execute, drivebase));
       // This starts the command when you press LB, and stops it immediately when you let go.
-      driverXbox.leftBumper().whileTrue(new YAGSLPitCheck(drivebase));
+      driverXbox.povDown().whileTrue(new YAGSLPitCheck(drivebase));
       driverXbox.rightBumper().onTrue(launchSystem.setVelocity(50.0));
       driverXbox.rightBumper().onFalse(launchSystem.setVelocity(0));
       // driverXbox.b().whileTrue(indexSystem.setVelocityindex(60.0));
@@ -291,14 +291,25 @@ public class RobotContainer {
                   })
               .onlyIf(() -> !liftPressureMaxed.getAsBoolean()));
       liftPressureDetected.onFalse(intakeSystem.setAngle(110.0));
-      liftPressureMaxed.whileTrue(intakeSystem.fullIntake());
-      liftPressureMaxed.onFalse(Commands.runOnce(() -> intakeSystem.stopRoller()));
+      driverXbox
+          .leftBumper()
+          .onTrue(
+              Commands.runOnce(
+                  () -> {
+                    if (intakeSystem.getRollerSpeed().get() <= 0.1) {
+                      intakeSystem.setRollerSpeed(0.99);
+                    } else {
+                      intakeSystem.stopRoller();
+                    }
+                  }));
+      liftPressureMaxed.whileTrue(Commands.run(() -> intakeSystem.fullDeploy()));
+      // liftPressureMaxed.onFalse(Commands.runOnce(() -> intakeSystem.stopRoller()));
 
       // Trigger-based shot control
       Command startSequence = launchSystem.shotSequenceStart(indexSystem);
       startSequence.addRequirements(launchSystem, indexSystem);
       // Medium pressure: start AutoTurn
-      shotPressureDetected.whileTrue(new TurretAutoTurn(turret));
+      // shotPressureDetected.whileTrue(new TurretAutoTurn(turret));
       // Full pressure: start shooting and indexing sequence
       shotPressureMaxed.whileTrue(startSequence);
 
