@@ -17,6 +17,8 @@ import com.ctre.phoenix6.signals.NeutralModeValue;
 import edu.wpi.first.math.controller.ArmFeedforward;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.measure.Angle;
+import edu.wpi.first.wpilibj.DigitalInput;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
@@ -37,6 +39,9 @@ import yams.motorcontrollers.remote.TalonFXWrapper;
 public class Intake extends SubsystemBase {
   private final TalonFX liftMotor = new TalonFX(Constants.Intake.LIFT_MOTOR_ID);
   private final TalonFX rollerMotor = new TalonFX(Constants.Intake.ROLLER_MOTOR_ID);
+
+  // Limit switch for intake
+  private final DigitalInput limitSwitch = new DigitalInput(Constants.Intake.LIMIT_SWITCH_PORT);
 
   // Roller Motor Config
   public void configureRollerMotor() {
@@ -90,6 +95,9 @@ public class Intake extends SubsystemBase {
   public void periodic() {
     // Update telemetry for the arm mechanism
     lift.updateTelemetry();
+
+    // Update limit switch status on SmartDashboard
+    SmartDashboard.putBoolean("Intake/Limit Switch Pressed", isLimitSwitchPressed());
   }
 
   @Override
@@ -162,5 +170,35 @@ public class Intake extends SubsystemBase {
           setRollerSpeed(0.99);
           fullDeploy();
         });
+  }
+
+  /**
+   * Returns true if the limit switch is pressed, false otherwise.
+   *
+   * @return true if the limit switch is pushed, false if not
+   */
+  public boolean isLimitSwitchPressed() {
+    return limitSwitch.get();
+  }
+
+  public Command zeroArm() {
+    return run(() -> {
+          // Run the lift motor in positive direction, bypassing soft limits
+          liftMotor.set(0.2); // 20% power in positive direction
+        })
+        .until(
+            () ->
+                (isLimitSwitchPressed()
+                    ||
+                    // Stop if limit switch pressed or current exceeds 25A
+                    liftMotor.getSupplyCurrent().getValueAsDouble() > 25.0))
+        .andThen(
+            () -> {
+              // Stop the motor
+              liftMotor.set(0);
+              // Set the arm position setpoint to 110 degrees after calibration
+              setAngleSetpoint(110.0);
+            })
+        .handleInterrupt(() -> liftMotor.set(0.0));
   }
 }
