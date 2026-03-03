@@ -143,6 +143,7 @@ public class Launch extends SubsystemBase {
     Supplier<AngularVelocity> s_velSupplier = () -> getVelocity();
     Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity();
     Trigger optimalVelocityReached =
+        // FIXME: the conversion of 60 here is very suspect
         new Trigger(
             () ->
                 (s_velSupplier.get().in(RPM) >= (s_velSetpointSupplier.get().in(RPM) * 60) * 0.97));
