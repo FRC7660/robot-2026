@@ -254,6 +254,7 @@ public class RobotContainer {
           driveFieldOrientedAnglularVelocity); // Overrides drive command above!
 
       // driverXbox.x().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
+      driverXbox.x().whileTrue(intakeSystem.zeroArm());
       driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
       driverXbox.back().whileTrue(drivebase.centerModulesCommand());
       // driverXbox.leftBumper().onTrue(Commands.runOnce(pitCheck::start,
