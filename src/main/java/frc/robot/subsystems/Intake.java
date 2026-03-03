@@ -183,9 +183,10 @@ public class Intake extends SubsystemBase {
         })
         .until(
             () ->
-                isLimitSwitchPressed()
-                    || liftMotor.getSupplyCurrent().getValueAsDouble()
-                        > 30.0) // Stop if limit switch pressed or current exceeds 25A
+                (isLimitSwitchPressed()
+                    ||
+                    // Stop if limit switch pressed or current exceeds 25A
+                    liftMotor.getSupplyCurrent().getValueAsDouble() > 25.0))
         .andThen(
             () -> {
               // Stop the motor
