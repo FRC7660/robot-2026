@@ -53,6 +53,14 @@ public class RobotContainer {
         .deadlineFor(intakeLaunch.runIntake());
   }
 
+  private Command shootThenIntakeForAutoCommand() {
+    return Commands.sequence(
+            intakeLaunch.shootDefault().withTimeout(5.0),
+            intakeLaunch.stopShooting(),
+            Commands.runOnce(() -> intakeLaunch.runIntake().schedule()))
+        .withName("ShootThenIntakeForAuto");
+  }
+
   private double getRightXCorrected() {
     double base = driverXbox.getRightX();
     if (DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue)
@@ -127,6 +135,7 @@ public class RobotContainer {
       NamedCommands.registerCommand("test", Commands.print("I EXIST"));
       NamedCommands.registerCommand("FuelPalantir", fuelPalantirAutonomousCommand());
       NamedCommands.registerCommand("LogoFuelPalantir", fuelPalantirAutonomousCommand());
+      NamedCommands.registerCommand("shootCommand", shootThenIntakeForAutoCommand());
       NamedCommands.registerCommand(
           "ResetPoseFromAprilTags",
           Commands.runOnce(
