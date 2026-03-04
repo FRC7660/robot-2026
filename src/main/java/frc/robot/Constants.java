@@ -63,7 +63,7 @@ public final class Constants {
     public static final double UPPER_VELOCITY_KI = 0.0;
     public static final double UPPER_VELOCITY_KD = 0.0;
 
-    public static final double INTAKE_UPPER_DUTY_CYCLE = 0.85;
+    public static final double INTAKE_UPPER_DUTY_CYCLE = 0.75;
     public static final double INTAKE_LOWER_DUTY_CYCLE = -0.85;
     public static final double OUTTAKE_UPPER_DUTY_CYCLE = -0.85;
     public static final double OUTTAKE_LOWER_DUTY_CYCLE = 0.85;

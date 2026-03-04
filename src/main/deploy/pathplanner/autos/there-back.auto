@@ -7,7 +7,19 @@
         {
           "type": "path",
           "data": {
-            "pathName": "part-1"
+            "pathName": "start"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "shootCommand"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "hub-to-center"
           }
         },
         {
