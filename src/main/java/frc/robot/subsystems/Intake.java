@@ -176,24 +176,58 @@ public class Intake extends SubsystemBase {
     return limitSwitch.get();
   }
 
+  /**
+   * Reconfigures the arm soft limits.
+   *
+   * @param lowerLimit Lower soft limit in degrees
+   * @param upperLimit Upper soft limit in degrees
+   */
+  private void reconfigureArmLimits(double lowerLimit, double upperLimit) {
+    // Create a new config with the updated limits
+    ArmConfig newConfig =
+        new ArmConfig(liftSmartMotorController)
+            .withSoftLimits(Degrees.of(lowerLimit), Degrees.of(upperLimit))
+            .withHardLimit(Degrees.of(-30), Degrees.of(110))
+            .withStartingPosition(Degrees.of(110))
+            .withLength(Inches.of(8))
+            .withMass(Pounds.of(8.466))
+            .withTelemetry("Arm", TelemetryVerbosity.HIGH)
+            .withHorizontalZero(Degrees.of(0.0));
+    // Update the lift mechanism with the new config
+    lift = new Arm(newConfig);
+  }
+
   public Command zeroArm() {
-    return run(() -> {
-          // Run the lift motor in positive direction, bypassing soft limits
-          liftMotor.set(0.2); // 20% power in positive direction
-        })
-        .until(
-            () ->
-                (isLimitSwitchPressed()
-                    ||
-                    // Stop if limit switch pressed or current exceeds 25A
-                    liftMotor.getSupplyCurrent().getValueAsDouble() > 25.0))
+    return runOnce(
+            () -> {
+              // Reconfigure arm limits to allow movement to 245 degrees
+              reconfigureArmLimits(-25, 245);
+            })
+        .andThen(
+            run(() -> {
+                  // Run the lift motor in positive direction
+                  liftMotor.set(0.2); // 20% power in positive direction
+                })
+                .until(
+                    () ->
+                        (isLimitSwitchPressed()
+                            ||
+                            // Stop if limit switch pressed or current exceeds 25A
+                            liftMotor.getSupplyCurrent().getValueAsDouble() > 25.0)))
         .andThen(
             () -> {
               // Stop the motor
               liftMotor.set(0);
+              // Reset arm limits back to normal
+              reconfigureArmLimits(-25, 110);
               // Set the arm position setpoint to 110 degrees after calibration
               setAngleSetpoint(110.0);
             })
-        .handleInterrupt(() -> liftMotor.set(0.0));
+        .handleInterrupt(
+            () -> {
+              liftMotor.set(0.0);
+              // Reset arm limits if command is interrupted
+              reconfigureArmLimits(-25, 110);
+            });
   }
 }
