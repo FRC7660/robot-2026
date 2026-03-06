@@ -56,7 +56,7 @@ public class RobotContainer {
   private Command shootThenIntakeForAutoCommand() {
     return Commands.sequence(
             intakeLaunch.shootDefault().withTimeout(5.0),
-            intakeLaunch.stopShooting(),
+            intakeLaunch.stopAllImmediateCommand(),
             Commands.runOnce(() -> intakeLaunch.runIntake().schedule()))
         .withName("ShootThenIntakeForAuto");
   }
