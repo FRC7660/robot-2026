@@ -5,12 +5,6 @@
     "data": {
       "commands": [
         {
-          "type": "path",
-          "data": {
-            "pathName": "start"
-          }
-        },
-        {
           "type": "named",
           "data": {
             "name": "shootCommand"
@@ -38,6 +32,12 @@
           "type": "path",
           "data": {
             "pathName": "part-2"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "shootCommand"
           }
         }
       ]
