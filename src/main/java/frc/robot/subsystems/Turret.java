@@ -44,7 +44,7 @@ public class Turret extends SubsystemBase {
   // YAMS controller + mechanism
   private final SmartMotorController turretSmartMotorController;
   private final Pivot turretPivot;
-  // Most recent setpoint (robot-relative radians). Useful for debugging and tests.
+  // Most recent setpoint sent to the mechanism controller (mechanism frame).
   private Rotation2d lastSetpoint = new Rotation2d();
   // Most recently chosen target (field coordinates, meters)
   private Translation2d lastTarget = new Translation2d();
@@ -126,10 +126,10 @@ public class Turret extends SubsystemBase {
    */
   public void setTurretSetpoint(Rotation2d robotRelativeAngle) {
     // TODO: need to add "only move if greater than"
-    Rotation2d signedAngle =
-        Rotation2d.fromDegrees(normalizeToSigned180(robotRelativeAngle.getDegrees()));
-    turretSmartMotorController.setPosition(signedAngle.getMeasure());
-    this.lastSetpoint = signedAngle;
+    double mechanismDeg = robotToMechanismDeg(robotRelativeAngle.getDegrees());
+    Rotation2d mechanismAngle = Rotation2d.fromDegrees(mechanismDeg);
+    turretSmartMotorController.setPosition(mechanismAngle.getMeasure());
+    this.lastSetpoint = mechanismAngle;
   }
 
   /** Get the most recent turret setpoint (robot-relative angle). Primarily useful for testing. */
@@ -200,12 +200,14 @@ public class Turret extends SubsystemBase {
     double currentDegSigned =
         normalizeToSigned180(turretSmartMotorController.getMechanismPosition().in(Degrees));
     double calcSetpointDegSigned = getRobotRelativeAngle().getDegrees();
+    double currentRobotFrameDegSigned = mechanismToRobotDeg(currentDegSigned);
     double fieldAngleDegSigned = normalizeToSigned180(lastFieldAngle.getDegrees());
     double robotAngleDegSigned = normalizeToSigned180(getPose.get().getRotation().getDegrees());
     SmartDashboard.putNumber(
         "Turret/EncoderRot",
         (turretMotor.getEncoder().getPosition() / Constants.Turret.TURRET_GEAR_RATIO) * 360);
     SmartDashboard.putNumber("Turret/CurrentDeg", currentDegSigned);
+    SmartDashboard.putNumber("Turret/CurrentRobotFrameDeg", currentRobotFrameDegSigned);
     SmartDashboard.putNumber("Turret/FieldRelDeg", fieldAngleDegSigned);
     SmartDashboard.putNumber("Turret/RobotRelDeg", robotAngleDegSigned);
     SmartDashboard.putNumber("Turret/SetpointDeg", setPoint);
@@ -220,6 +222,14 @@ public class Turret extends SubsystemBase {
       return 180.0;
     }
     return normalized;
+  }
+
+  private static double robotToMechanismDeg(double robotDeg) {
+    return normalizeToSigned180(robotDeg + Constants.Turret.MECHANISM_ZERO_OFFSET_DEG);
+  }
+
+  private static double mechanismToRobotDeg(double mechanismDeg) {
+    return normalizeToSigned180(mechanismDeg - Constants.Turret.MECHANISM_ZERO_OFFSET_DEG);
   }
 
   @Override
