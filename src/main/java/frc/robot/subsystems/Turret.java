@@ -17,6 +17,7 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -225,11 +226,15 @@ public class Turret extends SubsystemBase {
   }
 
   private static double robotToMechanismDeg(double robotDeg) {
-    return normalizeToSigned180(robotDeg + Constants.Turret.MECHANISM_ZERO_OFFSET_DEG);
+    return normalizeToSigned180(robotDeg + getMechanismZeroOffsetDeg());
   }
 
   private static double mechanismToRobotDeg(double mechanismDeg) {
-    return normalizeToSigned180(mechanismDeg - Constants.Turret.MECHANISM_ZERO_OFFSET_DEG);
+    return normalizeToSigned180(mechanismDeg - getMechanismZeroOffsetDeg());
+  }
+
+  private static double getMechanismZeroOffsetDeg() {
+    return RobotBase.isSimulation() ? 0.0 : Constants.Turret.MECHANISM_ZERO_OFFSET_DEG;
   }
 
   @Override
