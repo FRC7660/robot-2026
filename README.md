@@ -10,10 +10,7 @@ This robot was built by Father Gabriel Richard Highschool's robotics team: The B
 
 a -> (on true) zero's gyro based on alliance zone
 x -> (while true) intake arm is zeroed
-start -> (while true) none
-back -> (while true) none
 leftBumper -> (while true) toggle intake roller
-rightBumper -> (on true) none
 rightTrigger -> (partial) activate turret rotation
 rightTrigger -> (full) initiate shooting
 leftTrigger -> intake arm deployment
