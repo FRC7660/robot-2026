@@ -99,7 +99,7 @@ public class Turret extends SubsystemBase {
             // Gearing from motor rotor to turret.
             .withGearing(new MechanismGearing(GearBox.fromReductionStages(4, 10)))
             // Motor properties to prevent over currenting.
-            .withMotorInverted(false)
+            .withMotorInverted(true)
             .withIdleMode(MotorMode.BRAKE)
             .withStatorCurrentLimit(Amps.of(40))
             .withClosedLoopRampRate(Seconds.of(0.05))
