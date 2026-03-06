@@ -174,7 +174,7 @@ public class RobotContainer {
 
     // Set the turret default command to compute targets from odometry
     turret.setDefaultCommand(Commands.idle(turret));
-    driverXbox.povUp().whileTrue(new TurretAutoTurn(turret));
+    driverXbox.povUp().whileTrue(turret.autoSetAngle());
   }
 
   /**
