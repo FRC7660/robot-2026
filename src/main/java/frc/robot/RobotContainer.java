@@ -172,8 +172,8 @@ public class RobotContainer {
     SmartDashboard.putData("Auto Chooser", autoChooser);
 
     // Set the turret default command to compute targets from odometry
-    turret.setDefaultCommand(turret.autoSetAngle());
-    // driverXbox.povUp().whileTrue(turret.autoSetAngle());
+    // turret.setDefaultCommand(turret.autoSetAngle());
+    driverXbox.povUp().whileTrue(turret.autoSetAngle());
   }
 
   /**
