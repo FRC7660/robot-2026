@@ -89,6 +89,9 @@ public final class Constants {
   public static final class Turret {
     public static final int MOTOR_ID = 30;
     public static final double TURRET_SPEED = 0.05;
+    // Offset from robot-relative target frame to turret mechanism frame.
+    // +180 means "robot-forward 0 deg" maps to mechanism 180 deg.
+    public static final double MECHANISM_ZERO_OFFSET_DEG = 180.0;
     // Turret gearing: motor rotations -> turret rotations
     public static final double TURRET_GEAR_RATIO = 40.0;
     // PID for turret position (motor rotations)
