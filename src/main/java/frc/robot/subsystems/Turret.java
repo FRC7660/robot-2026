@@ -88,9 +88,9 @@ public class Turret extends SubsystemBase {
                 Constants.Turret.TURRET_P,
                 Constants.Turret.TURRET_I,
                 Constants.Turret.TURRET_D,
-                RPM.of(110),
-                RPM.per(Second).of(600))
-            .withFeedforward(new SimpleMotorFeedforward(0.25, 0.22, 0.0))
+                RPM.of(120),
+                RPM.per(Second).of(800))
+            .withFeedforward(new SimpleMotorFeedforward(0.005, 3.75, 0.0))
             .withSimClosedLoopController(1, 0, 0, RPM.of(110), RPM.per(Second).of(600))
             .withSimFeedforward(new SimpleMotorFeedforward(0.0, 4.6, 0.0))
             // Telemetry name and verbosity level
@@ -98,7 +98,7 @@ public class Turret extends SubsystemBase {
             // Gearing from motor rotor to turret.
             .withGearing(new MechanismGearing(GearBox.fromReductionStages(4, 10)))
             // Motor properties to prevent over currenting.
-            .withMotorInverted(false)
+            .withMotorInverted(true)
             .withIdleMode(MotorMode.BRAKE)
             .withStatorCurrentLimit(Amps.of(40))
             .withClosedLoopRampRate(Seconds.of(0.05))
