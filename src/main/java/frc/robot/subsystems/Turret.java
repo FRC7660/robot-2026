@@ -108,9 +108,9 @@ public class Turret extends SubsystemBase {
 
     PivotConfig pivotConfig =
         new PivotConfig(turretSmartMotorController)
-            .withHardLimit(Degrees.of(0), Degrees.of(360))
-            .withSoftLimits(Degrees.of(30), Degrees.of(330))
-            .withStartingPosition(Degrees.of(180))
+            .withHardLimit(Degrees.of(-180), Degrees.of(180))
+            .withSoftLimits(Degrees.of(-150), Degrees.of(150))
+            .withStartingPosition(Degrees.of(0))
             .withTelemetry("TurretPivot", TelemetryVerbosity.HIGH)
             .withMOI(Meters.of(0.254), Pounds.of(2));
 
