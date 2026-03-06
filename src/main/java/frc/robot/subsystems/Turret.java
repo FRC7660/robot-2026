@@ -203,15 +203,15 @@ public class Turret extends SubsystemBase {
     double fieldAngleDegSigned = normalizeToSigned180(lastFieldAngle.getDegrees());
     double robotAngleDegSigned = normalizeToSigned180(getPose.get().getRotation().getDegrees());
     SmartDashboard.putNumber(
-        "Turret/PositionRot",
+        "Turret/EncoderRot",
         (turretMotor.getEncoder().getPosition() / Constants.Turret.TURRET_GEAR_RATIO) * 360);
-    SmartDashboard.putNumber("Turret/SetpointCalcDegSigned", calcSetpointDegSigned);
-    SmartDashboard.putNumber("Turret/PositionDegSigned", currentDegSigned);
-    SmartDashboard.putNumber("Turret/FieldAngleDegSigned", fieldAngleDegSigned);
-    SmartDashboard.putNumber("Turret/RobotAngleDegSigned", robotAngleDegSigned);
-    SmartDashboard.putNumber("Turret/SetpointDegSigned", setPoint);
+    SmartDashboard.putNumber("Turret/CurrentDeg", currentDegSigned);
+    SmartDashboard.putNumber("Turret/FieldRelDeg", fieldAngleDegSigned);
+    SmartDashboard.putNumber("Turret/RobotRelDeg", robotAngleDegSigned);
+    SmartDashboard.putNumber("Turret/SetpointDeg", setPoint);
+    SmartDashboard.putNumber("Turret/SetpointCalcDeg", calcSetpointDegSigned);
     SmartDashboard.putString(
-        "Turret/Target", "(" + lastTarget.getX() + "," + lastTarget.getY() + ")");
+        "Turret/Target", String.format("(%.2f,%.2f)", lastTarget.getX(), lastTarget.getY()));
   }
 
   private static double normalizeToSigned180(double degrees) {
