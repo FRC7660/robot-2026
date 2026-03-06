@@ -112,6 +112,10 @@ public class IntakeLaunch extends SubsystemBase {
         .withName("IntakeLaunchStop");
   }
 
+  public Command stopAllImmediateCommand() {
+    return Commands.runOnce(this::stopAllImmediate, this).withName("IntakeLaunchStopImmediate");
+  }
+
   private void setUpperDutyCycle(double dutyCycle) {
     upperFlyWheel.setDutyCycleSetpoint(MathUtil.clamp(dutyCycle, -1.0, 1.0));
   }
