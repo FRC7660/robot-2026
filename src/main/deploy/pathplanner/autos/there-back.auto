@@ -19,13 +19,13 @@
         {
           "type": "named",
           "data": {
-            "name": "LogoFuelPalantir"
+            "name": "ResetPoseFromAprilTags"
           }
         },
         {
           "type": "named",
           "data": {
-            "name": "ResetPoseFromAprilTags"
+            "name": "LogoFuelPalantir"
           }
         },
         {
