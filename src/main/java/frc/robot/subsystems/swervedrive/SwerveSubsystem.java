@@ -376,6 +376,22 @@ public class SwerveSubsystem extends SubsystemBase {
         .withName("FuelPalantirCommand-" + mode.name() + "-NoAprilTagFusion");
   }
 
+  public Command fuelPalantirGroupCommand(FuelPalantir.FuelPalantirMode mode) {
+    Command baseCommand = autonomousCommands.fuelPalantirGroupCommand(mode);
+    return baseCommand
+        .beforeStarting(
+            () -> {
+              System.out.println("[FuelPalantir] beforeStarting: disabling AprilTag fusion");
+              setVisionEstimatorModeOverride(Vision.EstimatorMode.OFF);
+            })
+        .finallyDo(
+            () -> {
+              System.out.println("[FuelPalantir] finallyDo: re-enabling AprilTag fusion");
+              clearVisionEstimatorModeOverride();
+            })
+        .withName("FuelPalantirGroupCommand-" + mode.name() + "-NoAprilTagFusion");
+  }
+
   public Command rejoinPathAtNearestPoseCommand(String pathName) {
     return autonomousCommands.rejoinPathAtNearestPoseCommand(pathName);
   }

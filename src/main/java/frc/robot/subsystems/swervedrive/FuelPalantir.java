@@ -46,13 +46,7 @@ public class FuelPalantir {
         double noTargetSinceSec,
         double lastForwardMps,
         double lastRotationRadPerSec) {
-      this(
-          lockedCamera,
-          lockedCamera,
-          noTargetSinceSec,
-          lastForwardMps,
-          lastRotationRadPerSec,
-          false);
+      this(lockedCamera, lockedCamera, noTargetSinceSec, lastForwardMps, lastRotationRadPerSec, false);
     }
 
     public FuelPalantirState(
