@@ -174,7 +174,7 @@ public class RobotContainer {
     Trigger shotPressureMaxed = new Trigger(() -> (driverXbox.getRightTriggerAxis() > 0.85));
 
     // Shot sequence init (Binds to Right Trigger)
-    Command startSequence = launchSystem.shotSequenceStart(indexSystem);
+    Command startSequence = launchSystem.shotSequenceStart(indexSystem, turret);
     startSequence.addRequirements(launchSystem, indexSystem);
     // Right Trigger/DPad Up - Medium pressure: start AutoTurn
     shotPressureDetected.whileTrue(turret.autoSetAngle());
