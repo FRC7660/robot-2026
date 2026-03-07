@@ -43,9 +43,9 @@ public class Index extends SubsystemBase {
           .withSimClosedLoopController(0, 0, 0, RPM.of(470), RPM.per(Second).of(2000))
           // Feedforward Constants
           .withFeedforward(new SimpleMotorFeedforward(0, 1.35, 0))
-          .withSimFeedforward(new SimpleMotorFeedforward(0, 0, 0))
+          .withSimFeedforward(new SimpleMotorFeedforward(0, 20, 0))
           // Telemetry name and verbosity level
-          .withTelemetry("indexerMotor", TelemetryVerbosity.HIGH)
+          .withTelemetry("IndexWheel", TelemetryVerbosity.HIGH)
           // Gearing from the motor rotor to final shaft.
           // In this example gearbox(3,4) is the same as gearbox("3:1","4:1") which corresponds to
           // the gearbox attached to your motor.
@@ -73,7 +73,7 @@ public class Index extends SubsystemBase {
           // Maximum speed of the index.
           .withUpperSoftLimit(RPM.of(1000))
           // Telemetry name and verbosity for the arm.
-          .withTelemetry("indexer", TelemetryVerbosity.HIGH);
+          .withTelemetry("YIndexWheel", TelemetryVerbosity.HIGH);
 
   // index Mechanism
   private FlyWheel indexer = new FlyWheel(indexingConfig);
@@ -139,14 +139,14 @@ public class Index extends SubsystemBase {
   SmartMotorControllerConfig funnelConfig =
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
-          // Feedback Constants (PID Constants)
+          // REAL
           .withClosedLoopController(0.1, 0, 0.05, RPM.of(470), RPM.per(Second).of(2000))
-          .withSimClosedLoopController(0, 0, 0, RPM.of(470), RPM.per(Second).of(2000))
-          // Feedforward Constants
           .withFeedforward(new SimpleMotorFeedforward(0, 1.3, 0))
+          // SIM
+          .withSimClosedLoopController(0, 0, 0, RPM.of(470), RPM.per(Second).of(2000))
           .withSimFeedforward(new SimpleMotorFeedforward(0, 1.5, 0))
           // Telemetry name and verbosity level
-          .withTelemetry("ShooterMotor", TelemetryVerbosity.HIGH)
+          .withTelemetry("IndexFunnel", TelemetryVerbosity.HIGH)
           // Gearing from the motor rotor to final shaft.
           // In this example gearbox(3,4) is the same as gearbox("3:1","4:1") which corresponds to
           // the gearbox attached to your motor.
@@ -174,7 +174,7 @@ public class Index extends SubsystemBase {
           // Maximum speed of the funnel.
           .withUpperSoftLimit(RPM.of(1000))
           // Telemetry name and verbosity for the arm.
-          .withTelemetry("funnel", TelemetryVerbosity.HIGH);
+          .withTelemetry("YIndexFunnel", TelemetryVerbosity.HIGH);
 
   // Funnel Mechanism
   private FlyWheel funneler = new FlyWheel(funnelingConfig);

@@ -62,7 +62,7 @@ public class Intake extends SubsystemBase {
           // sim
           .withSimClosedLoopController(175.0, 0, 20.0, RPM.of(1000), RPM.per(Second).of(6000))
           .withSimFeedforward(new ArmFeedforward(0.02, 0.005, 0.0))
-          .withTelemetry("LiftMotor", TelemetryVerbosity.HIGH)
+          .withTelemetry("IntakeArm", TelemetryVerbosity.HIGH)
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(5, 5, 3.333)))
           .withMotorInverted(true)
           .withIdleMode(MotorMode.COAST)
@@ -81,7 +81,7 @@ public class Intake extends SubsystemBase {
           .withStartingPosition(Degrees.of(110))
           .withLength(Inches.of(8))
           .withMass(Pounds.of(8.466))
-          .withTelemetry("Arm", TelemetryVerbosity.HIGH)
+          .withTelemetry("YIntakeArm", TelemetryVerbosity.HIGH)
           .withHorizontalZero(Degrees.of(0.0));
 
   // Arm Mechanism

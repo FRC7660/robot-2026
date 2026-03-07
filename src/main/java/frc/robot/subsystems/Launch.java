@@ -47,7 +47,7 @@ public class Launch extends SubsystemBase {
           .withFeedforward(new SimpleMotorFeedforward(0.115, 6.5, 3))
           .withSimFeedforward(new SimpleMotorFeedforward(0.115, 6.5, 3))
           // Telemetry name and verbosity level
-          .withTelemetry("ShooterMotor", TelemetryVerbosity.HIGH)
+          .withTelemetry("LaunchWheel", TelemetryVerbosity.HIGH)
           // Launch motors are 1:1 with fly wheel
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(1)))
           // Motor properties to prevent over currenting.
@@ -73,7 +73,7 @@ public class Launch extends SubsystemBase {
           // Maximum speed of the shooter.
           .withUpperSoftLimit(RPM.of(6700))
           // Telemetry name and verbosity for the arm.
-          .withTelemetry("ShooterConfig", TelemetryVerbosity.HIGH);
+          .withTelemetry("YLaunchWheel", TelemetryVerbosity.HIGH);
 
   // Shooter Mechanism
   private FlyWheel shooter = new FlyWheel(shooterConfig);
