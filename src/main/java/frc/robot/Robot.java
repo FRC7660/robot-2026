@@ -17,6 +17,7 @@ import edu.wpi.first.wpilibj2.command.CommandScheduler;
  * project.
  */
 public class Robot extends TimedRobot {
+  // UTF-8 sentinel comment: 🤖☘️
 
   private static Robot instance;
   private Command m_autonomousCommand;
