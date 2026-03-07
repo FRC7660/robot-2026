@@ -34,11 +34,6 @@ import frc.robot.subsystems.swervedrive.FuelPalantir.FuelPalantirMode;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
 import java.util.function.DoubleSupplier;
-import java.io.IOException;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 import swervelib.SwerveInputStream;
 
 /**

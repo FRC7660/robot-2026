@@ -21,9 +21,7 @@ public enum Cameras {
       "cam_G",
       new Rotation3d(0, Math.toRadians(20), Math.toRadians(-30)),
       new Translation3d(
-          Units.inchesToMeters(10.503),
-          Units.inchesToMeters(9.836),
-          Units.inchesToMeters(16.369)),
+          Units.inchesToMeters(10.503), Units.inchesToMeters(9.836), Units.inchesToMeters(16.369)),
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1)),
   /** Right Camera from main branch measurements (cam_F). */
@@ -60,7 +58,7 @@ public enum Cameras {
   // Units.inchesToMeters(8.44)),
   // VecBuilder.fill(4, 4, 8),
   // VecBuilder.fill(0.5, 0.5, 1)),
-  // CENTER_CAM disabled — "camB" not present on coprocessor, causes per-loop exceptions
+  // CENTER_CAM disabled - "camB" not present on coprocessor, causes per-loop exceptions
   // /** Center Camera */
   // CENTER_CAM(
   //     "camB",

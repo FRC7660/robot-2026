@@ -8,7 +8,7 @@ import org.photonvision.targeting.PhotonTrackedTarget;
 /** Pure-logic decision layer for the FuelPalantir fuel-collection behavior. */
 public class FuelPalantir {
 
-  // ── Constants ─────────────────────────────────────────────────────────────
+  // -- Constants -------------------------------------------------------------
 
   static final double FUEL_APPROACH_STOP_AREA = 4.5;
   static final double FUEL_APPROACH_MIN_FORWARD_MPS = 0.10;
@@ -23,7 +23,7 @@ public class FuelPalantir {
   static final double MAX_FORWARD_STEP_MPS_PER_CYCLE = 0.06;
   static final double MAX_ROTATION_STEP_RAD_PER_SEC_PER_CYCLE = 0.20;
 
-  // ── Records & Enums ───────────────────────────────────────────────────────
+  // -- Records & Enums ------------------------------------------------------
 
   public enum FuelPalantirMode {
     AUTONOMOUS, // 15s timeout, completes on its own
@@ -78,7 +78,7 @@ public class FuelPalantir {
       boolean completed,
       String reason) {}
 
-  // ── Pure static helpers ───────────────────────────────────────────────────
+  // -- Pure static helpers --------------------------------------------------
 
   static Optional<PhotonTrackedTarget> getClosestNonFiducialTarget(Vision.CameraSnapshot snapshot) {
     if (snapshot == null
@@ -128,7 +128,7 @@ public class FuelPalantir {
     return Optional.ofNullable(bestCamera);
   }
 
-  // ── Core decision function ────────────────────────────────────────────────
+  // -- Core decision function -----------------------------------------------
 
   public static FuelPalantirStep fuelPalantir(
       Map<Cameras, Vision.CameraSnapshot> cameraData,
