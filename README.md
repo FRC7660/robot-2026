@@ -14,3 +14,11 @@ leftBumper -> (while true) toggle intake roller
 rightTrigger -> (partial) activate turret rotation
 rightTrigger -> (full) initiate shooting
 leftTrigger -> intake arm deployment
+
+
+##Notes 
+
+Cam_G down (could be changed in code)
+Networktables crashes
+Jankey Turret (tune PIDs)
+Up/Down Intake
