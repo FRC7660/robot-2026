@@ -248,12 +248,13 @@ public class RobotContainer {
               indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
     }
 
+    driverXbox.back().onTrue(Commands.runOnce(drivebase::resetToStartingPosition));
+    driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
     if (DriverStation.isTest()) {
       drivebase.setDefaultCommand(driveFieldOrientedDirectAngle); // Overrides drive command above!
 
       // driverXbox.x().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
       driverXbox.x().whileTrue(intakeSystem.zeroArm());
-      driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
       driverXbox.back().whileTrue(drivebase.centerModulesCommand());
       // driverXbox.leftBumper().onTrue(Commands.runOnce(pitCheck::start,
       // drivebase).andThen(pitCheck::execute, drivebase));
