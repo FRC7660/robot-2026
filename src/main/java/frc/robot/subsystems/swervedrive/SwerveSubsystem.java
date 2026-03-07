@@ -583,15 +583,15 @@ public class SwerveSubsystem extends SubsystemBase {
     }
   }
 
-  /**
-   * reset odometry to think that robot is right in front of it's teams hub.
-   */
+  /** reset odometry to think that robot is right in front of it's teams hub. */
   public void resetToStartingPosition() {
     zeroGyro();
     if (isRedAlliance()) {
-      resetOdometry(new Pose2d(new Translation2d(Meter.of(14), Meter.of(4)), Rotation2d.fromDegrees(180)));
+      resetOdometry(
+          new Pose2d(new Translation2d(Meter.of(14), Meter.of(4)), Rotation2d.fromDegrees(180)));
     } else {
-      resetOdometry(new Pose2d(new Translation2d(Meter.of(2.5), Meter.of(4)), Rotation2d.fromDegrees(0)));
+      resetOdometry(
+          new Pose2d(new Translation2d(Meter.of(2.5), Meter.of(4)), Rotation2d.fromDegrees(0)));
     }
   }
 
