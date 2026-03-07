@@ -70,8 +70,9 @@ public class RobotContainer {
   private Trigger shotPressureMaxed = new Trigger(() -> (driverXbox.getRightTriggerAxis() > 0.85));
 
   // The robot's subsystems and commands are defined here...
-  private final SwerveSubsystem drivebase = createDrivebase();
   private final String chassisDirectory = "swerve/7660-chassis1";
+  private final SwerveSubsystem drivebase =
+      new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), chassisDirectory));
   private final MisalignCorrection misalignCorrection =
       new MisalignCorrection(drivebase, chassisDirectory);
   private final Index indexSystem = new Index();
@@ -81,10 +82,6 @@ public class RobotContainer {
   private final Launch launchSystem = new Launch();
 
   private final AutonomousManager autonomousManager;
-
-  private SwerveSubsystem createDrivebase() {
-    return new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-chassis1"));
-  }
 
   private double getRightXCorrected() {
     if (RobotBase.isSimulation()) {
