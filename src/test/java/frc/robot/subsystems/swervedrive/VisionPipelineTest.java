@@ -349,8 +349,9 @@ class VisionPipelineTest {
         Vision.selectAdvancedPose(
             estimations, new Pose2d(), new EnumMap<>(Cameras.class), 0, 0.0, 0.0, 0.0);
 
-    assertTrue(result.bestCandidate().isPresent());
+    assertTrue(result.bestCandidate().isEmpty());
     assertEquals(0, result.rejectedLowTagFar());
+    assertEquals(1, result.rejectedOutlier());
   }
 
   @Test
