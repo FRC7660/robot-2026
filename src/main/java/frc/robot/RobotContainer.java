@@ -26,7 +26,6 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OperatorConstants;
 import frc.robot.commands.swervedrive.MisalignCorrection;
-import frc.robot.commands.swervedrive.YAGSLPitCheck;
 import frc.robot.subsystems.Index;
 import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Launch;
@@ -187,21 +186,8 @@ public class RobotContainer {
    */
   private void configureBindings() {
     Command driveFieldOrientedDirectAngle = drivebase.driveFieldOriented(driveDirectAngle);
-    Command driveFieldOrientedAnglularVelocity = drivebase.driveFieldOriented(driveAngularVelocity);
-    Command driveRobotOrientedAngularVelocity = drivebase.driveFieldOriented(driveRobotOriented);
-    Command driveSetpointGen = drivebase.driveWithSetpointGeneratorFieldRelative(driveDirectAngle);
-    Command driveFieldOrientedDirectAngleKeyboard =
-        drivebase.driveFieldOriented(driveDirectAngleKeyboard);
-    Command driveFieldOrientedAnglularVelocityKeyboard =
-        drivebase.driveFieldOriented(driveAngularVelocityKeyboard);
-    Command driveSetpointGenKeyboard =
-        drivebase.driveWithSetpointGeneratorFieldRelative(driveDirectAngleKeyboard);
 
-    if (RobotBase.isSimulation()) {
-      drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
-    } else {
-      drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
-    }
+    drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
 
     if (Robot.isSimulation()) {
       Pose2d target = new Pose2d(new Translation2d(1, 4), Rotation2d.fromDegrees(90));
@@ -252,84 +238,66 @@ public class RobotContainer {
     driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
     if (DriverStation.isTest()) {
       drivebase.setDefaultCommand(driveFieldOrientedDirectAngle); // Overrides drive command above!
+    drivebase.setDefaultCommand(driveFieldOrientedDirectAngle); // Overrides drive command above!
 
-      // driverXbox.x().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
-      driverXbox.x().whileTrue(intakeSystem.zeroArm());
-      driverXbox.back().whileTrue(drivebase.centerModulesCommand());
-      // driverXbox.leftBumper().onTrue(Commands.runOnce(pitCheck::start,
-      // drivebase).andThen(pitCheck::execute, drivebase));
-      // This starts the command when you press LB, and stops it immediately when you let go.
-      driverXbox.povDown().whileTrue(new YAGSLPitCheck(drivebase));
-      driverXbox.rightBumper().onTrue(launchSystem.setVelocity(50.0));
-      driverXbox.rightBumper().onFalse(launchSystem.setVelocity(0));
-      // driverXbox.b().whileTrue(indexSystem.setVelocityindex(60.0));
-      driverXbox
-          .b()
-          .whileTrue(
-              indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
-      driverXbox
-          .y()
-          .whileTrue(
-              intakeSystem.runCommand(
-                  () -> {
-                    return .99;
-                  }));
+    driverXbox.x().whileTrue(intakeSystem.zeroArm());
+    driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
+    driverXbox.back().whileTrue(drivebase.centerModulesCommand());
+    // driverXbox.leftBumper().onTrue(Commands.runOnce(pitCheck::start,
+    // drivebase).andThen(pitCheck::execute, drivebase));
+    // This starts the command when you press LB, and stops it immediately when you let go.
+    // driverXbox.povDown().whileTrue(new YAGSLPitCheck(drivebase));
+    driverXbox.rightBumper().onTrue(launchSystem.setVelocity(50.0));
+    driverXbox.rightBumper().onFalse(launchSystem.setVelocity(0));
+    // driverXbox.b().whileTrue(indexSystem.setVelocityindex(60.0));
+    driverXbox
+        .b()
+        .whileTrue(
+            indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
+    driverXbox
+        .y()
+        .whileTrue(
+            intakeSystem.runCommand(
+                () -> {
+                  return .99;
+                }));
 
-      // Replaced by the trigger command below
-      // driverXbox.a().onTrue(intakeSystem.setAngle(-25.0));
-      // driverXbox.x().onTrue(intakeSystem.setAngle(110.0));
+    // Replaced by the trigger command below
+    // driverXbox.a().onTrue(intakeSystem.setAngle(-25.0));
+    // driverXbox.x().onTrue(intakeSystem.setAngle(110.0));
 
-      // Trigger-based linear arm angle control
-      liftPressureDetected.whileTrue(
-          Commands.run(
-                  () -> {
-                    double angle = 110 - dx_leftTriggerSupplier.getAsDouble() * (110 + 25);
-                    intakeSystem.setAngle(angle).schedule();
-                    SmartDashboard.putNumber(
-                        "AXIS1 - LIFT (DEGREES)",
-                        dx_leftTriggerSupplier.getAsDouble() * (110 + 25));
-                  })
-              .onlyIf(() -> !liftPressureMaxed.getAsBoolean()));
-      liftPressureDetected.onFalse(intakeSystem.setAngle(110.0));
-      driverXbox
-          .leftBumper()
-          .onTrue(
-              Commands.runOnce(
-                  () -> {
-                    if (intakeSystem.getRollerSpeed().get() <= 0.1) {
-                      intakeSystem.setRollerSpeed(0.99);
-                    } else {
-                      intakeSystem.stopRoller();
-                    }
-                  }));
-      liftPressureMaxed.whileTrue(Commands.run(() -> intakeSystem.fullDeploy()));
-      // liftPressureMaxed.onFalse(Commands.runOnce(() -> intakeSystem.stopRoller()));
+    // Trigger-based linear arm angle control
+    liftPressureDetected.whileTrue(
+        Commands.run(
+                () -> {
+                  double angle = 110 - dx_leftTriggerSupplier.getAsDouble() * (110 + 25);
+                  intakeSystem.setAngle(angle).schedule();
+                  SmartDashboard.putNumber(
+                      "AXIS1 - LIFT (DEGREES)", dx_leftTriggerSupplier.getAsDouble() * (110 + 25));
+                })
+            .onlyIf(() -> !liftPressureMaxed.getAsBoolean()));
+    liftPressureDetected.onFalse(intakeSystem.setAngle(110.0));
+    driverXbox
+        .leftBumper()
+        .onTrue(
+            Commands.runOnce(
+                () -> {
+                  if (intakeSystem.getRollerSpeed().get() <= 0.1) {
+                    intakeSystem.setRollerSpeed(0.99);
+                  } else {
+                    intakeSystem.stopRoller();
+                  }
+                }));
+    liftPressureMaxed.whileTrue(Commands.run(() -> intakeSystem.fullDeploy()));
+    // liftPressureMaxed.onFalse(Commands.runOnce(() -> intakeSystem.stopRoller()));
 
-      // Trigger-based shot control
-      Command startSequence = launchSystem.shotSequenceStart(indexSystem);
-      startSequence.addRequirements(launchSystem, indexSystem);
-      // Medium pressure: start AutoTurn
-      // shotPressureDetected.whileTrue(new TurretAutoTurn(turret));
-      // Full pressure: start shooting and indexing sequence
-      shotPressureMaxed.whileTrue(startSequence);
-
-    } else {
-      driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyroWithAlliance)));
-      // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
-      driverXbox.x().whileTrue(intakeSystem.zeroArm());
-      driverXbox.start().whileTrue(Commands.none());
-      driverXbox.back().whileTrue(Commands.none());
-      driverXbox.leftBumper().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
-      driverXbox.rightBumper().onTrue(Commands.none());
-
-      driverXbox
-          .b()
-          .whileTrue(
-              drivebase.driveToPose(
-                  new Pose2d(new Translation2d(14, 4), Rotation2d.fromDegrees(0))));
-
-      driverXbox.y().whileTrue(drivebase.sysIdDriveMotorCommand());
-    }
+    // Trigger-based shot control
+    Command startSequence = launchSystem.shotSequenceStart(indexSystem);
+    startSequence.addRequirements(launchSystem, indexSystem);
+    // Medium pressure: start AutoTurn
+    // shotPressureDetected.whileTrue(new TurretAutoTurn(turret));
+    // Full pressure: start shooting and indexing sequence
+    shotPressureMaxed.whileTrue(startSequence);
   }
 
   /**
