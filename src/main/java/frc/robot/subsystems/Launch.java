@@ -4,6 +4,7 @@ import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Pounds;
 import static edu.wpi.first.units.Units.RPM;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Seconds;
 
@@ -11,13 +12,18 @@ import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
 import edu.wpi.first.math.Pair;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
+import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants;
+import frc.robot.lib.TurretHelpers;
 import java.util.function.Supplier;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
@@ -31,6 +37,19 @@ import yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity;
 import yams.motorcontrollers.local.SparkWrapper;
 
 public class Launch extends SubsystemBase {
+  private static final InterpolatingDoubleTreeMap SPEED_TABLE = new InterpolatingDoubleTreeMap();
+
+  static {
+    SPEED_TABLE.put(Units.inchesToMeters(0), 25.0);
+    SPEED_TABLE.put(Units.inchesToMeters(141), 44.0);
+    SPEED_TABLE.put(Units.inchesToMeters(145), 45.0);
+    SPEED_TABLE.put(Units.inchesToMeters(182), 50.0);
+    SPEED_TABLE.put(Units.inchesToMeters(216), 55.0);
+    SPEED_TABLE.put(Units.inchesToMeters(246), 60.0);
+    SPEED_TABLE.put(Units.inchesToMeters(290), 65.0);
+    SPEED_TABLE.put(Units.inchesToMeters(312), 80.0);
+  }
+
   private final SparkFlex motor1 =
       new SparkFlex(Constants.LaunchConstants.MOTOR1_ID, SparkLowLevel.MotorType.kBrushless);
 
@@ -42,16 +61,18 @@ public class Launch extends SubsystemBase {
           .withControlMode(ControlMode.CLOSED_LOOP)
           // Feedback Constants (PID Constants)
           .withClosedLoopController(0, 0, 0, RPM.of(6700), RPM.per(Second).of(6700 * 2))
-          .withSimClosedLoopController(0, 0, 0, RPM.of(6700), RPM.per(Second).of(6700 * 2))
+          .withSimClosedLoopController(0.3, 0, 0, RPM.of(6700), RPM.per(Second).of(6700 * 2))
           // Feedforward Constants
           .withFeedforward(new SimpleMotorFeedforward(0.115, 6.5, 3))
-          .withSimFeedforward(new SimpleMotorFeedforward(0.115, 6.5, 3))
+          // Sim kV/kA divided by 60: original was tuned in RPM-basis but YAMS passes velocity in
+          // RPS.
+          .withSimFeedforward(new SimpleMotorFeedforward(0.115, 0.108, 0.05))
           // Telemetry name and verbosity level
           .withTelemetry("LaunchWheel", TelemetryVerbosity.HIGH)
           // Launch motors are 1:1 with fly wheel
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(1)))
           // Motor properties to prevent over currenting.
-          .withMotorInverted(false)
+          .withMotorInverted(true)
           .withIdleMode(MotorMode.COAST)
           .withStatorCurrentLimit(Amps.of(40))
           .withClosedLoopRampRate(Seconds.of(0.25))
@@ -62,7 +83,7 @@ public class Launch extends SubsystemBase {
   // SparkMax motor1 = new SparkMax(31, MotorType.kBrushless);
   // SparkMax motor2 = new SparkMax(37, MotorType.kBrushless);
   // Create our SmartMotorController from our Spark and config with the NEO.
-  SmartMotorController launchSMC = new SparkWrapper(motor1, DCMotor.getNEO(1), smcConfig);
+  SmartMotorController launchSMC = new SparkWrapper(motor1, DCMotor.getNeoVortex(1), smcConfig);
 
   FlyWheelConfig shooterConfig =
       new FlyWheelConfig(launchSMC)
@@ -96,21 +117,78 @@ public class Launch extends SubsystemBase {
     shooter.setMechanismVelocitySetpoint(speed);
   }
 
+  private void startVelocityClosedLoop() {
+    shooter.getMotorController().startClosedLoopController();
+  }
+
+  private void setVelocityTargetNoRestart(AngularVelocity speed) {
+    shooter.getMotorController().setVelocity(speed);
+  }
+
   /**
    * Set the shooter velocity. Speed should be POSITIVE.
    *
    * @param speed Speed to set.
    * @return {@link edu.wpi.first.wpilibj2.command.RunCommand}
    */
-  public Command setVelocity(double speed) {
-    double absSpeed = -Math.abs(speed);
-    AngularVelocity velocity = RPM.of(absSpeed);
-    return shooter.run(velocity);
+  public Command setVelocity(AngularVelocity speed) {
+    return Commands.startRun(
+        this::startVelocityClosedLoop, () -> setVelocityTargetNoRestart(speed), this);
   }
 
   /** Calculate and return a velocity setpoint based on distance */
   public AngularVelocity getOptimalVelocity() {
     return RPM.of(15);
+  }
+
+  /**
+   * Calculate and return a velocity setpoint based on distance to target (meters), interpolating
+   * between configured table values.
+   *
+   * @param distanceMeters distance from robot to target in meters
+   * @return interpolated launcher speed setpoint
+   */
+  public AngularVelocity getOptimalVelocity(double distanceMeters) {
+    return RotationsPerSecond.of(SPEED_TABLE.get(distanceMeters));
+  }
+
+  /**
+   * Calculate and return a velocity setpoint using turret's most recent target and pose data.
+   *
+   * @param turret Turret subsystem containing the latest pose and target data
+   * @return interpolated launcher speed setpoint
+   */
+  public AngularVelocity getOptimalVelocity(Turret turret) {
+    Translation2d robotPosition = turret.getLastPose().getTranslation();
+    Translation2d targetPosition = turret.getLastTarget();
+    if (robotPosition.equals(new Translation2d()) && targetPosition.equals(new Translation2d())) {
+      return RotationsPerSecond.of(SPEED_TABLE.get(0.0));
+    }
+    double baseDistance = robotPosition.getDistance(targetPosition);
+    double adjustedDistance = adjustDistanceForAllianceZone(robotPosition, baseDistance);
+    return getOptimalVelocity(adjustedDistance);
+  }
+
+  /**
+   * Calculate the distance from the robot to the turret's most recently selected target.
+   *
+   * @param turret Turret subsystem containing the latest pose and target data
+   * @return distance in meters
+   */
+  public double getDistanceToTurretLastTargetMeters(Turret turret) {
+    return turret.getLastPose().getTranslation().getDistance(turret.getLastTarget());
+  }
+
+  private double adjustDistanceForAllianceZone(Translation2d robotPosition, double distanceMeters) {
+    var alliance = DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue);
+
+    boolean inOwnAllianceZone =
+        (alliance == DriverStation.Alliance.Red
+                && robotPosition.getX() > TurretHelpers.RED_THRESHOLD_X)
+            || (alliance == DriverStation.Alliance.Blue
+                && robotPosition.getX() < TurretHelpers.BLUE_THRESHOLD_X);
+
+    return inOwnAllianceZone ? distanceMeters + 1.0 : distanceMeters;
   }
 
   public void stop() {
@@ -143,27 +221,43 @@ public class Launch extends SubsystemBase {
     Supplier<AngularVelocity> s_velSupplier = () -> getVelocity();
     Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity();
     Trigger optimalVelocityReached =
-        // FIXME: the conversion of 60 here is very suspect
-        new Trigger(
-            () ->
-                (s_velSupplier.get().in(RPM) >= (s_velSetpointSupplier.get().in(RPM) * 60) * 0.97));
-    // *60 because units are broken
-    // 3% margin of error
-    return Commands.repeatingSequence(
-            // Pause the funnel/index to allow the flywheel to re-spool
-            Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(0.0))),
-            Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
-            Commands.runOnce(
-                () -> {
-                  // PLACEHOLDER: getOptimalVelocity should not just return 2000; attach the
-                  // distance and SWM calculations
-                  this.setVelocitySetpoint(s_velSetpointSupplier.get());
-                }),
-            Commands.waitUntil(() -> optimalVelocityReached.getAsBoolean()),
-            // Resume funnel/index
-            Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
-            Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(120.0))),
-            Commands.waitUntil(() -> optimalVelocityReached.negate().getAsBoolean()))
+        new Trigger(() -> isAtSpeed(s_velSupplier.get(), s_velSetpointSupplier.get()));
+    return Commands.parallel(
+            Commands.startRun(
+                this::startVelocityClosedLoop,
+                () -> setVelocityTargetNoRestart(s_velSetpointSupplier.get()),
+                this),
+            Commands.repeatingSequence(
+                // Pause funnel/index until shooter reaches target speed.
+                Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(0.0))),
+                Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
+                Commands.waitUntil(() -> optimalVelocityReached.getAsBoolean()),
+                // Feed while shooter remains at speed.
+                Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
+                Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(120.0))),
+                Commands.waitUntil(() -> optimalVelocityReached.negate().getAsBoolean())))
+        .handleInterrupt(() -> shotSequenceEnd(indexSystem));
+  }
+
+  public Command shotSequenceStart(Index indexSystem, Turret turret) {
+    Supplier<AngularVelocity> s_velSupplier = () -> getVelocity();
+    Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity(turret);
+    Trigger optimalVelocityReached =
+        new Trigger(() -> isAtSpeed(s_velSupplier.get(), s_velSetpointSupplier.get()));
+    return Commands.parallel(
+            Commands.startRun(
+                this::startVelocityClosedLoop,
+                () -> setVelocityTargetNoRestart(s_velSetpointSupplier.get()),
+                this),
+            Commands.repeatingSequence(
+                // Pause funnel/index until shooter reaches target speed.
+                Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(0.0))),
+                Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
+                Commands.waitUntil(() -> optimalVelocityReached.getAsBoolean()),
+                // Feed while shooter remains at speed.
+                Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
+                Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(120.0))),
+                Commands.waitUntil(() -> optimalVelocityReached.negate().getAsBoolean())))
         .handleInterrupt(() -> shotSequenceEnd(indexSystem));
   }
 
@@ -176,5 +270,11 @@ public class Launch extends SubsystemBase {
      * down.
      */
     shooter.setDutyCycleSetpoint(0);
+  }
+
+  private static boolean isAtSpeed(AngularVelocity actualVelocity, AngularVelocity targetVelocity) {
+    double actualRps = Math.abs(actualVelocity.in(RotationsPerSecond));
+    double targetRps = Math.abs(targetVelocity.in(RotationsPerSecond));
+    return actualRps >= targetRps * 0.97;
   }
 }
