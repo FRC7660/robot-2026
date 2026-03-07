@@ -7,6 +7,7 @@ import static edu.wpi.first.units.Units.Pounds;
 import static edu.wpi.first.units.Units.RPM;
 import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Seconds;
+import static edu.wpi.first.units.Units.Volts;
 
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
@@ -84,23 +85,20 @@ public class Turret extends SubsystemBase {
     SmartMotorControllerConfig smcConfig =
         new SmartMotorControllerConfig(this)
             .withControlMode(ControlMode.CLOSED_LOOP)
-            // Feedback Constants (PID Constants)
-            .withClosedLoopController(
-                Constants.Turret.TURRET_P,
-                Constants.Turret.TURRET_I,
-                Constants.Turret.TURRET_D,
-                RPM.of(120),
-                RPM.per(Second).of(800))
-            .withFeedforward(new SimpleMotorFeedforward(0.005, 3.75, 0.0))
-            .withSimClosedLoopController(1, 0, 0, RPM.of(110), RPM.per(Second).of(600))
-            .withSimFeedforward(new SimpleMotorFeedforward(0.0, 4.6, 0.0))
+            .withExponentialProfile(Volts.of(12), RPM.of(120), RPM.per(Second).of(400))
+            // ROBOT
+            .withClosedLoopController(9.0, 0, 0.0)
+            .withFeedforward(new SimpleMotorFeedforward(0.0, 4.2, 0.0))
+            // SIM
+            .withSimClosedLoopController(10.0, 0, 0.2)
+            .withSimFeedforward(new SimpleMotorFeedforward(0.0, 5.1, 0.0))
             // Telemetry name and verbosity level
             .withTelemetry("TurretMotorConfig", TelemetryVerbosity.HIGH)
             // Gearing from motor rotor to turret.
             .withGearing(new MechanismGearing(GearBox.fromReductionStages(4, 10)))
             // Motor properties to prevent over currenting.
             .withMotorInverted(true)
-            .withIdleMode(MotorMode.BRAKE)
+            .withIdleMode(MotorMode.COAST)
             .withStatorCurrentLimit(Amps.of(40))
             .withClosedLoopRampRate(Seconds.of(0.05))
             .withOpenLoopRampRate(Seconds.of(0.05));
