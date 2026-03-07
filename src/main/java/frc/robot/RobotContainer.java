@@ -17,6 +17,7 @@ import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
+import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -26,6 +27,7 @@ import frc.robot.Constants.OperatorConstants;
 import frc.robot.autonomous.AutonomousManager;
 import frc.robot.commands.swervedrive.MisalignCorrection;
 import frc.robot.commands.swervedrive.YAGSLPitCheck;
+import frc.robot.lib.BufferedLogger;
 import frc.robot.subsystems.Index;
 import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Launch;
@@ -155,6 +157,10 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
+    DataLogManager.start();
+    DriverStation.startDataLog(DataLogManager.getLog());
+    BufferedLogger.getInstance();
+
     // Configure the trigger bindings
     configureBindings();
     DriverStation.silenceJoystickConnectionWarning(true);
@@ -347,7 +353,7 @@ public class RobotContainer {
     return autonomousManager.getAutonomousCommand();
   }
 
-  public void prepareAutonomous() {
+  public void autonomousInit() {
     autonomousManager.prepareAutonomousStart();
   }
 
