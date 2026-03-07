@@ -288,9 +288,9 @@ public class Vision {
         "cam2", // front
         new Rotation3d(0, Math.toRadians(0), Math.toRadians(0)),
         new Translation3d(
-            Units.inchesToMeters(10.503),
-            Units.inchesToMeters(9.836),
-            Units.inchesToMeters(16.369)), // TODO: need updated measurements for the moved camera
+            Units.inchesToMeters(1.351478),
+            Units.inchesToMeters(10.625),
+            Units.inchesToMeters(17.860956)),
         VecBuilder.fill(4, 4, 8),
         VecBuilder.fill(0.5, 0.5, 1)),
     /** Right Camera */
