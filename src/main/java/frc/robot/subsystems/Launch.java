@@ -4,6 +4,7 @@ import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Pounds;
 import static edu.wpi.first.units.Units.RPM;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Seconds;
 
@@ -11,13 +12,16 @@ import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
 import edu.wpi.first.math.Pair;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants;
+import frc.robot.lib.TurretHelpers;
 import java.util.function.Supplier;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
@@ -113,6 +117,85 @@ public class Launch extends SubsystemBase {
     return RPM.of(15);
   }
 
+  /**
+   * Calculate and return a velocity setpoint based on distance to target (meters), interpolating
+   * between configured table values.
+   *
+   * @param distanceMeters distance from robot to target in meters
+   * @return interpolated launcher speed setpoint
+   */
+  public AngularVelocity getOptimalVelocity(double distanceMeters) {
+    return RotationsPerSecond.of(interpolateSpeedRpm(distanceMeters));
+  }
+
+  /**
+   * Calculate and return a velocity setpoint using turret's most recent target and pose data.
+   *
+   * @param turret Turret subsystem containing the latest pose and target data
+   * @return interpolated launcher speed setpoint
+   */
+  public AngularVelocity getOptimalVelocity(Turret turret) {
+    double baseDistance = getDistanceToTurretLastTargetMeters(turret);
+    return getOptimalVelocity(adjustDistanceForAllianceZone(turret, baseDistance));
+  }
+
+  /**
+   * Calculate the distance from the robot to the turret's most recently selected target.
+   *
+   * @param turret Turret subsystem containing the latest pose and target data
+   * @return distance in meters
+   */
+  public double getDistanceToTurretLastTargetMeters(Turret turret) {
+    Translation2d robotPosition = turret.getLastPose().getTranslation();
+    Translation2d targetPosition = turret.getLastTarget();
+    return robotPosition.getDistance(targetPosition);
+  }
+
+  private double interpolateSpeedRpm(double distanceMeters) {
+    double[] distances = Constants.LaunchConstants.DISTANCE_TO_TARGET_METERS;
+    double[] speeds = Constants.LaunchConstants.LAUNCH_SPEED_RPS;
+
+    if (distances.length == 0 || speeds.length == 0 || distances.length != speeds.length) {
+      throw new IllegalStateException(
+          "Launch distance/speed tables must be non-empty and the same length.");
+    }
+
+    if (distanceMeters <= distances[0]) {
+      return speeds[0];
+    }
+
+    int lastIndex = distances.length - 1;
+    if (distanceMeters >= distances[lastIndex]) {
+      return speeds[lastIndex];
+    }
+
+    for (int i = 0; i < lastIndex; i++) {
+      double leftDistance = distances[i];
+      double rightDistance = distances[i + 1];
+      if (distanceMeters <= rightDistance) {
+        double leftSpeed = speeds[i];
+        double rightSpeed = speeds[i + 1];
+        double t = (distanceMeters - leftDistance) / (rightDistance - leftDistance);
+        return leftSpeed + t * (rightSpeed - leftSpeed);
+      }
+    }
+
+    return speeds[lastIndex];
+  }
+
+  private double adjustDistanceForAllianceZone(Turret turret, double distanceMeters) {
+    Translation2d robotPosition = turret.getLastPose().getTranslation();
+    var alliance = DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue);
+
+    boolean inOwnAllianceZone =
+        (alliance == DriverStation.Alliance.Red
+                && robotPosition.getX() > TurretHelpers.RED_THRESHOLD_X)
+            || (alliance == DriverStation.Alliance.Blue
+                && robotPosition.getX() < TurretHelpers.BLUE_THRESHOLD_X);
+
+    return inOwnAllianceZone ? distanceMeters + 1.0 : distanceMeters;
+  }
+
   public void stop() {
     shooter.run(RPM.of(0));
   }
@@ -159,6 +242,29 @@ public class Launch extends SubsystemBase {
                   // distance and SWM calculations
                   this.setVelocitySetpoint(s_velSetpointSupplier.get());
                 }),
+            Commands.waitUntil(() -> optimalVelocityReached.getAsBoolean()),
+            // Resume funnel/index
+            Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
+            Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(120.0))),
+            Commands.waitUntil(() -> optimalVelocityReached.negate().getAsBoolean()))
+        .handleInterrupt(() -> shotSequenceEnd(indexSystem));
+  }
+
+  public Command shotSequenceStart(Index indexSystem, Turret turret) {
+    Supplier<AngularVelocity> s_velSupplier = () -> getVelocity();
+    Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity(turret);
+    Trigger optimalVelocityReached =
+        // FIXME: the conversion of 60 here is very suspect
+        new Trigger(
+            () ->
+                (s_velSupplier.get().in(RPM) >= (s_velSetpointSupplier.get().in(RPM) * 60) * 0.97));
+    // *60 because units are broken
+    // 3% margin of error
+    return Commands.repeatingSequence(
+            // Pause the funnel/index to allow the flywheel to re-spool
+            Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(0.0))),
+            Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
+            Commands.runOnce(() -> this.setVelocitySetpoint(s_velSetpointSupplier.get())),
             Commands.waitUntil(() -> optimalVelocityReached.getAsBoolean()),
             // Resume funnel/index
             Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),

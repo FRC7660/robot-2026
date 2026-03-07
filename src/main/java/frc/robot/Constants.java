@@ -83,6 +83,18 @@ public final class Constants {
   public static final class LaunchConstants {
     public static final int MOTOR1_ID = 51;
     public static final int MOTOR2_ID = 52;
+    // Lookup table inputs (meters from robot to target).
+    public static final double[] DISTANCE_TO_TARGET_METERS = {
+      Units.inchesToMeters(141),
+      Units.inchesToMeters(145),
+      Units.inchesToMeters(182),
+      Units.inchesToMeters(216),
+      Units.inchesToMeters(246),
+      Units.inchesToMeters(290),
+      Units.inchesToMeters(312)
+    };
+    // Lookup table outputs (launcher wheel RPM) corresponding to DISTANCE_TO_TARGET_METERS.
+    public static final double[] LAUNCH_SPEED_RPS = {44.0, 45, 50, 55, 60, 65, 80};
   }
 
   // Turret Constants
