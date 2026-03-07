@@ -375,6 +375,12 @@ public class SwerveSubsystem extends SubsystemBase {
         .withName("FuelPalantirCommand-" + mode.name() + "-NoAprilTagFusion");
   }
 
+  public Command trackDetectedObjectByCameraName(String cameraName, double timeoutSec) {
+    return fuelPalantirCommand(FuelPalantir.FuelPalantirMode.TELEOP)
+        .withTimeout(timeoutSec)
+        .withName("TrackDetectedObject-" + cameraName);
+  }
+
   public Command rejoinPathAtNearestPoseCommand(String pathName) {
     return autonomousCommands.rejoinPathAtNearestPoseCommand(pathName);
   }

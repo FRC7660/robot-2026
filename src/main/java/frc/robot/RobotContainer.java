@@ -17,6 +17,7 @@ import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -25,8 +26,6 @@ import frc.robot.Constants.OperatorConstants;
 import frc.robot.autonomous.AutonomousManager;
 import frc.robot.commands.swervedrive.MisalignCorrection;
 import frc.robot.commands.swervedrive.YAGSLPitCheck;
-import frc.robot.commands.turret.DefaultCommand;
-import frc.robot.commands.turret.TurretAutoTurn;
 import frc.robot.subsystems.Index;
 import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Launch;
@@ -88,10 +87,6 @@ public class RobotContainer {
 
   private SwerveSubsystem createDrivebase() {
     return new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/7660-chassis1"));
-  }
-
-  private Turret createTurret() {
-    return new Turret(drivebase::getPose);
   }
 
   private double getRightXCorrected() {
@@ -192,8 +187,8 @@ public class RobotContainer {
     autonomousManager = new AutonomousManager(drivebase);
 
     // Set the turret default command to compute targets from odometry
-    turret.setDefaultCommand(new DefaultCommand(turret));
-    driverXbox.povUp().whileTrue(new TurretAutoTurn(turret));
+    // turret.setDefaultCommand(turret.autoSetAngle());
+    driverXbox.povUp().whileTrue(turret.autoSetAngle());
   }
 
   /**
