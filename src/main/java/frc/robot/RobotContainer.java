@@ -14,6 +14,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.trajectory.TrapezoidProfile.Constraints;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
@@ -169,10 +170,6 @@ public class RobotContainer {
 
     // Put the autoChooser on the SmartDashboard
     SmartDashboard.putData("Auto Chooser", autoChooser);
-
-    // Set the turret default command to compute targets from odometry
-    // turret.setDefaultCommand(turret.autoSetAngle());
-    driverXbox.povUp().whileTrue(turret.autoSetAngle());
   }
 
   /**
@@ -187,7 +184,51 @@ public class RobotContainer {
   private void configureBindings() {
     Command driveFieldOrientedDirectAngle = drivebase.driveFieldOriented(driveDirectAngle);
 
+    // Intake toggle init
+    Command toggleIntakeDeployment =
+        Commands.runOnce(
+            () -> {
+              Angle currentAngle = intakeSystem.getAngle();
+              if (currentAngle.in(Degrees) < 0) {
+                intakeSystem.setAngleSetpoint(110.0);
+              } else {
+                intakeSystem.setAngleSetpoint(-25.0);
+              }
+            });
+
+    // Intake speed init
+    DoubleSupplier leftTriggerSupplier =
+        () -> {
+          return driverXbox.getLeftTriggerAxis();
+        };
+    Command runIntakeWithSpeed =
+        Commands.run(() -> intakeSystem.setRollerSpeed(leftTriggerSupplier.getAsDouble()));
+    Command stopIntake = Commands.run(() -> intakeSystem.stopRoller());
+
+    // Default drive style
     drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
+
+    // SHOOTING CONTROL
+    // Shot sequence init (Binds to Right Trigger)
+    Command startSequence = launchSystem.shotSequenceStart(indexSystem);
+    startSequence.addRequirements(launchSystem, indexSystem);
+    // Right Trigger/DPad Up - Medium pressure: start AutoTurn
+    shotPressureDetected.whileTrue(turret.autoSetAngle());
+    driverXbox.povUp().whileTrue(turret.autoSetAngle());
+    // Right Trigger - Full pressure: start shooting and indexing sequence
+    shotPressureMaxed.whileTrue(startSequence);
+    // Right Bumper - Force-start shooting and indexing (no aim)
+    driverXbox.rightBumper().whileTrue(startSequence);
+
+    // INTAKE CONTROL
+    // Toggle the arm out/in
+    driverXbox.leftBumper().onTrue(toggleIntakeDeployment);
+    // Run and stop the intake based on the Left Trigger value (threshold/deadzone of 0.1)
+    driverXbox.leftTrigger(0.1).whileTrue(runIntakeWithSpeed);
+    driverXbox.leftTrigger(0.1).onFalse(stopIntake);
+
+    // ZEROS
+    driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
 
     if (Robot.isSimulation()) {
       Pose2d target = new Pose2d(new Translation2d(1, 4), Rotation2d.fromDegrees(90));
@@ -233,71 +274,6 @@ public class RobotContainer {
           .whileTrue(
               indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
     }
-
-    driverXbox.back().onTrue(Commands.runOnce(drivebase::resetToStartingPosition));
-    driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
-    if (DriverStation.isTest()) {
-      drivebase.setDefaultCommand(driveFieldOrientedDirectAngle); // Overrides drive command above!
-    drivebase.setDefaultCommand(driveFieldOrientedDirectAngle); // Overrides drive command above!
-
-    driverXbox.x().whileTrue(intakeSystem.zeroArm());
-    driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
-    driverXbox.back().whileTrue(drivebase.centerModulesCommand());
-    // driverXbox.leftBumper().onTrue(Commands.runOnce(pitCheck::start,
-    // drivebase).andThen(pitCheck::execute, drivebase));
-    // This starts the command when you press LB, and stops it immediately when you let go.
-    // driverXbox.povDown().whileTrue(new YAGSLPitCheck(drivebase));
-    driverXbox.rightBumper().onTrue(launchSystem.setVelocity(50.0));
-    driverXbox.rightBumper().onFalse(launchSystem.setVelocity(0));
-    // driverXbox.b().whileTrue(indexSystem.setVelocityindex(60.0));
-    driverXbox
-        .b()
-        .whileTrue(
-            indexSystem.setVelocityindex(AngularVelocity.ofBaseUnits(1.0, DegreesPerSecond)));
-    driverXbox
-        .y()
-        .whileTrue(
-            intakeSystem.runCommand(
-                () -> {
-                  return .99;
-                }));
-
-    // Replaced by the trigger command below
-    // driverXbox.a().onTrue(intakeSystem.setAngle(-25.0));
-    // driverXbox.x().onTrue(intakeSystem.setAngle(110.0));
-
-    // Trigger-based linear arm angle control
-    liftPressureDetected.whileTrue(
-        Commands.run(
-                () -> {
-                  double angle = 110 - dx_leftTriggerSupplier.getAsDouble() * (110 + 25);
-                  intakeSystem.setAngle(angle).schedule();
-                  SmartDashboard.putNumber(
-                      "AXIS1 - LIFT (DEGREES)", dx_leftTriggerSupplier.getAsDouble() * (110 + 25));
-                })
-            .onlyIf(() -> !liftPressureMaxed.getAsBoolean()));
-    liftPressureDetected.onFalse(intakeSystem.setAngle(110.0));
-    driverXbox
-        .leftBumper()
-        .onTrue(
-            Commands.runOnce(
-                () -> {
-                  if (intakeSystem.getRollerSpeed().get() <= 0.1) {
-                    intakeSystem.setRollerSpeed(0.99);
-                  } else {
-                    intakeSystem.stopRoller();
-                  }
-                }));
-    liftPressureMaxed.whileTrue(Commands.run(() -> intakeSystem.fullDeploy()));
-    // liftPressureMaxed.onFalse(Commands.runOnce(() -> intakeSystem.stopRoller()));
-
-    // Trigger-based shot control
-    Command startSequence = launchSystem.shotSequenceStart(indexSystem);
-    startSequence.addRequirements(launchSystem, indexSystem);
-    // Medium pressure: start AutoTurn
-    // shotPressureDetected.whileTrue(new TurretAutoTurn(turret));
-    // Full pressure: start shooting and indexing sequence
-    shotPressureMaxed.whileTrue(startSequence);
   }
 
   /**
