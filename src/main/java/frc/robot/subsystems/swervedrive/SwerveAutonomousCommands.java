@@ -222,10 +222,147 @@ final class SwerveAutonomousCommands {
                                     mode, Timer.getFPGATimestamp() - startTimeSec.get(), reason));
                             currentAutoRunId = -1;
                           }))
-                  .withName("FuelPalantirCommand-" + mode.name());
+                  .withName("FuelPalantirCommand-" + mode.name() + "-Single");
             },
             Set.of(subsystem))
-        .withName("FuelPalantirCommand-" + mode.name());
+        .withName("FuelPalantirCommand-" + mode.name() + "-Single");
+  }
+
+  public Command fuelPalantirGroupCommand(FuelPalantir.FuelPalantirMode mode) {
+    return Commands.defer(
+            () -> {
+              AtomicReference<Double> startTimeSec = new AtomicReference<>(0.0);
+              AtomicReference<FuelPalantirGroup.GroupState> state =
+                  new AtomicReference<>(new FuelPalantirGroup.GroupState(Optional.empty()));
+              AtomicReference<FuelPalantirGroup.GroupStep> lastStep = new AtomicReference<>(null);
+              AtomicReference<Double> lastStatusLogTimeSec =
+                  new AtomicReference<>(Double.NEGATIVE_INFINITY);
+
+              return subsystem
+                  .startRun(
+                      () -> {
+                        currentAutoRunId = AUTO_RUN_COUNTER.incrementAndGet();
+                        startTimeSec.set(Timer.getFPGATimestamp());
+                        state.set(new FuelPalantirGroup.GroupState(Optional.empty()));
+                        lastStep.set(null);
+                        debugAuto("[FuelPalantirGroup] startRun init: mode=" + mode);
+                        debugAuto(String.format("FUEL PALANTIR GROUP START mode=%s", mode));
+                      },
+                      () -> {
+                        try {
+                          Vision vision = visionSupplier.get();
+                          if (vision == null) {
+                            debugAuto("FUEL PALANTIR GROUP no vision instance available");
+                            lastStep.set(
+                                new FuelPalantirGroup.GroupStep(
+                                    state.get(), 0.0, 0.0, true, "vision_not_initialized"));
+                            swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
+                            return;
+                          }
+                          double elapsed = Timer.getFPGATimestamp() - startTimeSec.get();
+                          Map<Cameras, Vision.CameraSnapshot> cameraData =
+                              vision.getLatestCameraData();
+                          FuelPalantirGroup.GroupStep step =
+                              FuelPalantirGroup.fuelPalantirGroup(
+                                  cameraData, state.get(), mode, elapsed);
+                          state.set(step.nextState());
+                          lastStep.set(step);
+                          Optional<Cameras> lockedCameraForDrive = step.nextState().activeCamera();
+                          double commandedForwardMps = step.forwardMps();
+                          if (lockedCameraForDrive.isPresent()
+                              && lockedCameraForDrive.get() == Cameras.BACK_CAMERA) {
+                            commandedForwardMps = -commandedForwardMps;
+                          }
+                          swerveDrive.drive(
+                              new Translation2d(commandedForwardMps, 0),
+                              step.rotationRadPerSec(),
+                              false,
+                              false);
+                          if (step.completed() || shouldDebugLog(lastStatusLogTimeSec, 1.0)) {
+                            Optional<PhotonTrackedTarget> backCameraTarget =
+                                FuelPalantirGroup.getRepresentativeGroupTarget(
+                                    cameraData.get(Cameras.BACK_CAMERA));
+                            Optional<PhotonTrackedTarget> frontCameraTarget =
+                                FuelPalantirGroup.getRepresentativeGroupTarget(
+                                    cameraData.get(Cameras.FRONT_CAMERA));
+                            Optional<Cameras> lockedCamera = step.nextState().activeCamera();
+                            Optional<PhotonTrackedTarget> lockedTarget =
+                                lockedCamera.flatMap(
+                                    camera ->
+                                        FuelPalantirGroup.getRepresentativeGroupTarget(
+                                            cameraData.get(camera)));
+
+                            debugAuto(
+                                String.format(
+                                    "FUEL PALANTIR GROUP STATUS mode=%s elapsed=%.2fs"
+                                        + " active=%s backTarget=%s frontTarget=%s"
+                                        + " backCount=%d frontCount=%d groupActive=%s"
+                                        + " lockedYaw=%.1f lockedArea=%.2f"
+                                        + " fwd=%.2f rot=%.2f reason=%s",
+                                    mode,
+                                    elapsed,
+                                    lockedCamera.map(Enum::name).orElse("none"),
+                                    backCameraTarget.isPresent(),
+                                    frontCameraTarget.isPresent(),
+                                    FuelPalantirGroup.countFuelTargets(
+                                        cameraData.get(Cameras.BACK_CAMERA)),
+                                    FuelPalantirGroup.countFuelTargets(
+                                        cameraData.get(Cameras.FRONT_CAMERA)),
+                                    step.nextState().inGroupMode(),
+                                    lockedTarget
+                                        .map(PhotonTrackedTarget::getYaw)
+                                        .orElse(Double.NaN),
+                                    lockedTarget
+                                        .map(PhotonTrackedTarget::getArea)
+                                        .orElse(Double.NaN),
+                                    commandedForwardMps,
+                                    step.rotationRadPerSec(),
+                                    step.reason()));
+                          }
+                        } catch (Exception e) {
+                          debugAuto("[FuelPalantirGroup] EXCEPTION in run loop: " + e.getMessage());
+                          debugAuto("FUEL PALANTIR GROUP EXCEPTION: " + e.getMessage());
+                          swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
+                        }
+                      })
+                  .until(
+                      () -> {
+                        boolean done = lastStep.get() != null && lastStep.get().completed();
+                        if (done) {
+                          debugAuto(
+                              "[FuelPalantirGroup] until() completed, reason="
+                                  + lastStep.get().reason());
+                        }
+                        return done;
+                      })
+                  .finallyDo(
+                      () -> {
+                        debugAuto("[FuelPalantirGroup] startRun finallyDo: stopping drive");
+                        swerveDrive.drive(new Translation2d(0, 0), 0, false, false);
+                      })
+                  .andThen(
+                      subsystem.runOnce(
+                          () -> {
+                            FuelPalantirGroup.GroupStep step = lastStep.get();
+                            String reason = step == null ? "unknown" : step.reason();
+                            debugAuto(
+                                "[FuelPalantirGroup] andThen END: mode="
+                                    + mode
+                                    + " elapsed="
+                                    + String.format(
+                                        "%.2f", Timer.getFPGATimestamp() - startTimeSec.get())
+                                    + " reason="
+                                    + reason);
+                            debugAuto(
+                                String.format(
+                                    "FUEL PALANTIR GROUP END mode=%s elapsed=%.2fs reason=%s",
+                                    mode, Timer.getFPGATimestamp() - startTimeSec.get(), reason));
+                            currentAutoRunId = -1;
+                          }))
+                  .withName("FuelPalantirCommand-" + mode.name() + "-Group");
+            },
+            Set.of(subsystem))
+        .withName("FuelPalantirCommand-" + mode.name() + "-Group");
   }
 
   public Command rejoinPathAtNearestPoseCommand(String pathName) {
