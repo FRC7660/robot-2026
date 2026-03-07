@@ -1,0 +1,37 @@
+{
+  "version": "2025.0",
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "named",
+          "data": {
+            "name": "shootCommand"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "get-balls"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "got-balls-now"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "shootCommand"
+          }
+        }
+      ]
+    }
+  },
+  "resetOdom": true,
+  "folder": null,
+  "choreoAuto": false
+}

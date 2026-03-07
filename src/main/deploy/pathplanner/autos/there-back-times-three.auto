@@ -1,0 +1,91 @@
+{
+  "version": "2025.0",
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "named",
+          "data": {
+            "name": "shootCommand"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "hub-to-center"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "LogoFuelPalantir"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "part-2"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "shootCommand"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "hub-to-center"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "LogoFuelPalantir"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "part-2"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "shootCommand"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "hub-to-center"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "LogoFuelPalantir"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "part-2"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "shootCommand"
+          }
+        }
+      ]
+    }
+  },
+  "resetOdom": true,
+  "folder": null,
+  "choreoAuto": false
+}

@@ -31,4 +31,3 @@ From the repo root:
 
 ## Java check (WPILib JDK)
 use ~/wpilib/2026/jdk as the jdk
-
