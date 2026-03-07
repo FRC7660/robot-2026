@@ -669,6 +669,7 @@ public class Vision {
     // Fetch raw camera frames
     Map<Cameras, CameraSnapshot> cameraData = getCameraData();
     latestCameraData = cameraData;
+    updateVisionField();
     long t1 = System.nanoTime();
 
     // Run pose estimation on each camera

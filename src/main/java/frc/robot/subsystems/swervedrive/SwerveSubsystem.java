@@ -227,7 +227,6 @@ public class SwerveSubsystem extends SubsystemBase {
       swerveDrive.updateOdometry();
       try {
         vision.process(swerveDrive);
-        vision.updateVisionField();
       } catch (Exception e) {
         DriverStation.reportError("[Vision] process() threw: " + e.getMessage(), e.getStackTrace());
       }
