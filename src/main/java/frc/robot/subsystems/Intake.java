@@ -97,7 +97,7 @@ public class Intake extends SubsystemBase {
     lift.updateTelemetry();
 
     // Update limit switch status on SmartDashboard
-    DashboardTelemetry.putBoolean("Intake/Limit Switch Pressed", isLimitSwitchPressed());
+    DashboardTelemetry.putBoolean("Intake/LimitSwitchPressed", isLimitSwitchPressed());
   }
 
   @Override

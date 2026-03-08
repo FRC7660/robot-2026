@@ -125,8 +125,8 @@ public class AbsoluteDriveAdv extends Command {
             Constants.ROBOT_MASS,
             List.of(Constants.CHASSIS),
             swerve.getSwerveDriveConfiguration());
-    DashboardTelemetry.putNumber("LimitedTranslation", translation.getX());
-    DashboardTelemetry.putString("Translation", translation.toString());
+    DashboardTelemetry.putNumber("Drivebase/LimitedTranslationX", translation.getX());
+    DashboardTelemetry.putString("Drivebase/Translation", translation.toString());
 
     // Make the robot move
     if (headingX == 0 && headingY == 0 && Math.abs(headingAdjust.getAsDouble()) > 0) {

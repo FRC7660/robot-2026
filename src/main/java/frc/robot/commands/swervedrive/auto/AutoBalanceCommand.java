@@ -36,7 +36,7 @@ public class AutoBalanceCommand extends Command {
    */
   @Override
   public void execute() {
-    DashboardTelemetry.putBoolean("At Tolerance", controller.atSetpoint());
+    DashboardTelemetry.putBoolean("AutoBalance/AtTolerance", controller.atSetpoint());
 
     double translationVal =
         MathUtil.clamp(
