@@ -8,7 +8,6 @@ import com.revrobotics.spark.*;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 import swervelib.math.Matter;
-import yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity;
 
 /**
  * The Constants class provides a convenient place for teams to hold robot-wide numerical or boolean
@@ -36,9 +35,29 @@ public final class Constants {
   //  }
 
   public static final class Telemetry {
-    // options here are TelemetryVerbosity.NONE, TelemetryVerbosity.LOW, TelemetryVerbosity.MEDIUM,
-    // TelemetryVerbosity.HIGH
-    public static final TelemetryVerbosity VERBOSITY = TelemetryVerbosity.HIGH;
+    public enum Verbosity {
+      LOW,
+      HIGH
+    }
+
+    public static final Verbosity VERBOSITY = Verbosity.HIGH;
+
+    public static boolean isHighVerbosity() {
+      return VERBOSITY == Verbosity.HIGH;
+    }
+
+    public static yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity
+        yamsVerbosity() {
+      return isHighVerbosity()
+          ? yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity.HIGH
+          : yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity.LOW;
+    }
+
+    public static swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity swerveVerbosity() {
+      return isHighVerbosity()
+          ? swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity.HIGH
+          : swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity.LOW;
+    }
   }
 
   public static final class DrivebaseConstants {

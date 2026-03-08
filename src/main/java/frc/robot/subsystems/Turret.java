@@ -19,10 +19,10 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
+import frc.robot.lib.DashboardTelemetry;
 import frc.robot.lib.TurretHelpers;
 import frc.robot.lib.TurretZeroPoint;
 import java.util.Optional;
@@ -92,7 +92,7 @@ public class Turret extends SubsystemBase {
             .withSimClosedLoopController(10.0, 0, 0.2)
             .withSimFeedforward(new SimpleMotorFeedforward(0.0, 5.1, 0.0))
             // Telemetry name and verbosity level
-            .withTelemetry("TurretTurret", Constants.Telemetry.VERBOSITY)
+            .withTelemetry("TurretTurret", Constants.Telemetry.yamsVerbosity())
             // Gearing from motor rotor to turret.
             .withGearing(new MechanismGearing(GearBox.fromReductionStages(4, 10)))
             // Motor properties to prevent over currenting.
@@ -109,7 +109,7 @@ public class Turret extends SubsystemBase {
             .withHardLimit(Degrees.of(-175), Degrees.of(175))
             .withSoftLimits(Degrees.of(-165), Degrees.of(165))
             .withStartingPosition(Degrees.of(0))
-            .withTelemetry("YTurretTurret", Constants.Telemetry.VERBOSITY)
+            .withTelemetry("YTurretTurret", Constants.Telemetry.yamsVerbosity())
             .withMOI(Meters.of(0.254), Pounds.of(2));
 
     turretPivot = new Pivot(pivotConfig);
@@ -204,16 +204,16 @@ public class Turret extends SubsystemBase {
     double currentRobotFrameDegSigned = mechanismToRobotDeg(currentDegSigned);
     double fieldAngleDegSigned = normalizeToSigned180(lastFieldAngle.getDegrees());
     double robotAngleDegSigned = normalizeToSigned180(getPose.get().getRotation().getDegrees());
-    SmartDashboard.putNumber(
+    DashboardTelemetry.putNumber(
         "Turret/EncoderRot",
         (turretMotor.getEncoder().getPosition() / Constants.Turret.TURRET_GEAR_RATIO) * 360);
-    SmartDashboard.putNumber("Turret/CurrentDeg", currentDegSigned);
-    SmartDashboard.putNumber("Turret/CurrentRobotFrameDeg", currentRobotFrameDegSigned);
-    SmartDashboard.putNumber("Turret/FieldRelDeg", fieldAngleDegSigned);
-    SmartDashboard.putNumber("Turret/RobotRelDeg", robotAngleDegSigned);
-    SmartDashboard.putNumber("Turret/SetpointDeg", setPoint);
-    SmartDashboard.putNumber("Turret/SetpointCalcDeg", calcSetpointDegSigned);
-    SmartDashboard.putString(
+    DashboardTelemetry.putNumber("Turret/CurrentDeg", currentDegSigned);
+    DashboardTelemetry.putNumber("Turret/CurrentRobotFrameDeg", currentRobotFrameDegSigned);
+    DashboardTelemetry.putNumber("Turret/FieldRelDeg", fieldAngleDegSigned);
+    DashboardTelemetry.putNumber("Turret/RobotRelDeg", robotAngleDegSigned);
+    DashboardTelemetry.putNumber("Turret/SetpointDeg", setPoint);
+    DashboardTelemetry.putNumber("Turret/SetpointCalcDeg", calcSetpointDegSigned);
+    DashboardTelemetry.putString(
         "Turret/Target", String.format("(%.2f,%.2f)", lastTarget.getX(), lastTarget.getY()));
   }
 

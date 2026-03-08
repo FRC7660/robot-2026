@@ -7,9 +7,9 @@ package frc.robot.commands.swervedrive.drivebase;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.Constants;
+import frc.robot.lib.DashboardTelemetry;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -125,8 +125,8 @@ public class AbsoluteDriveAdv extends Command {
             Constants.ROBOT_MASS,
             List.of(Constants.CHASSIS),
             swerve.getSwerveDriveConfiguration());
-    SmartDashboard.putNumber("LimitedTranslation", translation.getX());
-    SmartDashboard.putString("Translation", translation.toString());
+    DashboardTelemetry.putNumber("LimitedTranslation", translation.getX());
+    DashboardTelemetry.putString("Translation", translation.toString());
 
     // Make the robot move
     if (headingX == 0 && headingY == 0 && Math.abs(headingAdjust.getAsDouble()) > 0) {

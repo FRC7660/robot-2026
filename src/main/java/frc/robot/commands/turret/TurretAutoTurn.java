@@ -3,8 +3,8 @@ package frc.robot.commands.turret;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import frc.robot.lib.DashboardTelemetry;
 import frc.robot.subsystems.Turret;
 import java.util.Locale;
 
@@ -33,11 +33,11 @@ public class TurretAutoTurn extends Command {
     turret.setTurretSetpoint(robotRelative);
 
     // Publish the setpoint for debugging.
-    SmartDashboard.putNumber("Turret/SetpointRad", robotRelative.getRadians());
+    DashboardTelemetry.putNumber("Turret/SetpointRad", robotRelative.getRadians());
     // Also publish the chosen target from the turret for visibility
     var target = turret.getLastTarget();
-    SmartDashboard.putNumber("Turret/TargetX", target.getX());
-    SmartDashboard.putNumber("Turret/TargetY", target.getY());
+    DashboardTelemetry.putNumber("Turret/TargetX", target.getX());
+    DashboardTelemetry.putNumber("Turret/TargetY", target.getY());
 
     double now = Timer.getFPGATimestamp();
     if (now - lastPrintSec >= PRINT_PERIOD_SEC) {

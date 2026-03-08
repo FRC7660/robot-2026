@@ -3,9 +3,9 @@ package frc.robot.commands.swervedrive;
 import com.ctre.phoenix6.hardware.TalonFX;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.Constants.PitCheckConstants;
+import frc.robot.lib.DashboardTelemetry;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import swervelib.SwerveDrive;
 import swervelib.SwerveModule;
@@ -100,16 +100,16 @@ public class YAGSLPitCheck extends Command {
     boolean angleCorrect =
         (Math.abs(module.getAbsolutePosition() % 180) < PitCheckConstants.ANGLE_ENCODER_TOLERANCE);
     if (readError) {
-      SmartDashboard.putString(path + "Alignment Result", "READ ERROR");
+      DashboardTelemetry.putString(path + "Alignment Result", "READ ERROR");
     } else if (angleCorrect == false) {
-      SmartDashboard.putString(
+      DashboardTelemetry.putString(
           path + "Alignment Result",
           "MISALIGNED: " + (Math.abs(module.getAbsolutePosition() % 180)));
     } else {
-      SmartDashboard.putString(path + "Alignment Result", "Aligned");
+      DashboardTelemetry.putString(path + "Alignment Result", "Aligned");
     }
-    SmartDashboard.putNumber(path + "Absolute Encoder Value", module.getAbsolutePosition());
-    // SmartDashboard.putString(path, words[((int) Math.floor((number + time*-2)) % 4)]);
+    DashboardTelemetry.putNumber(path + "Absolute Encoder Value", module.getAbsolutePosition());
+    // DashboardTelemetry.putString(path, words[((int) Math.floor((number + time*-2)) % 4)]);
   }
 
   private void runHardwareSanityChecks() {
@@ -125,9 +125,9 @@ public class YAGSLPitCheck extends Command {
     module.getAngleMotor().setVoltage(voltage);
     Double vel = module.getAngleMotor().getVelocity();
     if (Math.abs(vel) > 0) {
-      SmartDashboard.putBoolean(path + "Twirl Complete", true);
+      DashboardTelemetry.putBoolean(path + "Twirl Complete", true);
     }
-    SmartDashboard.putNumber(path + "Spin Velocity", vel);
+    DashboardTelemetry.putNumber(path + "Spin Velocity", vel);
   }
 
   private void identificationDrive(SwerveModule module, double voltage) {
@@ -137,17 +137,17 @@ public class YAGSLPitCheck extends Command {
     module.getDriveMotor().setVoltage(voltage);
     Double vel = module.getDriveMotor().getVelocity();
     if (Math.abs(vel) > 0) {
-      SmartDashboard.putBoolean(path + "Drive Complete", true);
+      DashboardTelemetry.putBoolean(path + "Drive Complete", true);
     }
-    SmartDashboard.putNumber(path + "Drive Velocity", vel);
+    DashboardTelemetry.putNumber(path + "Drive Velocity", vel);
   }
 
   private void intelligentHelperFunction(SwerveModule module) {
     int number = module.moduleNumber;
     String name = "ModuleNum" + number;
     String path = "Diag/" + name + "/";
-    SmartDashboard.putBoolean(path + "Twirl Complete", false); // reset twirl condition
-    SmartDashboard.putNumber(path + "Spin Velocity", 0);
+    DashboardTelemetry.putBoolean(path + "Twirl Complete", false); // reset twirl condition
+    DashboardTelemetry.putNumber(path + "Spin Velocity", 0);
 
     // 1. Get the TalonFX motor objects from YAGSL
     TalonFX driveKraken = (TalonFX) module.getDriveMotor().getMotor();
@@ -155,14 +155,14 @@ public class YAGSLPitCheck extends Command {
 
     // 2. Connectivity Check
     boolean connected = driveKraken.getVelocity().getStatus().isOK();
-    SmartDashboard.putBoolean(path + "CAN Connected", connected);
+    DashboardTelemetry.putBoolean(path + "CAN Connected", connected);
 
     // 3. Stator Current (Binding Check)
     double amps = driveKraken.getStatorCurrent().getValueAsDouble();
-    SmartDashboard.putNumber(path + "Stator Amps", amps);
+    DashboardTelemetry.putNumber(path + "Stator Amps", amps);
 
     // Check for mechanical binding (> 2A at only 20% output is a bad sign)
-    SmartDashboard.putBoolean(
+    DashboardTelemetry.putBoolean(
         path + "Drive Resistance OK", Math.abs(amps) < PitCheckConstants.STATOR_AMPS_THRESHOLD);
 
     // 4. Relative vs Absolute Consistency
@@ -174,11 +174,11 @@ public class YAGSLPitCheck extends Command {
     double expectedAbs = (rotorPos / PitCheckConstants.STEER_GEAR_RATIO) % 1.0;
     boolean alignmentOK =
         Math.abs(expectedAbs - (absolutePos / 360.0)) < PitCheckConstants.ALIGNMENT_ANGLE_TOLERANCE;
-    // SmartDashboard.putBoolean(path + "Alignment OK", alignmentOK);
+    // DashboardTelemetry.putBoolean(path + "Alignment OK", alignmentOK);
 
     // 5. Fault Reporting
     if (driveKraken.getStickyFault_Hardware(true).getValue()) {
-      SmartDashboard.putString(path + "Hardware Status", "CRITICAL FAILURE");
+      DashboardTelemetry.putString(path + "Hardware Status", "CRITICAL FAILURE");
     }
   }
 

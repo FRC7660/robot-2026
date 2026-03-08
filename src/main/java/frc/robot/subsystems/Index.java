@@ -44,7 +44,7 @@ public class Index extends SubsystemBase {
           .withFeedforward(new SimpleMotorFeedforward(0, 1.35, 0))
           .withSimFeedforward(new SimpleMotorFeedforward(0, 20, 0))
           // Telemetry name and verbosity level
-          .withTelemetry("IndexWheel", Constants.Telemetry.VERBOSITY)
+          .withTelemetry("IndexWheel", Constants.Telemetry.yamsVerbosity())
           // Gearing from the motor rotor to final shaft.
           // In this example gearbox(3,4) is the same as gearbox("3:1","4:1") which corresponds to
           // the gearbox attached to your motor.
@@ -72,7 +72,7 @@ public class Index extends SubsystemBase {
           // Maximum speed of the index.
           .withUpperSoftLimit(RPM.of(1000))
           // Telemetry name and verbosity for the arm.
-          .withTelemetry("YIndexWheel", Constants.Telemetry.VERBOSITY);
+          .withTelemetry("YIndexWheel", Constants.Telemetry.yamsVerbosity());
 
   // index Mechanism
   private FlyWheel indexer = new FlyWheel(indexingConfig);
@@ -145,7 +145,7 @@ public class Index extends SubsystemBase {
           .withSimClosedLoopController(0, 0, 0, RPM.of(470), RPM.per(Second).of(2000))
           .withSimFeedforward(new SimpleMotorFeedforward(0, 1.5, 0))
           // Telemetry name and verbosity level
-          .withTelemetry("IndexFunnel", Constants.Telemetry.VERBOSITY)
+          .withTelemetry("IndexFunnel", Constants.Telemetry.yamsVerbosity())
           // Gearing from the motor rotor to final shaft.
           // In this example gearbox(3,4) is the same as gearbox("3:1","4:1") which corresponds to
           // the gearbox attached to your motor.
@@ -173,7 +173,7 @@ public class Index extends SubsystemBase {
           // Maximum speed of the funnel.
           .withUpperSoftLimit(RPM.of(1000))
           // Telemetry name and verbosity for the arm.
-          .withTelemetry("YIndexFunnel", Constants.Telemetry.VERBOSITY);
+          .withTelemetry("YIndexFunnel", Constants.Telemetry.yamsVerbosity());
 
   // Funnel Mechanism
   private FlyWheel funneler = new FlyWheel(funnelingConfig);
