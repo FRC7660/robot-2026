@@ -33,7 +33,6 @@ import yams.motorcontrollers.SmartMotorController;
 import yams.motorcontrollers.SmartMotorControllerConfig;
 import yams.motorcontrollers.SmartMotorControllerConfig.ControlMode;
 import yams.motorcontrollers.SmartMotorControllerConfig.MotorMode;
-import yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity;
 import yams.motorcontrollers.remote.TalonFXWrapper;
 
 // initializes intake arm and roller motors
@@ -63,7 +62,7 @@ public class Intake extends SubsystemBase {
           // sim
           .withSimClosedLoopController(175.0, 0, 20.0, RPM.of(1000), RPM.per(Second).of(6000))
           .withSimFeedforward(new ArmFeedforward(0.02, 0.005, 0.0))
-          .withTelemetry("IntakeArm", TelemetryVerbosity.HIGH)
+          .withTelemetry("IntakeArm", Constants.Telemetry.VERBOSITY)
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(5, 5, 3.333)))
           .withMotorInverted(true)
           .withIdleMode(MotorMode.COAST)
@@ -82,7 +81,7 @@ public class Intake extends SubsystemBase {
           .withStartingPosition(Degrees.of(110))
           .withLength(Inches.of(8))
           .withMass(Pounds.of(8.466))
-          .withTelemetry("YIntakeArm", TelemetryVerbosity.HIGH)
+          .withTelemetry("YIntakeArm", Constants.Telemetry.VERBOSITY)
           .withHorizontalZero(Degrees.of(0.0));
 
   // Arm Mechanism

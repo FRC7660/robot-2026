@@ -34,7 +34,6 @@ import yams.motorcontrollers.SmartMotorController;
 import yams.motorcontrollers.SmartMotorControllerConfig;
 import yams.motorcontrollers.SmartMotorControllerConfig.ControlMode;
 import yams.motorcontrollers.SmartMotorControllerConfig.MotorMode;
-import yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity;
 import yams.motorcontrollers.local.SparkWrapper;
 
 public class Launch extends SubsystemBase {
@@ -67,7 +66,7 @@ public class Launch extends SubsystemBase {
           .withSimFeedforward(new SimpleMotorFeedforward(0.115, 0.108, 0.05))
           .withSimClosedLoopController(0.3, 0, 0, RPM.of(6700), RPM.per(Second).of(6700 * 2))
           // Telemetry name and verbosity level
-          .withTelemetry("LaunchWheel", TelemetryVerbosity.HIGH)
+          .withTelemetry("LaunchWheel", Constants.Telemetry.VERBOSITY)
           // Launch motors are 1:1 with fly wheel
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(1)))
           // Motor properties to prevent over currenting.
@@ -93,7 +92,7 @@ public class Launch extends SubsystemBase {
           // Maximum speed of the shooter.
           .withUpperSoftLimit(RPM.of(6700))
           // Telemetry name and verbosity for the arm.
-          .withTelemetry("YLaunchWheel", TelemetryVerbosity.HIGH);
+          .withTelemetry("YLaunchWheel", Constants.Telemetry.VERBOSITY);
 
   // Shooter Mechanism
   private FlyWheel shooter = new FlyWheel(shooterConfig);

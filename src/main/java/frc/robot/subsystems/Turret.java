@@ -35,7 +35,6 @@ import yams.motorcontrollers.SmartMotorController;
 import yams.motorcontrollers.SmartMotorControllerConfig;
 import yams.motorcontrollers.SmartMotorControllerConfig.ControlMode;
 import yams.motorcontrollers.SmartMotorControllerConfig.MotorMode;
-import yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity;
 import yams.motorcontrollers.local.SparkWrapper;
 
 /** Simple turret subsystem that holds a NEO Vortex and a supplier for the robot pose. */
@@ -93,7 +92,7 @@ public class Turret extends SubsystemBase {
             .withSimClosedLoopController(10.0, 0, 0.2)
             .withSimFeedforward(new SimpleMotorFeedforward(0.0, 5.1, 0.0))
             // Telemetry name and verbosity level
-            .withTelemetry("TurretTurret", TelemetryVerbosity.HIGH)
+            .withTelemetry("TurretTurret", Constants.Telemetry.VERBOSITY)
             // Gearing from motor rotor to turret.
             .withGearing(new MechanismGearing(GearBox.fromReductionStages(4, 10)))
             // Motor properties to prevent over currenting.
@@ -110,7 +109,7 @@ public class Turret extends SubsystemBase {
             .withHardLimit(Degrees.of(-175), Degrees.of(175))
             .withSoftLimits(Degrees.of(-165), Degrees.of(165))
             .withStartingPosition(Degrees.of(0))
-            .withTelemetry("YTurretTurret", TelemetryVerbosity.HIGH)
+            .withTelemetry("YTurretTurret", Constants.Telemetry.VERBOSITY)
             .withMOI(Meters.of(0.254), Pounds.of(2));
 
     turretPivot = new Pivot(pivotConfig);

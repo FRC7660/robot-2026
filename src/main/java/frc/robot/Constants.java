@@ -8,6 +8,7 @@ import com.revrobotics.spark.*;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 import swervelib.math.Matter;
+import yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity;
 
 /**
  * The Constants class provides a convenient place for teams to hold robot-wide numerical or boolean
@@ -33,6 +34,12 @@ public final class Constants {
   //    public static final PIDConstants TRANSLATION_PID = new PIDConstants(0.7, 0, 0);
   //    public static final PIDConstants ANGLE_PID       = new PIDConstants(0.4, 0, 0.01);
   //  }
+
+  public static final class Telemetry {
+    // options here are TelemetryVerbosity.NONE, TelemetryVerbosity.LOW, TelemetryVerbosity.MEDIUM,
+    // TelemetryVerbosity.HIGH
+    public static final TelemetryVerbosity VERBOSITY = TelemetryVerbosity.HIGH;
+  }
 
   public static final class DrivebaseConstants {
 
