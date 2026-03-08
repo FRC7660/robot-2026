@@ -66,7 +66,12 @@ public class Robot extends LoggedRobot {
         break;
       case REPLAY:
         setUseTiming(false);
-        String logPath = LogFileUtil.findReplayLog();
+        String logPath =
+            System.getProperty("akit.logPath", System.getenv().getOrDefault("AKIT_LOG_PATH", ""));
+        if (logPath.isBlank()) {
+          logPath = LogFileUtil.findReplayLog();
+        }
+        Logger.recordMetadata("ReplayLogPath", logPath);
         Logger.setReplaySource(new WPILOGReader(logPath));
         Logger.addDataReceiver(new WPILOGWriter(LogFileUtil.addPathSuffix(logPath, "_sim")));
         break;

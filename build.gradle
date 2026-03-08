@@ -95,6 +95,12 @@ task(replayWatch, type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
 }
 
+tasks.register("replayJava") {
+    group = "WPILib"
+    description = "Runs desktop simulation in AdvantageKit replay mode when AKIT_LOG_PATH or -Dakit.logPath is set."
+    dependsOn "simulateJava"
+}
+
 test {
     useJUnitPlatform()
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
