@@ -111,3 +111,28 @@ Notes:
 - `replayJava` is a thin Gradle alias around the desktop simulation task.
 - If no path is provided, AdvantageKit falls back to its normal replay log picker behavior.
 - Replay metadata includes the log path used for the session.
+
+## Logging Instead Of Println
+
+If you would normally write:
+
+```java
+System.out.println("Auto selected: " + m_autonomousCommand);
+```
+
+Prefer logging it with AdvantageKit:
+
+```java
+Logger.recordOutput(
+    "Robot/SelectedAuto",
+    m_autonomousCommand == null ? "None" : m_autonomousCommand.getName());
+```
+
+That makes the value show up in the `.wpilog` and in AdvantageScope instead of only in the console.
+
+For event-like diagnostics, it is also useful to log a structured state instead of a sentence:
+
+```java
+Logger.recordOutput("Intake/LimitSwitchPressed", isLimitSwitchPressed());
+Logger.recordOutput("Robot/Mode", DriverStation.isAutonomous() ? "Auto" : "Teleop");
+```
