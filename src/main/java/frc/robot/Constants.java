@@ -18,6 +18,14 @@ import swervelib.math.Matter;
  * constants are needed, to reduce verbosity.
  */
 public final class Constants {
+  public enum Mode {
+    REAL,
+    SIM,
+    REPLAY
+  }
+
+  public static final Mode CURRENT_MODE =
+      edu.wpi.first.wpilibj.RobotBase.isReal() ? Mode.REAL : Mode.SIM;
 
   public static final double ROBOT_MASS = (148 - 20.3) * 0.453592; // 32lbs * kg per pound
   public static final Matter CHASSIS =

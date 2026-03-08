@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.json.simple.parser.ParseException;
+import org.littletonrobotics.junction.AutoLogOutput;
 import org.photonvision.EstimatedRobotPose;
 import swervelib.SwerveController;
 import swervelib.SwerveDrive;
@@ -703,6 +704,7 @@ public class SwerveSubsystem extends SubsystemBase {
    *
    * @return The robot's pose
    */
+  @AutoLogOutput(key = "Drive/Pose")
   public Pose2d getPose() {
     return swerveDrive.getPose();
   }
@@ -837,6 +839,7 @@ public class SwerveSubsystem extends SubsystemBase {
    *
    * @return A ChassisSpeeds object of the current field-relative velocity
    */
+  @AutoLogOutput(key = "Drive/FieldVelocity")
   public ChassisSpeeds getFieldVelocity() {
     return swerveDrive.getFieldVelocity();
   }
@@ -846,6 +849,7 @@ public class SwerveSubsystem extends SubsystemBase {
    *
    * @return A {@link ChassisSpeeds} object of the current velocity
    */
+  @AutoLogOutput(key = "Drive/RobotVelocity")
   public ChassisSpeeds getRobotVelocity() {
     return swerveDrive.getRobotVelocity();
   }
