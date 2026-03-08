@@ -88,3 +88,26 @@ Location: `frc.robot.Constants.NeutralToBallPickupAutoConstants`
 
 - Vision/fusion/fuelPalantir architecture and dashboard variables: `README_VISION.md`
 - Agent workflow notes for this repo: `AGENTS.md`
+
+## Replay Logging
+
+AdvantageKit replay mode is enabled automatically on desktop when either `AKIT_LOG_PATH`,
+`AKIT_MODE=replay`, or `-Dakit.logPath=...` is provided.
+
+Recommended usage:
+
+```bash
+AKIT_LOG_PATH=/path/to/log.wpilog ./gradlew replayJava
+```
+
+Alternative:
+
+```bash
+./gradlew replayJava -Dakit.logPath=/path/to/log.wpilog
+```
+
+Notes:
+
+- `replayJava` is a thin Gradle alias around the desktop simulation task.
+- If no path is provided, AdvantageKit falls back to its normal replay log picker behavior.
+- Replay metadata includes the log path used for the session.
