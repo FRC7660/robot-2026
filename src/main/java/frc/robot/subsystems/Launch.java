@@ -72,7 +72,7 @@ public class Launch extends SubsystemBase {
           // Launch motors are 1:1 with fly wheel
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(1)))
           // Motor properties to prevent over currenting.
-          .withMotorInverted(true)
+          .withMotorInverted(false)
           .withIdleMode(MotorMode.COAST)
           .withStatorCurrentLimit(Amps.of(40))
           .withClosedLoopRampRate(Seconds.of(0.25))
@@ -255,8 +255,9 @@ public class Launch extends SubsystemBase {
                 Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
                 Commands.waitUntil(() -> optimalVelocityReached.getAsBoolean()),
                 // Feed while shooter remains at speed.
-                Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
                 Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(120.0))),
+                Commands.waitSeconds(1.0),
+                Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
                 Commands.waitUntil(() -> optimalVelocityReached.negate().getAsBoolean())))
         .handleInterrupt(() -> shotSequenceEnd(indexSystem));
   }
