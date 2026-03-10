@@ -18,6 +18,7 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -40,14 +41,14 @@ public class Launch extends SubsystemBase {
   private static final InterpolatingDoubleTreeMap SPEED_TABLE = new InterpolatingDoubleTreeMap();
 
   static {
-    SPEED_TABLE.put(Units.inchesToMeters(0), 25.0);
-    SPEED_TABLE.put(Units.inchesToMeters(141), 44.0);
-    SPEED_TABLE.put(Units.inchesToMeters(145), 45.0);
-    SPEED_TABLE.put(Units.inchesToMeters(182), 50.0);
-    SPEED_TABLE.put(Units.inchesToMeters(216), 55.0);
-    SPEED_TABLE.put(Units.inchesToMeters(246), 60.0);
-    SPEED_TABLE.put(Units.inchesToMeters(290), 65.0);
-    SPEED_TABLE.put(Units.inchesToMeters(312), 80.0);
+    SPEED_TABLE.put(Units.inchesToMeters(0), 1.0);
+    SPEED_TABLE.put(Units.inchesToMeters(141), 2.0);
+    SPEED_TABLE.put(Units.inchesToMeters(145), 2.0);
+    SPEED_TABLE.put(Units.inchesToMeters(182), 5.0);
+    SPEED_TABLE.put(Units.inchesToMeters(216), 5.0);
+    SPEED_TABLE.put(Units.inchesToMeters(246), 6.0);
+    SPEED_TABLE.put(Units.inchesToMeters(290), 6.0);
+    SPEED_TABLE.put(Units.inchesToMeters(312), 8.0);
   }
 
   private final SparkFlex motor1 =
@@ -136,11 +137,6 @@ public class Launch extends SubsystemBase {
         this::startVelocityClosedLoop, () -> setVelocityTargetNoRestart(speed), this);
   }
 
-  /** Calculate and return a velocity setpoint based on distance */
-  public AngularVelocity getOptimalVelocity() {
-    return RPM.of(15);
-  }
-
   /**
    * Calculate and return a velocity setpoint based on distance to target (meters), interpolating
    * between configured table values.
@@ -217,28 +213,6 @@ public class Launch extends SubsystemBase {
     shooter.simIterate();
   }
 
-  public Command shotSequenceStart(Index indexSystem) {
-    Supplier<AngularVelocity> s_velSupplier = () -> getVelocity();
-    Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity();
-    Trigger optimalVelocityReached =
-        new Trigger(() -> isAtSpeed(s_velSupplier.get(), s_velSetpointSupplier.get()));
-    return Commands.parallel(
-            Commands.startRun(
-                this::startVelocityClosedLoop,
-                () -> setVelocityTargetNoRestart(s_velSetpointSupplier.get()),
-                this),
-            Commands.repeatingSequence(
-                // Pause funnel/index until shooter reaches target speed.
-                Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(0.0))),
-                Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
-                Commands.waitUntil(() -> optimalVelocityReached.getAsBoolean()),
-                // Feed while shooter remains at speed.
-                Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
-                Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(120.0))),
-                Commands.waitUntil(() -> optimalVelocityReached.negate().getAsBoolean())))
-        .handleInterrupt(() -> shotSequenceEnd(indexSystem));
-  }
-
   public Command shotSequenceStart(Index indexSystem, Turret turret) {
     Supplier<AngularVelocity> s_velSupplier = () -> getVelocity();
     Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity(turret);
@@ -247,7 +221,17 @@ public class Launch extends SubsystemBase {
     return Commands.parallel(
             Commands.startRun(
                 this::startVelocityClosedLoop,
-                () -> setVelocityTargetNoRestart(s_velSetpointSupplier.get()),
+                () -> {
+                  AngularVelocity setpoint = s_velSetpointSupplier.get();
+                  setVelocityTargetNoRestart(setpoint);
+                  // Debug output
+                  double distanceMeters = getDistanceToTurretLastTargetMeters(turret);
+                  SmartDashboard.putNumber("Launch/TargetDistance", distanceMeters);
+                  SmartDashboard.putNumber(
+                      "Launch/TargetVelocity_RPS", setpoint.in(RotationsPerSecond));
+                  SmartDashboard.putNumber(
+                      "Launch/CurrentVelocity_RPS", getVelocity().in(RotationsPerSecond));
+                },
                 this),
             Commands.repeatingSequence(
                 // Pause funnel/index until shooter reaches target speed.
