@@ -9,7 +9,6 @@ import static edu.wpi.first.units.Units.*;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
@@ -157,18 +156,6 @@ public class RobotContainer {
   private void configureBindings() {
     Command driveFieldOrientedDirectAngle = drivebase.driveFieldOriented(driveDirectAngle);
 
-    // Intake toggle init
-    Command toggleIntakeDeployment =
-        Commands.runOnce(
-            () -> {
-              Angle currentAngle = intakeSystem.getAngle();
-              if (currentAngle.in(Degrees) < 0) {
-                intakeSystem.setAngleSetpoint(110.0);
-              } else {
-                intakeSystem.setAngleSetpoint(-25.0);
-              }
-            });
-
     // Intake speed init
     DoubleSupplier leftTriggerSupplier =
         () -> {
@@ -199,7 +186,7 @@ public class RobotContainer {
 
     // INTAKE CONTROL
     // Toggle the arm out/in
-    driverXbox.leftBumper().onTrue(toggleIntakeDeployment);
+    driverXbox.leftBumper().onTrue(intakeSystem.toggleIntake());
     // Run and stop the intake based on the Left Trigger value (threshold/deadzone of 0.1)
     driverXbox.leftTrigger(0.1).whileTrue(runIntakeWithSpeed);
     driverXbox.leftTrigger(0.1).onFalse(stopIntake);
