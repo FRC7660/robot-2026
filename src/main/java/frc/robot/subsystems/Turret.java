@@ -197,9 +197,6 @@ public class Turret extends SubsystemBase {
   public void periodic() {
     turretPivot.updateTelemetry();
     Rotation2d calcRobotRelative = getRobotRelativeAngle();
-    if (DriverStation.isEnabled()) {
-      setTurretSetpoint(calcRobotRelative);
-    }
     Optional<Angle> sp = turretSmartMotorController.getMechanismPositionSetpoint();
     double setPoint = sp.isPresent() ? normalizeToSigned180(sp.get().in(Degrees)) : -1.0;
     double currentDegSigned =
