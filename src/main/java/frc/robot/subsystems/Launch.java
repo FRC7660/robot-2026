@@ -59,7 +59,7 @@ public class Launch extends SubsystemBase {
   SmartMotorControllerConfig smcConfig =
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
-           // ROBOT
+          // ROBOT
           .withFeedforward(new SimpleMotorFeedforward(0.115, 0.108, 0.05))
           .withClosedLoopController(0.001, 0, 0, RPM.of(6700), RPM.per(Second).of(6700 * 2))
           // SIMULATION
