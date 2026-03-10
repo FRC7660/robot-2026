@@ -59,14 +59,12 @@ public class Launch extends SubsystemBase {
   SmartMotorControllerConfig smcConfig =
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
-          // Feedback Constants (PID Constants)
-          .withClosedLoopController(0, 0, 0, RPM.of(6700), RPM.per(Second).of(6700 * 2))
-          .withSimClosedLoopController(0.3, 0, 0, RPM.of(6700), RPM.per(Second).of(6700 * 2))
-          // Feedforward Constants
-          .withFeedforward(new SimpleMotorFeedforward(0.115, 6.5, 3))
-          // Sim kV/kA divided by 60: original was tuned in RPM-basis but YAMS passes velocity in
-          // RPS.
+           // ROBOT
+          .withFeedforward(new SimpleMotorFeedforward(0.115, 0.108, 0.05))
+          .withClosedLoopController(0.001, 0, 0, RPM.of(6700), RPM.per(Second).of(6700 * 2))
+          // SIMULATION
           .withSimFeedforward(new SimpleMotorFeedforward(0.115, 0.108, 0.05))
+          .withSimClosedLoopController(0.3, 0, 0, RPM.of(6700), RPM.per(Second).of(6700 * 2))
           // Telemetry name and verbosity level
           .withTelemetry("LaunchWheel", TelemetryVerbosity.HIGH)
           // Launch motors are 1:1 with fly wheel
