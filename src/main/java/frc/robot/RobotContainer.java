@@ -201,7 +201,7 @@ public class RobotContainer {
 
     // INTAKE CONTROL
     // Toggle the arm out/in
-    driverXbox.leftBumper().onTrue(intakeSystem.toggleIntake());
+    //driverXbox.leftBumper().onTrue(intakeSystem.toggleIntake());
     // Run and stop the intake based on the Left Trigger value (threshold/deadzone of 0.1)
     driverXbox.leftTrigger(0.1).whileTrue(runIntakeWithSpeed);
     driverXbox.leftTrigger(0.1).onFalse(stopIntake);
