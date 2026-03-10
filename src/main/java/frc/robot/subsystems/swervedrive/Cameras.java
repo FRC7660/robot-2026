@@ -17,7 +17,7 @@ import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 /** Camera Enum to select each camera */
 public enum Cameras {
   /** Front Camera */
-  FRONT_CAM(
+  FRONT_CAMERA(
       "cam2", // front
       new Rotation3d(0, Math.toRadians(0), Math.toRadians(0)),
       new Translation3d(
@@ -27,7 +27,7 @@ public enum Cameras {
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1)),
   /** Right Camera */
-  RIGHT_CAM(
+  RIGHT_CAMERA(
       "cam0",
       new Rotation3d(0, Math.toRadians(0), Math.toRadians(-90)),
       new Translation3d(
@@ -35,7 +35,7 @@ public enum Cameras {
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1)),
   /** Left Camera */
-  LEFT_CAM(
+  LEFT_CAMERA(
       "cam4",
       new Rotation3d(0, Math.toRadians(0), Math.toRadians(90)),
       new Translation3d(
