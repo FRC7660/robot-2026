@@ -16,65 +16,30 @@ import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 
 /** Camera Enum to select each camera */
 public enum Cameras {
-  /** Front Camera from main branch measurements (cam_G). */
-  FRONT_CAM_G(
-      "cam_G",
-      new Rotation3d(0, Math.toRadians(20), Math.toRadians(-30)),
+  /** Front Camera */
+  FRONT_CAM(
+      "cam2", // front
+      new Rotation3d(0, Math.toRadians(0), Math.toRadians(0)),
       new Translation3d(
-          Units.inchesToMeters(10.503), Units.inchesToMeters(9.836), Units.inchesToMeters(16.369)),
+          Units.inchesToMeters(1.351478),
+          Units.inchesToMeters(10.625),
+          Units.inchesToMeters(17.860956)),
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1)),
-  /** Right Camera from main branch measurements (cam_F). */
-  RIGHT_CAM_F(
-      "cam_F",
+  /** Right Camera */
+  RIGHT_CAM(
+      "cam0",
       new Rotation3d(0, Math.toRadians(0), Math.toRadians(-90)),
       new Translation3d(
           Units.inchesToMeters(-9.5), Units.inchesToMeters(-7.75), Units.inchesToMeters(12.996)),
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1)),
-  /** Left Camera from main branch measurements (cam_E). */
-  LEFT_CAM_E(
-      "cam_E",
+  /** Left Camera */
+  LEFT_CAM(
+      "cam4",
       new Rotation3d(0, Math.toRadians(0), Math.toRadians(90)),
       new Translation3d(
           Units.inchesToMeters(-9.5), Units.inchesToMeters(7.75), Units.inchesToMeters(12.996)),
-      VecBuilder.fill(4, 4, 8),
-      VecBuilder.fill(0.5, 0.5, 1)),
-  /** Front Camera (camera1) */
-  FRONT_CAMERA(
-      "camera1",
-      new Rotation3d(0, Math.toRadians(0), 0),
-      new Translation3d(
-          Units.inchesToMeters(14.5), Units.inchesToMeters(0), Units.inchesToMeters(6.25)),
-      VecBuilder.fill(4, 4, 8),
-      VecBuilder.fill(0.5, 0.5, 1)),
-  /** Right Camera */
-  // RIGHT_CAM(
-  // "right",
-  // new Rotation3d(0, Math.toRadians(-24.094), Math.toRadians(-30)),
-  // new Translation3d(
-  // Units.inchesToMeters(12.056),
-  // Units.inchesToMeters(-10.981),
-  // Units.inchesToMeters(8.44)),
-  // VecBuilder.fill(4, 4, 8),
-  // VecBuilder.fill(0.5, 0.5, 1)),
-  // CENTER_CAM disabled - "camB" not present on coprocessor, causes per-loop exceptions
-  // /** Center Camera */
-  // CENTER_CAM(
-  //     "camB",
-  //     new Rotation3d(0, Units.degreesToRadians(18), 0),
-  //     new Translation3d(
-  //         Units.inchesToMeters(-4.628),
-  //         Units.inchesToMeters(-10.687),
-  //         Units.inchesToMeters(16.129)),
-  //     VecBuilder.fill(4, 4, 8),
-  //     VecBuilder.fill(0.5, 0.5, 1)),
-  /** Back Camera (camera0) */
-  BACK_CAMERA(
-      "camera0",
-      new Rotation3d(0, Math.toRadians(0), Math.toRadians(180)),
-      new Translation3d(
-          Units.inchesToMeters(-15.5), Units.inchesToMeters(0), Units.inchesToMeters(5.5)),
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1));
 
