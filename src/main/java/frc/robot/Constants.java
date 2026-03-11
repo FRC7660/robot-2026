@@ -180,5 +180,13 @@ public final class Constants {
     public static final int topRight = 8;
     public static final int p1 = 9;
     public static final int p2 = 10;
+
+    // D-pad axes (digital): axis 0 = up/down, axis 1 = right/left.
+    public static final int dpadAxisUpDown = 0;
+    public static final int dpadAxisLeftRight = 1;
+    public static final double dpadUpValue = 1.0;
+    public static final double dpadDownValue = -1.0;
+    public static final double dpadRightValue = 1.0;
+    public static final double dpadLeftValue = -1.0;
   }
 }
