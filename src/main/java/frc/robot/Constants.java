@@ -114,6 +114,8 @@ public final class Constants {
   public static final class Turret {
     public static final int MOTOR_ID = 30;
     public static final double TURRET_SPEED = 0.05;
+    // Operator fine-adjust step for turret zero alignment (degrees).
+    public static final double ZERO_TRIM_STEP_DEG = 0.5;
     // Offset from robot-relative target frame to turret mechanism frame.
     // +180 means "robot-forward 0 deg" maps to mechanism 180 deg.
     public static final double MECHANISM_ZERO_OFFSET_DEG = 180.0;
@@ -123,5 +125,26 @@ public final class Constants {
     public static final double TURRET_P = 0.6;
     public static final double TURRET_I = 0.0;
     public static final double TURRET_D = 0.1;
+  }
+
+  public static final class ButtonBox {
+    public static final int bottomLeft = 1;
+    public static final int lowerLeft = 2;
+    public static final int upperLeft = 3;
+    public static final int topLeft = 4;
+    public static final int bottomRight = 5;
+    public static final int lowerRight = 6;
+    public static final int upperRight = 7;
+    public static final int topRight = 8;
+    public static final int p1 = 9;
+    public static final int p2 = 10;
+
+    // D-pad axes (digital): axis 0 = up/down, axis 1 = right/left.
+    public static final int dpadAxisUpDown = 0;
+    public static final int dpadAxisLeftRight = 1;
+    public static final double dpadUpValue = 1.0;
+    public static final double dpadDownValue = -1.0;
+    public static final double dpadRightValue = 1.0;
+    public static final double dpadLeftValue = -1.0;
   }
 }

@@ -14,9 +14,9 @@ import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.button.CommandGenericHID;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
-import frc.robot.Constants.OperatorConstants;
 import frc.robot.autonomous.AutonomousManager;
 import frc.robot.commands.swervedrive.MisalignCorrection;
 import frc.robot.commands.swervedrive.YAGSLPitCheck;
@@ -41,6 +41,7 @@ public class RobotContainer {
 
   // Replace with CommandPS4Controller or CommandJoystick if needed
   final CommandXboxController driverXbox = new CommandXboxController(0);
+  private final CommandGenericHID buttonBox = new CommandGenericHID(1);
   private final Intake intakeSystem = new Intake();
 
   // The robot's subsystems and commands are defined here...
@@ -91,7 +92,7 @@ public class RobotContainer {
               () -> driverXbox.getLeftY() * -1,
               () -> driverXbox.getLeftX() * -1)
           .withControllerRotationAxis(() -> driverXbox.getRightX() * -1)
-          .deadband(OperatorConstants.DEADBAND)
+          .deadband(Constants.OperatorConstants.DEADBAND)
           .scaleTranslation(0.8)
           .allianceRelativeControl(true);
 
@@ -112,7 +113,7 @@ public class RobotContainer {
               () -> -driverXbox.getLeftY(),
               () -> -driverXbox.getLeftX())
           .withControllerRotationAxis(() -> driverXbox.getRawAxis(2))
-          .deadband(OperatorConstants.DEADBAND)
+          .deadband(Constants.OperatorConstants.DEADBAND)
           .scaleTranslation(0.8)
           .allianceRelativeControl(true);
   // Derive the heading axis with math!
@@ -216,6 +217,18 @@ public class RobotContainer {
     if (DriverStation.isTest()) {
       driverXbox.povDown().whileTrue(new YAGSLPitCheck(drivebase));
     }
+
+    // ButtonBox D-pad left/right for turret zero trim
+    new Trigger(
+            () ->
+                buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisLeftRight)
+                    <= Constants.ButtonBox.dpadLeftValue + 0.1)
+        .onTrue(turret.adjustLeft());
+    new Trigger(
+            () ->
+                buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisLeftRight)
+                    >= Constants.ButtonBox.dpadRightValue - 0.1)
+        .onTrue(turret.adjustRight());
   }
 
   /**
