@@ -168,4 +168,17 @@ public final class Constants {
     public static final double TURRET_I = 0.0;
     public static final double TURRET_D = 0.1;
   }
+
+  public static final class ButtonBox {
+    public static final int bottomLeft = 1;
+    public static final int lowerLeft = 2;
+    public static final int upperLeft = 3;
+    public static final int topLeft = 4;
+    public static final int bottomRight = 5;
+    public static final int lowerRight = 6;
+    public static final int upperRight = 7;
+    public static final int topRight = 8;
+    public static final int p1 = 9;
+    public static final int p2 = 10;
+  }
 }
