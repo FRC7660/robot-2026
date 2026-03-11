@@ -41,7 +41,7 @@ public class Launch extends SubsystemBase {
   private static final InterpolatingDoubleTreeMap SPEED_TABLE = new InterpolatingDoubleTreeMap();
 
   static {
-    SPEED_TABLE.put(Units.inchesToMeters(0), 25.0);
+    SPEED_TABLE.put(Units.inchesToMeters(0), 35.0);
     SPEED_TABLE.put(Units.inchesToMeters(141), 44.0);
     SPEED_TABLE.put(Units.inchesToMeters(145), 45.0);
     SPEED_TABLE.put(Units.inchesToMeters(182), 50.0);
@@ -256,7 +256,7 @@ public class Launch extends SubsystemBase {
                 Commands.waitUntil(() -> optimalVelocityReached.getAsBoolean()),
                 // Feed while shooter remains at speed.
                 Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
-                Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(120.0))),
+                Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(60.0))),
                 Commands.waitUntil(() -> optimalVelocityReached.negate().getAsBoolean())))
         .handleInterrupt(() -> shotSequenceEnd(indexSystem));
   }
