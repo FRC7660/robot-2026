@@ -18,6 +18,7 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -70,7 +71,7 @@ public class Launch extends SubsystemBase {
           // Launch motors are 1:1 with fly wheel
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(1)))
           // Motor properties to prevent over currenting.
-          .withMotorInverted(true)
+          .withMotorInverted(false)
           .withIdleMode(MotorMode.COAST)
           .withStatorCurrentLimit(Amps.of(40))
           .withClosedLoopRampRate(Seconds.of(0.25))
@@ -164,6 +165,7 @@ public class Launch extends SubsystemBase {
     }
     double baseDistance = robotPosition.getDistance(targetPosition);
     double adjustedDistance = adjustDistanceForAllianceZone(robotPosition, baseDistance);
+    SmartDashboard.putNumber("baseDistance", baseDistance);
     return getOptimalVelocity(adjustedDistance);
   }
 
@@ -186,7 +188,7 @@ public class Launch extends SubsystemBase {
             || (alliance == DriverStation.Alliance.Blue
                 && robotPosition.getX() < TurretHelpers.BLUE_THRESHOLD_X);
 
-    return inOwnAllianceZone ? distanceMeters + 1.0 : distanceMeters;
+    return inOwnAllianceZone ? distanceMeters + 0.75 : distanceMeters;
   }
 
   public void stop() {
