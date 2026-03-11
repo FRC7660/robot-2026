@@ -259,6 +259,7 @@ public class Turret extends SubsystemBase {
     DashboardTelemetry.putNumber("Turret/CurrentDeg", currentDegSigned);
     DashboardTelemetry.putNumber("Turret/CurrentRobotFrameDeg", currentRobotFrameDegSigned);
     DashboardTelemetry.putNumber("Turret/FieldRelDeg", fieldAngleDegSigned);
+    DashboardTelemetry.putNumber("Turret/MechanismOffset", getMechanismZeroOffsetDeg());
     DashboardTelemetry.putNumber("Turret/RobotRelDeg", robotAngleDegSigned);
     DashboardTelemetry.putNumber("Turret/SetpointDeg", setPoint);
     DashboardTelemetry.putNumber("Turret/SetpointCalcDeg", calcSetpointDegSigned);
