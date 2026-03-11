@@ -6,24 +6,26 @@ package frc.robot;
 
 import static edu.wpi.first.units.Units.*;
 
-import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OperatorConstants;
+import frc.robot.autonomous.AutonomousManager;
+import frc.robot.commands.swervedrive.MisalignCorrection;
 import frc.robot.commands.swervedrive.YAGSLPitCheck;
+import frc.robot.lib.BufferedLogger;
 import frc.robot.subsystems.Index;
 import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Launch;
 import frc.robot.subsystems.Turret;
+import frc.robot.subsystems.swervedrive.FuelPalantir.FuelPalantirMode;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
 import java.util.function.DoubleSupplier;
@@ -45,22 +47,23 @@ public class RobotContainer {
   private final String chassisDirectory = "swerve/7660-chassis1";
   private final SwerveSubsystem drivebase =
       new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), chassisDirectory));
-  // private final Index indexSystem = new Index();
+  private final MisalignCorrection misalignCorrection =
+      new MisalignCorrection(drivebase, chassisDirectory);
   private final Index indexSystem = new Index();
   // Turret subsystem, constructed with a supplier that returns the current odometry pose
   private final Turret turret = new Turret(drivebase::getPose);
   // Launch subsystem
   private final Launch launchSystem = new Launch();
-  // Establish a Sendable Chooser that will be able to be sent to the SmartDashboard, allowing
-  // selection of desired auto
-  private final SendableChooser<Command> autoChooser;
+
+  private final AutonomousManager autonomousManager;
 
   private double getRightXCorrected() {
     if (RobotBase.isSimulation()) {
       return driverXbox.getRawAxis(3) * -1;
     }
     double base = driverXbox.getRightX();
-    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
+    if (DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue)
+        != DriverStation.Alliance.Red) {
       base *= -1;
     }
     return base;
@@ -71,7 +74,8 @@ public class RobotContainer {
       return driverXbox.getRawAxis(4) * -1;
     }
     double base = driverXbox.getRightY();
-    if (DriverStation.getAlliance().get() != DriverStation.Alliance.Red) {
+    if (DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue)
+        != DriverStation.Alliance.Red) {
       base *= -1;
     }
     return base;
@@ -124,24 +128,35 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
+    DataLogManager.start();
+    DriverStation.startDataLog(DataLogManager.getLog());
+    BufferedLogger.getInstance();
+
     // Configure the trigger bindings
     configureBindings();
     DriverStation.silenceJoystickConnectionWarning(true);
 
     // Create the NamedCommands that will be used in PathPlanner
-    NamedCommands.registerCommand("test", Commands.print("I EXIST"));
+    try {
+      NamedCommands.registerCommand("test", Commands.print("I EXIST"));
+      NamedCommands.registerCommand(
+          "FuelPalantir", drivebase.fuelPalantirCommand(FuelPalantirMode.AUTONOMOUS));
+      NamedCommands.registerCommand(
+          "LogoFuelPalantir", drivebase.fuelPalantirCommand(FuelPalantirMode.AUTONOMOUS));
+      NamedCommands.registerCommand(
+          "ResetPoseFromAprilTags",
+          Commands.runOnce(
+              () -> {
+                boolean reset = drivebase.resetOdometryFromAprilTags();
+                System.out.printf("[PoseReset] source=APRILTAG commandResult=%s%n", reset);
+              },
+              drivebase));
+    } catch (Exception e) {
+      DriverStation.reportError(
+          "[NamedCommands] registration failed: " + e.getMessage(), e.getStackTrace());
+    }
 
-    // Have the autoChooser pull in all PathPlanner autos as options
-    autoChooser = AutoBuilder.buildAutoChooser();
-
-    // Set the default auto (do nothing)
-    autoChooser.setDefaultOption("Do Nothing", Commands.none());
-
-    // Add a simple auto option to have the robot drive forward for 1 second then stop
-    autoChooser.addOption("Drive Forward", drivebase.driveForward().withTimeout(1));
-
-    // Put the autoChooser on the SmartDashboard
-    SmartDashboard.putData("Auto Chooser", autoChooser);
+    autonomousManager = new AutonomousManager(drivebase);
   }
 
   /**
@@ -174,7 +189,7 @@ public class RobotContainer {
     Trigger shotPressureMaxed = new Trigger(() -> (driverXbox.getRightTriggerAxis() > 0.85));
 
     // Shot sequence init (Binds to Right Trigger)
-    Command startSequence = launchSystem.shotSequenceStart(indexSystem);
+    Command startSequence = launchSystem.shotSequenceStart(indexSystem, turret);
     startSequence.addRequirements(launchSystem, indexSystem);
     // Right Trigger/DPad Up - Medium pressure: start AutoTurn
     shotPressureDetected.whileTrue(turret.autoSetAngle());
@@ -186,7 +201,7 @@ public class RobotContainer {
 
     // INTAKE CONTROL
     // Toggle the arm out/in
-    driverXbox.leftBumper().onTrue(intakeSystem.toggleIntake());
+    //driverXbox.leftBumper().onTrue(intakeSystem.toggleIntake());
     // Run and stop the intake based on the Left Trigger value (threshold/deadzone of 0.1)
     driverXbox.leftTrigger(0.1).whileTrue(runIntakeWithSpeed);
     driverXbox.leftTrigger(0.1).onFalse(stopIntake);
@@ -209,8 +224,11 @@ public class RobotContainer {
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
-    // Pass in the selected auto from the SmartDashboard as our desired autnomous commmand
-    return autoChooser.getSelected();
+    return autonomousManager.getAutonomousCommand();
+  }
+
+  public void autonomousInit() {
+    autonomousManager.prepareAutonomousStart();
   }
 
   public void setMotorBrake(boolean brake) {

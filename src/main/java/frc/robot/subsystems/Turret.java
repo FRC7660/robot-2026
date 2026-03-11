@@ -196,11 +196,12 @@ public class Turret extends SubsystemBase {
   @Override
   public void periodic() {
     turretPivot.updateTelemetry();
+    Rotation2d calcRobotRelative = getRobotRelativeAngle();
     Optional<Angle> sp = turretSmartMotorController.getMechanismPositionSetpoint();
     double setPoint = sp.isPresent() ? normalizeToSigned180(sp.get().in(Degrees)) : -1.0;
     double currentDegSigned =
         normalizeToSigned180(turretSmartMotorController.getMechanismPosition().in(Degrees));
-    double calcSetpointDegSigned = getRobotRelativeAngle().getDegrees();
+    double calcSetpointDegSigned = calcRobotRelative.getDegrees();
     double currentRobotFrameDegSigned = mechanismToRobotDeg(currentDegSigned);
     double fieldAngleDegSigned = normalizeToSigned180(lastFieldAngle.getDegrees());
     double robotAngleDegSigned = normalizeToSigned180(getPose.get().getRotation().getDegrees());
