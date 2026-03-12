@@ -16,6 +16,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import java.util.Optional;
+import org.littletonrobotics.junction.AutoLogOutput;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
 import yams.mechanisms.config.FlyWheelConfig;
@@ -82,6 +83,7 @@ public class Index extends SubsystemBase {
    *
    * @return index velocity.
    */
+  @AutoLogOutput(key = "Index/IndexerVelocity")
   public AngularVelocity getVelocityindex() {
     return indexer.getSpeed();
   }
@@ -98,6 +100,11 @@ public class Index extends SubsystemBase {
   /** Get the index velocity setpoint. */
   public Optional<AngularVelocity> getVelocitySetpointindex() {
     return Optional.of(indexer.getMechanismSetpointVelocity().orElse(RPM.of(0)));
+  }
+
+  @AutoLogOutput(key = "Index/IndexerSetpointRpm")
+  public double getIndexerSetpointRpm() {
+    return indexer.getMechanismSetpointVelocity().orElse(RPM.of(0)).in(RPM);
   }
 
   /**
@@ -183,6 +190,7 @@ public class Index extends SubsystemBase {
    *
    * @return funnel velocity.
    */
+  @AutoLogOutput(key = "Index/FunnelVelocity")
   public AngularVelocity getVelocityfunnel() {
     return funneler.getSpeed();
   }
@@ -199,6 +207,11 @@ public class Index extends SubsystemBase {
   /** Get the funnel velocity setpoint. */
   public Optional<AngularVelocity> getVelocitySetpointfunnel() {
     return Optional.of(funneler.getMechanismSetpointVelocity().orElse(RPM.of(0)));
+  }
+
+  @AutoLogOutput(key = "Index/FunnelSetpointRpm")
+  public double getFunnelSetpointRpm() {
+    return funneler.getMechanismSetpointVelocity().orElse(RPM.of(0)).in(RPM);
   }
 
   /**

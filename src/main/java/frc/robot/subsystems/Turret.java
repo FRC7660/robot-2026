@@ -27,6 +27,7 @@ import frc.robot.lib.TurretHelpers;
 import frc.robot.lib.TurretZeroPoint;
 import java.util.Optional;
 import java.util.function.Supplier;
+import org.littletonrobotics.junction.AutoLogOutput;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
 import yams.mechanisms.config.PivotConfig;
@@ -131,6 +132,7 @@ public class Turret extends SubsystemBase {
   }
 
   /** Get the most recent turret setpoint (robot-relative angle). Primarily useful for testing. */
+  @AutoLogOutput(key = "Turret/LastSetpoint")
   public Rotation2d getLastSetpoint() {
     return lastSetpoint;
   }
@@ -147,6 +149,7 @@ public class Turret extends SubsystemBase {
    *
    * @return desired turret angle relative to the robot forward direction
    */
+  @AutoLogOutput(key = "Turret/TargetRobotRelative")
   public Rotation2d getRobotRelativeAngle() {
     Pose2d pose = getPose.get();
     this.lastPose = pose;
@@ -172,24 +175,47 @@ public class Turret extends SubsystemBase {
    *
    * @return last chosen {@link Translation2d} target
    */
+  @AutoLogOutput(key = "Turret/LastTarget")
   public Translation2d getLastTarget() {
     return lastTarget;
   }
 
+  @AutoLogOutput(key = "Turret/LastPose")
   public Pose2d getLastPose() {
     return lastPose;
   }
 
+  @AutoLogOutput(key = "Turret/LastFieldAngle")
   public Rotation2d getLastFieldAngle() {
     return lastFieldAngle;
   }
 
+  @AutoLogOutput(key = "Turret/LastDesiredAbsDeg")
   public double getLastDesiredAbsDeg() {
     return lastDesiredAbsDeg;
   }
 
+  @AutoLogOutput(key = "Turret/LastRotationCommandDeg")
   public double getLastRotationCommandDeg() {
     return lastRotationCommandDeg;
+  }
+
+  @AutoLogOutput(key = "Turret/CurrentAngleDegrees")
+  public double getCurrentAngleDegrees() {
+    return normalizeToSigned180(turretSmartMotorController.getMechanismPosition().in(Degrees));
+  }
+
+  @AutoLogOutput(key = "Turret/CurrentRobotFrameDegrees")
+  public double getCurrentRobotFrameDegrees() {
+    return mechanismToRobotDeg(getCurrentAngleDegrees());
+  }
+
+  @AutoLogOutput(key = "Turret/SetpointDegrees")
+  public double getSetpointDegrees() {
+    return turretSmartMotorController
+        .getMechanismPositionSetpoint()
+        .map(angle -> normalizeToSigned180(angle.in(Degrees)))
+        .orElse(0.0);
   }
 
   @Override

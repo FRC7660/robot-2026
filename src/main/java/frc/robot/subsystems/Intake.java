@@ -25,6 +25,7 @@ import frc.robot.Constants;
 import frc.robot.lib.DashboardTelemetry;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
+import org.littletonrobotics.junction.AutoLogOutput;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
 import yams.mechanisms.config.ArmConfig;
@@ -112,8 +113,17 @@ public class Intake extends SubsystemBase {
     return lift.setAngle(convertedAngle);
   }
 
+  @AutoLogOutput(key = "Intake/ArmAngle")
   public Angle getAngle() {
     return lift.getAngle();
+  }
+
+  @AutoLogOutput(key = "Intake/ArmSetpointDegrees")
+  public double getArmSetpointDegrees() {
+    return liftSmartMotorController
+        .getMechanismPositionSetpoint()
+        .map(angle -> angle.in(Degrees))
+        .orElse(0.0);
   }
 
   public Command setAngleAndStop(Double angle) {
@@ -142,6 +152,21 @@ public class Intake extends SubsystemBase {
 
   public Supplier<Double> getRollerSpeed() {
     return (() -> this.rollerMotor.get());
+  }
+
+  @AutoLogOutput(key = "Intake/RollerOutput")
+  public double getRollerOutput() {
+    return rollerMotor.get();
+  }
+
+  @AutoLogOutput(key = "Intake/RollerVelocityRps")
+  public double getRollerVelocityRps() {
+    return rollerMotor.getVelocity().getValueAsDouble();
+  }
+
+  @AutoLogOutput(key = "Intake/LiftSupplyCurrentAmps")
+  public double getLiftSupplyCurrentAmps() {
+    return liftMotor.getSupplyCurrent().getValueAsDouble();
   }
 
   private void runRoller() {
@@ -202,6 +227,7 @@ public class Intake extends SubsystemBase {
    *
    * @return true if the limit switch is pushed, false if not
    */
+  @AutoLogOutput(key = "Intake/LimitSwitchPressed")
   public boolean isLimitSwitchPressed() {
     return limitSwitch.get();
   }

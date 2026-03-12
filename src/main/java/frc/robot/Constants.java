@@ -18,6 +18,24 @@ import swervelib.math.Matter;
  * constants are needed, to reduce verbosity.
  */
 public final class Constants {
+  public enum Mode {
+    REAL,
+    SIM,
+    REPLAY
+  }
+
+  public static final Mode CURRENT_MODE =
+      edu.wpi.first.wpilibj.RobotBase.isReal()
+          ? Mode.REAL
+          : isReplayRequested() ? Mode.REPLAY : Mode.SIM;
+
+  private static boolean isReplayRequested() {
+    String requestedMode =
+        System.getProperty("akit.mode", System.getenv().getOrDefault("AKIT_MODE", ""));
+    return requestedMode.equalsIgnoreCase("replay")
+        || !System.getProperty("akit.logPath", "").isBlank()
+        || !System.getenv().getOrDefault("AKIT_LOG_PATH", "").isBlank();
+  }
 
   public static final double ROBOT_MASS = (148 - 20.3) * 0.453592; // 32lbs * kg per pound
   public static final Matter CHASSIS =

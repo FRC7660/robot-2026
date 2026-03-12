@@ -5,10 +5,19 @@
 package frc.robot;
 
 import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.TimedRobot;
+import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import java.util.HashMap;
+import java.util.Map;
+import org.littletonrobotics.junction.LogFileUtil;
+import org.littletonrobotics.junction.LoggedPowerDistribution;
+import org.littletonrobotics.junction.LoggedRobot;
+import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.NT4Publisher;
+import org.littletonrobotics.junction.wpilog.WPILOGReader;
+import org.littletonrobotics.junction.wpilog.WPILOGWriter;
 
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
@@ -16,10 +25,11 @@ import edu.wpi.first.wpilibj2.command.CommandScheduler;
  * the package after creating this project, you must also update the build.gradle file in the
  * project.
  */
-public class Robot extends TimedRobot {
+public class Robot extends LoggedRobot {
   // UTF-8 sentinel comment: 🤖☘️
 
   private static Robot instance;
+  private final Map<String, Integer> commandCounts = new HashMap<>();
   private Command m_autonomousCommand;
 
   private RobotContainer m_robotContainer;
@@ -40,6 +50,35 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
+    Logger.recordMetadata("ProjectName", "robot-2026");
+    Logger.recordMetadata("RuntimeType", getRuntimeType().toString());
+    Logger.recordMetadata("RobotControllerSerialNumber", RobotController.getSerialNumber());
+
+    switch (Constants.CURRENT_MODE) {
+      case REAL:
+        Logger.addDataReceiver(new WPILOGWriter());
+        Logger.addDataReceiver(new NT4Publisher());
+        LoggedPowerDistribution.getInstance();
+        break;
+      case SIM:
+        Logger.addDataReceiver(new NT4Publisher());
+        Logger.addDataReceiver(new WPILOGWriter("_sim"));
+        break;
+      case REPLAY:
+        setUseTiming(false);
+        String logPath =
+            System.getProperty("akit.logPath", System.getenv().getOrDefault("AKIT_LOG_PATH", ""));
+        if (logPath.isBlank()) {
+          logPath = LogFileUtil.findReplayLog();
+        }
+        Logger.recordMetadata("ReplayLogPath", logPath);
+        Logger.setReplaySource(new WPILOGReader(logPath));
+        Logger.addDataReceiver(new WPILOGWriter(LogFileUtil.addPathSuffix(logPath, "_sim")));
+        break;
+    }
+
+    Logger.start();
+
     // Instantiate our RobotContainer.  This will perform all our button bindings, and put our
     // autonomous chooser on the dashboard.
     m_robotContainer = new RobotContainer();
@@ -52,6 +91,59 @@ public class Robot extends TimedRobot {
     if (isSimulation()) {
       DriverStation.silenceJoystickConnectionWarning(true);
     }
+
+    CommandScheduler scheduler = CommandScheduler.getInstance();
+    scheduler.onCommandInitialize(
+        command ->
+            Logger.recordOutput(
+                "CommandsUnique/"
+                    + command.getName()
+                    + "_"
+                    + Integer.toHexString(command.hashCode()),
+                true));
+    scheduler.onCommandFinish(
+        command ->
+            Logger.recordOutput(
+                "CommandsUnique/"
+                    + command.getName()
+                    + "_"
+                    + Integer.toHexString(command.hashCode()),
+                false));
+    scheduler.onCommandInterrupt(
+        command ->
+            Logger.recordOutput(
+                "CommandsUnique/"
+                    + command.getName()
+                    + "_"
+                    + Integer.toHexString(command.hashCode()),
+                false));
+
+    scheduler.onCommandInitialize(
+        command -> {
+          int count = commandCounts.getOrDefault(command.getName(), 0) + 1;
+          commandCounts.put(command.getName(), count);
+          Logger.recordOutput("CommandsAll/" + command.getName(), count > 0);
+        });
+    scheduler.onCommandFinish(
+        command -> {
+          int count = commandCounts.getOrDefault(command.getName(), 0) - 1;
+          if (count <= 0) {
+            commandCounts.remove(command.getName());
+            Logger.recordOutput("CommandsAll/" + command.getName(), false);
+          } else {
+            commandCounts.put(command.getName(), count);
+          }
+        });
+    scheduler.onCommandInterrupt(
+        command -> {
+          int count = commandCounts.getOrDefault(command.getName(), 0) - 1;
+          if (count <= 0) {
+            commandCounts.remove(command.getName());
+            Logger.recordOutput("CommandsAll/" + command.getName(), false);
+          } else {
+            commandCounts.put(command.getName(), count);
+          }
+        });
   }
 
   /**
@@ -63,6 +155,7 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotPeriodic() {
+    Logger.recordOutput("Robot/BatteryVoltage", RobotController.getBatteryVoltage());
     // Runs the Scheduler.  This is responsible for polling buttons, adding newly-scheduled
     // commands, running already-scheduled commands, removing finished or interrupted commands,
     // and running subsystem periodic() methods.  This must be called from the robot's periodic

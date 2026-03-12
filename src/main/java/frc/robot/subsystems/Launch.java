@@ -26,6 +26,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants;
 import frc.robot.lib.TurretHelpers;
 import java.util.function.Supplier;
+import org.littletonrobotics.junction.AutoLogOutput;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
 import yams.mechanisms.config.FlyWheelConfig;
@@ -102,6 +103,7 @@ public class Launch extends SubsystemBase {
    *
    * @return Shooter velocity.
    */
+  @AutoLogOutput(key = "Launch/Velocity")
   public AngularVelocity getVelocity() {
     return shooter.getSpeed();
   }
@@ -123,6 +125,11 @@ public class Launch extends SubsystemBase {
     shooter.getMotorController().setVelocity(speed);
   }
 
+  @AutoLogOutput(key = "Launch/SetpointRpm")
+  public double getVelocitySetpointRpm() {
+    return shooter.getMechanismSetpointVelocity().orElse(RPM.of(0)).in(RPM);
+  }
+
   /**
    * Set the shooter velocity. Speed should be POSITIVE.
    *
@@ -135,6 +142,7 @@ public class Launch extends SubsystemBase {
   }
 
   /** Calculate and return a velocity setpoint based on distance */
+  @AutoLogOutput(key = "Launch/OptimalVelocityRpm")
   public AngularVelocity getOptimalVelocity() {
     return RPM.of(15);
   }
