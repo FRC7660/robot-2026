@@ -34,6 +34,32 @@ public final class Constants {
   //    public static final PIDConstants ANGLE_PID       = new PIDConstants(0.4, 0, 0.01);
   //  }
 
+  public static final class Telemetry {
+    public enum Verbosity {
+      LOW,
+      HIGH
+    }
+
+    public static final Verbosity VERBOSITY = Verbosity.HIGH;
+
+    public static boolean isHighVerbosity() {
+      return VERBOSITY == Verbosity.HIGH;
+    }
+
+    public static yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity
+        yamsVerbosity() {
+      return isHighVerbosity()
+          ? yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity.HIGH
+          : yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity.LOW;
+    }
+
+    public static swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity swerveVerbosity() {
+      return isHighVerbosity()
+          ? swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity.HIGH
+          : swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity.LOW;
+    }
+  }
+
   public static final class DrivebaseConstants {
 
     // Hold time on motor brakes when disabled

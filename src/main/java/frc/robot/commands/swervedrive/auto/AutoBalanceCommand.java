@@ -3,8 +3,8 @@ package frc.robot.commands.swervedrive.auto;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import frc.robot.lib.DashboardTelemetry;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 
 /**
@@ -36,7 +36,7 @@ public class AutoBalanceCommand extends Command {
    */
   @Override
   public void execute() {
-    SmartDashboard.putBoolean("At Tolerance", controller.atSetpoint());
+    DashboardTelemetry.putBoolean("AutoBalance/AtTolerance", controller.atSetpoint());
 
     double translationVal =
         MathUtil.clamp(

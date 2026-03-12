@@ -18,11 +18,11 @@ import edu.wpi.first.math.controller.ArmFeedforward;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.DigitalInput;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
+import frc.robot.lib.DashboardTelemetry;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import yams.gearing.GearBox;
@@ -33,7 +33,6 @@ import yams.motorcontrollers.SmartMotorController;
 import yams.motorcontrollers.SmartMotorControllerConfig;
 import yams.motorcontrollers.SmartMotorControllerConfig.ControlMode;
 import yams.motorcontrollers.SmartMotorControllerConfig.MotorMode;
-import yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity;
 import yams.motorcontrollers.remote.TalonFXWrapper;
 
 // initializes intake arm and roller motors
@@ -64,7 +63,7 @@ public class Intake extends SubsystemBase {
           // sim
           .withSimClosedLoopController(175.0, 0, 20.0, RPM.of(1000), RPM.per(Second).of(6000))
           .withSimFeedforward(new ArmFeedforward(0.02, 0.005, 0.0))
-          .withTelemetry("IntakeArm", TelemetryVerbosity.HIGH)
+          .withTelemetry("IntakeArm", Constants.Telemetry.yamsVerbosity())
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(5, 5, 3.333)))
           .withMotorInverted(true)
           .withIdleMode(MotorMode.COAST)
@@ -83,7 +82,7 @@ public class Intake extends SubsystemBase {
           .withStartingPosition(Degrees.of(110))
           .withLength(Inches.of(8))
           .withMass(Pounds.of(8.466))
-          .withTelemetry("YIntakeArm", TelemetryVerbosity.HIGH)
+          .withTelemetry("YIntakeArm", Constants.Telemetry.yamsVerbosity())
           .withHorizontalZero(Degrees.of(0.0));
 
   // Arm Mechanism
@@ -99,7 +98,7 @@ public class Intake extends SubsystemBase {
     lift.updateTelemetry();
 
     // Update limit switch status on SmartDashboard
-    SmartDashboard.putBoolean("Intake/Limit Switch Pressed", isLimitSwitchPressed());
+    DashboardTelemetry.putBoolean("Intake/LimitSwitchPressed", isLimitSwitchPressed());
   }
 
   @Override
