@@ -156,7 +156,7 @@ public class RobotContainer {
       NamedCommands.registerCommand(
           "startShootingSequence", launchSystem.shotSequenceStart(indexSystem, turret));
       NamedCommands.registerCommand("armOut&Running", intakeSystem.fullIntake());
-      NamedCommands.registerCommand("armIn", Commands.none()); // intakeSystem.retract()
+      NamedCommands.registerCommand("armIn", intakeSystem.retract());
     } catch (Exception e) {
       DriverStation.reportError(
           "[NamedCommands] registration failed: " + e.getMessage(), e.getStackTrace());

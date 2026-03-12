@@ -189,6 +189,14 @@ public class Intake extends SubsystemBase {
         });
   }
 
+  public Command retract() {
+    return run(
+        () -> {
+          setRollerSpeed(0.0);
+          setAngleSetpoint(110.0);
+        });
+  }
+
   /**
    * Returns true if the limit switch is pressed, false otherwise.
    *
