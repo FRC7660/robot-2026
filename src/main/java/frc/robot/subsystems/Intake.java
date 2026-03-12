@@ -172,8 +172,8 @@ public class Intake extends SubsystemBase {
   public Command toggleIntake() {
     return Commands.runOnce(
         () -> {
-          Angle currentAngle = getAngle();
-          if (currentAngle.in(Degrees) < 0) {
+          Angle setpointAngle = lift.getMechanismSetpoint().orElse(getAngle());
+          if (setpointAngle.in(Degrees) < 0) {
             setAngleSetpoint(110.0);
           } else {
             setAngleSetpoint(-25.0);

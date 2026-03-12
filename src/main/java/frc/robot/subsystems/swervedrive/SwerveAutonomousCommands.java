@@ -36,7 +36,7 @@ final class SwerveAutonomousCommands {
   private static final double TAG_CENTER_NEAR_TOLERANCE_EXTRA_DEG = 1.0;
   private static final double TAG_CENTER_NEAR_HOLD_SEC = 0.7;
   private static final double BALL_CENTER_TOLERANCE_DEG = 8.0;
-  private static final double APPROACH_MAX_FORWARD_MPS = 0.35;
+  private static final double APPROACH_MAX_FORWARD_MPS = 1.4;
   private static final double APPROACH_MIN_FORWARD_MPS = 0.10;
   private static final double APPROACH_DISTANCE_TOLERANCE_METERS = 0.20;
   private static final double APPROACH_STALL_DISTANCE_DELTA_METERS = 0.02;
