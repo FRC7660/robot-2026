@@ -29,8 +29,6 @@ import frc.robot.subsystems.swervedrive.FuelPalantir.FuelPalantirMode;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
 import java.util.function.DoubleSupplier;
-import java.util.jar.Attributes.Name;
-
 import swervelib.SwerveInputStream;
 
 /**
@@ -155,10 +153,10 @@ public class RobotContainer {
               drivebase));
       // New commands for comp
       NamedCommands.registerCommand("startAutoAim", turret.autoSetAngle());
-      NamedCommands.registerCommand("startShootingSequence", launchSystem
-          .shotSequenceStart(indexSystem, turret));
+      NamedCommands.registerCommand(
+          "startShootingSequence", launchSystem.shotSequenceStart(indexSystem, turret));
       NamedCommands.registerCommand("armOut&Running", intakeSystem.fullIntake());
-      NamedCommands.registerCommand("armIn", intakeSystem.retract());
+      NamedCommands.registerCommand("armIn", Commands.none()); // intakeSystem.retract()
     } catch (Exception e) {
       DriverStation.reportError(
           "[NamedCommands] registration failed: " + e.getMessage(), e.getStackTrace());
