@@ -7,25 +7,19 @@
         {
           "type": "path",
           "data": {
-            "pathName": "part-1"
+            "pathName": "Idle shooting"
           }
         },
         {
           "type": "named",
           "data": {
-            "name": "LogoFuelPalantir"
+            "name": "startShootingSequence"
           }
         },
         {
-          "type": "named",
+          "type": "wait",
           "data": {
-            "name": "ResetPoseFromAprilTags"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "part-2"
+            "waitTime": 3.0
           }
         }
       ]

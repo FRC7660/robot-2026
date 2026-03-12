@@ -65,8 +65,20 @@
   "pointTowardsZones": [],
   "eventMarkers": [
     {
-      "name": "stop and shoot",
+      "name": "startAutoAim",
+      "waypointRelativePos": 1.7,
+      "endWaypointRelativePos": null,
+      "command": null
+    },
+    {
+      "name": "activateShooting",
       "waypointRelativePos": 1.7812499999999987,
+      "endWaypointRelativePos": null,
+      "command": null
+    },
+    {
+      "name": "startShootingSequence",
+      "waypointRelativePos": 2.6992665036674777,
       "endWaypointRelativePos": null,
       "command": null
     }

@@ -3,25 +3,25 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 0.675,
-        "y": 0.756
+        "x": 2.0,
+        "y": 3.9419743589743597
       },
       "prevControl": null,
       "nextControl": {
-        "x": 0.49859690830688597,
-        "y": 0.5174136102043937
+        "x": 2.25,
+        "y": 3.9419743589743597
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 1.8491071428571426,
-        "y": 2.3025334821428576
+        "x": 2.2,
+        "y": 3.9419743589743597
       },
       "prevControl": {
-        "x": 1.7047169936124396,
-        "y": 2.0957355455399242
+        "x": 1.9499999999999993,
+        "y": 3.9419743589743597
       },
       "nextControl": null,
       "isLocked": false,
@@ -33,6 +33,17 @@
   "pointTowardsZones": [],
   "eventMarkers": [
     {
+      "name": "activateShooting",
+      "waypointRelativePos": 0,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "startShootingSequence"
+        }
+      }
+    },
+    {
       "name": "startAutoAim",
       "waypointRelativePos": 0,
       "endWaypointRelativePos": null,
@@ -40,17 +51,6 @@
         "type": "named",
         "data": {
           "name": "startAutoAim"
-        }
-      }
-    },
-    {
-      "name": "activateShooting",
-      "waypointRelativePos": 0.4983471074380176,
-      "endWaypointRelativePos": null,
-      "command": {
-        "type": "named",
-        "data": {
-          "name": "startShootingSequence"
         }
       }
     }
@@ -71,7 +71,7 @@
   "folder": null,
   "idealStartingState": {
     "velocity": 0,
-    "rotation": 180.0
+    "rotation": 0.0
   },
   "useDefaultConstraints": true
 }
