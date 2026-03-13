@@ -15,6 +15,114 @@
           "data": {
             "name": "startShootingSequence"
           }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 3.0
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-preShake"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Outpost-SHAKE"
+          }
         }
       ]
     }
