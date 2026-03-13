@@ -92,7 +92,7 @@ public class RobotContainer {
               () -> driverXbox.getLeftX() * -1)
           .withControllerRotationAxis(() -> driverXbox.getRightX() * -1)
           .deadband(OperatorConstants.DEADBAND)
-          .scaleTranslation(0.8)
+          .scaleTranslation(1.0)
           .allianceRelativeControl(true);
 
   /** Clone's the angular velocity input stream and converts it to a fieldRelative input stream. */
@@ -113,7 +113,7 @@ public class RobotContainer {
               () -> -driverXbox.getLeftX())
           .withControllerRotationAxis(() -> driverXbox.getRawAxis(2))
           .deadband(OperatorConstants.DEADBAND)
-          .scaleTranslation(0.8)
+          .scaleTranslation(1.0)
           .allianceRelativeControl(true);
   // Derive the heading axis with math!
   SwerveInputStream driveDirectAngleKeyboard =
