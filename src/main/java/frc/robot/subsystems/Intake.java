@@ -67,7 +67,7 @@ public class Intake extends SubsystemBase {
           .withTelemetry("IntakeArm", Constants.Telemetry.yamsVerbosity())
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(5, 5, 3.333)))
           .withMotorInverted(true)
-          .withIdleMode(MotorMode.COAST)
+          .withIdleMode(MotorMode.BRAKE)
           .withStatorCurrentLimit(Amps.of(40))
           .withClosedLoopRampRate(Seconds.of(0.05))
           .withOpenLoopRampRate(Seconds.of(0.05));
