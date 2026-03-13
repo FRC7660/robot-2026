@@ -214,6 +214,7 @@ public class RobotContainer {
 
     // ZEROS
     driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
+    driverXbox.back().whileTrue(intakeSystem.zeroArm());
 
     if (Robot.isSimulation()) {
       driverXbox.back().onTrue(Commands.runOnce(() -> drivebase.resetToStartingPosition()));
