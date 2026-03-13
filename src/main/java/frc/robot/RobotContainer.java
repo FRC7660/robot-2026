@@ -157,7 +157,7 @@ public class RobotContainer {
       // turret.autoSetAngle().repeatedly().andThen(Commands.run(turret::freeze)));
       NamedCommands.registerCommand(
           "startShootingSequence",
-          launchSystem.shotSequenceStartWithTurret(indexSystem, turret).withTimeout(4));
+          launchSystem.shotSequenceStartWithTurret(indexSystem, turret));
       NamedCommands.registerCommand("armOut&Running", intakeSystem.fullIntake());
       NamedCommands.registerCommand("armIn", intakeSystem.retract());
     } catch (Exception e) {
