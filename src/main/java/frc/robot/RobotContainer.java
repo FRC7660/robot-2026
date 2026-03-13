@@ -152,9 +152,12 @@ public class RobotContainer {
               },
               drivebase));
       // New commands for comp
-      NamedCommands.registerCommand("startAutoAim", turret.autoSetAngle());
+      // NamedCommands.registerCommand(
+      //    "startAutoAim",
+      // turret.autoSetAngle().repeatedly().andThen(Commands.run(turret::freeze)));
       NamedCommands.registerCommand(
-          "startShootingSequence", launchSystem.shotSequenceStart(indexSystem, turret));
+          "startShootingSequence",
+          launchSystem.shotSequenceStartWithTurret(indexSystem, turret).withTimeout(4));
       NamedCommands.registerCommand("armOut&Running", intakeSystem.fullIntake());
       NamedCommands.registerCommand("armIn", intakeSystem.retract());
     } catch (Exception e) {
@@ -198,8 +201,8 @@ public class RobotContainer {
     Command startSequence = launchSystem.shotSequenceStart(indexSystem, turret);
     startSequence.addRequirements(launchSystem, indexSystem);
     // Right Trigger/DPad Up - Medium pressure: start AutoTurn
-    shotPressureDetected.whileTrue(turret.autoSetAngle());
-    driverXbox.povUp().whileTrue(turret.autoSetAngle());
+    shotPressureDetected.whileTrue(turret.autoSetAngleThenFreeze());
+    driverXbox.povUp().whileTrue(turret.autoSetAngleThenFreeze());
     // Right Trigger - Full pressure: start shooting and indexing sequence
     shotPressureMaxed.whileTrue(startSequence);
     // Right Bumper - Force-start shooting and indexing (no aim)
