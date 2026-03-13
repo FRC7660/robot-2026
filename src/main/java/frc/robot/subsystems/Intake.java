@@ -58,12 +58,13 @@ public class Intake extends SubsystemBase {
   private SmartMotorControllerConfig liftConfig =
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
-          .withClosedLoopController(
-              175.0, 0.0, 20.0, RPM.of(50), RPM.per(Second).of(300)) // decreased these for safety
+          .withExponentialProfile(
+              Volts.of(12), RPM.of(50), RPM.per(Second).of(300)) // decreased these for safety
+          .withClosedLoopController(175.0, 0.0, 20.0)
           .withFeedforward(new ArmFeedforward(0.02, 0.005, 0.0))
           // sim
-          .withSimClosedLoopController(175.0, 0, 20.0, RPM.of(1000), RPM.per(Second).of(6000))
-          .withSimFeedforward(new ArmFeedforward(0.02, 0.005, 0.0))
+          .withSimClosedLoopController(15.0, 0, 1.0)
+          .withSimFeedforward(new ArmFeedforward(0.0, 0.03, 8.0))
           .withTelemetry("IntakeArm", Constants.Telemetry.yamsVerbosity())
           .withGearing(new MechanismGearing(GearBox.fromReductionStages(5, 5, 3.333)))
           .withMotorInverted(true)
