@@ -7,13 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "path_to_center"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "path_to_alliance"
+            "pathName": "ShootToDepotPosition"
           }
         }
       ]
