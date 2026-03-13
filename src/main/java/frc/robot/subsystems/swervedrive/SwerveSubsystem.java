@@ -259,11 +259,10 @@ public class SwerveSubsystem extends SubsystemBase {
           .apply(
               config
                   .withStatorCurrentLimitEnable(true)
+                  .withStatorCurrentLimit(120.0) // default 120
                   .withSupplyCurrentLimitEnable(true)
-                  .withSupplyCurrentLimit(80.0) // default 70)
                   .withSupplyCurrentLowerTime(2.5) // default 1.0
                   .withSupplyCurrentLowerLimit(45) // default 40
-                  .withStatorCurrentLimit(120.0) // default 120
               );
     }
   }
