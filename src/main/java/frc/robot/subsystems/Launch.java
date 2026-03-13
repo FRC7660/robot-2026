@@ -246,6 +246,11 @@ public class Launch extends SubsystemBase {
         .handleInterrupt(() -> shotSequenceEnd(indexSystem));
   }
 
+  public Command shotSequenceStartWithTurret(Index indexSystem, Turret turret) {
+    return Commands.parallel(turret.autoSetAngle(), shotSequenceStart(indexSystem, turret))
+        .handleInterrupt(turret::freeze);
+  }
+
   public Command shotSequenceStart(Index indexSystem, Turret turret) {
     Supplier<AngularVelocity> s_velSupplier = () -> getVelocity();
     Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity(turret);
@@ -263,7 +268,7 @@ public class Launch extends SubsystemBase {
                 Commands.waitUntil(() -> optimalVelocityReached.getAsBoolean()),
                 // Feed while shooter remains at speed.
                 Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
-                Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(60.0))),
+                Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(120.0))),
                 Commands.waitUntil(() -> optimalVelocityReached.negate().getAsBoolean())))
         .handleInterrupt(() -> shotSequenceEnd(indexSystem));
   }
