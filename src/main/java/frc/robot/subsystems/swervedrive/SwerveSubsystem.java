@@ -6,6 +6,8 @@ package frc.robot.subsystems.swervedrive;
 
 import static edu.wpi.first.units.Units.Meter;
 
+import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
+import com.ctre.phoenix6.hardware.TalonFX;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.commands.PathfindingCommand;
 import com.pathplanner.lib.config.PIDConstants;
@@ -52,6 +54,7 @@ import org.photonvision.EstimatedRobotPose;
 import swervelib.SwerveController;
 import swervelib.SwerveDrive;
 import swervelib.SwerveDriveTest;
+import swervelib.SwerveModule;
 import swervelib.math.SwerveMath;
 import swervelib.parser.SwerveControllerConfiguration;
 import swervelib.parser.SwerveDriveConfiguration;
@@ -151,6 +154,7 @@ public class SwerveSubsystem extends SubsystemBase {
     }
     autonomousCommands = new SwerveAutonomousCommands(this, swerveDrive, () -> vision);
     setupPathPlanner();
+    setCurrentLimits();
   }
 
   /**
@@ -170,6 +174,7 @@ public class SwerveSubsystem extends SubsystemBase {
             Constants.MAX_SPEED,
             new Pose2d(new Translation2d(Meter.of(2), Meter.of(0)), Rotation2d.fromDegrees(0)));
     autonomousCommands = new SwerveAutonomousCommands(this, swerveDrive, () -> vision);
+    setCurrentLimits();
   }
 
   private void initVisionChoosers() {
@@ -241,6 +246,25 @@ public class SwerveSubsystem extends SubsystemBase {
       advantageScopeField.getObject("VisionFused").setPose(fused);
     } else {
       advantageScopeField.getObject("VisionFused").setPoses(List.of());
+    }
+  }
+
+  private void setCurrentLimits() {
+    for (SwerveModule swerveModule : swerveDrive.getModules()) {
+      TalonFX motor = (TalonFX) swerveModule.getDriveMotor().getMotor();
+      CurrentLimitsConfigs config = new CurrentLimitsConfigs();
+      motor.getConfigurator().refresh(config);
+      motor
+          .getConfigurator()
+          .apply(
+              config
+                  .withStatorCurrentLimitEnable(true)
+                  .withSupplyCurrentLimitEnable(true)
+                  .withSupplyCurrentLimit(80.0) // default 70)
+                  .withSupplyCurrentLowerTime(2.5) // default 1.0
+                  .withSupplyCurrentLowerLimit(45) // default 40
+                  .withStatorCurrentLimit(120.0) // default 120
+              );
     }
   }
 
