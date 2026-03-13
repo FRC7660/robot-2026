@@ -137,10 +137,14 @@ public class Turret extends SubsystemBase {
     return lastSetpoint;
   }
 
-  public Command autoSetAngle() {
+  public Command autoSetAngleThenFreeze() {
     return turretPivot
         .setAngle(() -> getRobotRelativeAngle().getMeasure())
         .finallyDo(() -> freeze());
+  }
+
+  public Command autoSetAngle() {
+    return turretPivot.setAngle(() -> getRobotRelativeAngle().getMeasure());
   }
 
   /**

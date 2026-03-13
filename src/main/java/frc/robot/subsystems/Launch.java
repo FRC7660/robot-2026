@@ -246,6 +246,11 @@ public class Launch extends SubsystemBase {
         .handleInterrupt(() -> shotSequenceEnd(indexSystem));
   }
 
+  public Command shotSequenceStartWithTurret(Index indexSystem, Turret turret) {
+    return Commands.parallel(turret.autoSetAngle(), shotSequenceStart(indexSystem, turret))
+        .handleInterrupt(turret::freeze);
+  }
+
   public Command shotSequenceStart(Index indexSystem, Turret turret) {
     Supplier<AngularVelocity> s_velSupplier = () -> getVelocity();
     Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity(turret);
