@@ -80,7 +80,7 @@ public class Intake extends SubsystemBase {
       new ArmConfig(liftSmartMotorController)
           .withSoftLimits(Degrees.of(-25), Degrees.of(110))
           .withHardLimit(Degrees.of(-30), Degrees.of(110))
-          .withStartingPosition(Degrees.of(110))
+          .withStartingPosition(Degrees.of(105))
           .withLength(Inches.of(8))
           .withMass(Pounds.of(8.466))
           .withTelemetry("YIntakeArm", Constants.Telemetry.yamsVerbosity())
