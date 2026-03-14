@@ -223,7 +223,7 @@ public class Turret extends SubsystemBase {
         .orElse(0.0);
   }
 
-  public Command zeroTurret(){
+  public Command zeroTurret() {
     return Commands.runOnce(() -> turretMotor.getEncoder().setPosition(0), this);
   }
 
