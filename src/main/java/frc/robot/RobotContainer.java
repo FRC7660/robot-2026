@@ -178,6 +178,7 @@ public class RobotContainer {
    */
   private void configureBindings() {
     Command driveFieldOrientedDirectAngle = drivebase.driveFieldOriented(driveDirectAngle);
+    Command driveFieldOrientedAngularVelocity = drivebase.driveFieldOriented(driveAngularVelocity);
 
     // Intake speed init
     DoubleSupplier leftTriggerSupplier =
@@ -189,7 +190,7 @@ public class RobotContainer {
     Command stopIntake = Commands.run(() -> intakeSystem.stopRoller());
 
     // Default drive style
-    drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
+    drivebase.setDefaultCommand(driveFieldOrientedAngularVelocity);
 
     // SHOOTING CONTROL
     // Trigger (CLASS) which will initiate trigger (INPUT) control of the launch and turret
