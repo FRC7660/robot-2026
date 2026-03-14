@@ -7,7 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "Circle"
+            "pathName": "CenterBack"
           }
         },
         {
@@ -19,7 +19,7 @@
       ]
     }
   },
-  "resetOdom": false,
+  "resetOdom": true,
   "folder": null,
   "choreoAuto": false
 }
