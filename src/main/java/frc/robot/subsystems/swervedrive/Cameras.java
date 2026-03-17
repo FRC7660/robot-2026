@@ -41,6 +41,17 @@ public enum Cameras {
       new Translation3d(
           Units.inchesToMeters(-9.5), Units.inchesToMeters(7.75), Units.inchesToMeters(12.996)),
       VecBuilder.fill(4, 4, 8),
+      VecBuilder.fill(0.5, 0.5, 1)),
+  /**
+   * CCx1R Camera - 4 inches right of center, centered front/back, 2 inches below FRC 2026 max
+   * height (48in), pointed left 45 degrees and up 25 degrees
+   */
+  CC_CAMERA(
+      "CCx1R",
+      new Rotation3d(0, Math.toRadians(-25), Math.toRadians(45)),
+      new Translation3d(
+          Units.inchesToMeters(0), Units.inchesToMeters(-4), Units.inchesToMeters(46)),
+      VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1));
 
   /** Name used to look up the PhotonVision camera. */
