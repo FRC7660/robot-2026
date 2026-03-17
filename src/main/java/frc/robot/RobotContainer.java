@@ -180,6 +180,7 @@ public class RobotContainer {
    */
   private void configureBindings() {
     Command driveFieldOrientedDirectAngle = drivebase.driveFieldOriented(driveDirectAngle);
+    Command driveFieldOrientedAngularVelocity = drivebase.driveFieldOriented(driveAngularVelocity);
 
     // Intake speed init
     DoubleSupplier leftTriggerSupplier =
@@ -192,6 +193,14 @@ public class RobotContainer {
 
     // Default drive style
     drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
+
+    // IMU fault protection: if the IMU disconnects, force angular-velocity drive so the
+    // driver retains direct rotational control instead of the heading PID spinning uncontrollably.
+    // Recovery is intentionally omitted — an IMU fault mid-match should not silently re-engage
+    // the heading PID. The driver can re-enable the robot to recover normal behavior.
+    new Trigger(() -> !drivebase.navxConnected())
+        .onTrue(
+            Commands.runOnce(() -> drivebase.setDefaultCommand(driveFieldOrientedAngularVelocity)));
 
     // SHOOTING CONTROL
     // Trigger (CLASS) which will initiate trigger (INPUT) control of the launch and turret
