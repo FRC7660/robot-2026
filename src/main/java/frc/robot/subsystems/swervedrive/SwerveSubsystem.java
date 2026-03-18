@@ -50,6 +50,7 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.json.simple.parser.ParseException;
 import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 import org.photonvision.EstimatedRobotPose;
 import swervelib.SwerveController;
 import swervelib.SwerveDrive;
@@ -226,6 +227,7 @@ public class SwerveSubsystem extends SubsystemBase {
     advantageScopeField.setRobotPose(odomPose);
     odomPosePublisher.set(odomPose);
     odomPoseLogEntry.append(odomPose);
+    Logger.recordOutput("AdvantageScope/Pose/Odometry", odomPose);
 
     // When vision is enabled we must manually update odometry in SwerveDrive
     if (visionDriveTest) {
@@ -243,8 +245,10 @@ public class SwerveSubsystem extends SubsystemBase {
       Pose2d fused = fusedPose.get();
       fusedPosePublisher.set(fused);
       fusedPoseLogEntry.append(fused);
+      Logger.recordOutput("AdvantageScope/Pose/Fused", fused);
       advantageScopeField.getObject("VisionFused").setPose(fused);
     } else {
+      Logger.recordOutput("AdvantageScope/Pose/Fused", new Pose2d[] {});
       advantageScopeField.getObject("VisionFused").setPoses(List.of());
     }
   }
