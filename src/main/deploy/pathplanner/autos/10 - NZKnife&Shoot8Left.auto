@@ -7,25 +7,13 @@
         {
           "type": "path",
           "data": {
-            "pathName": "part-1"
+            "pathName": "NZKnifeLeft"
           }
         },
         {
           "type": "named",
           "data": {
-            "name": "LogoFuelPalantir"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "ResetPoseFromAprilTags"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "part-2"
+            "name": "startShootingSequence"
           }
         }
       ]

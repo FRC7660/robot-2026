@@ -20,6 +20,7 @@ import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.lib.DashboardTelemetry;
@@ -220,6 +221,10 @@ public class Turret extends SubsystemBase {
         .getMechanismPositionSetpoint()
         .map(angle -> normalizeToSigned180(angle.in(Degrees)))
         .orElse(0.0);
+  }
+
+  public Command zeroTurret() {
+    return Commands.runOnce(() -> turretMotor.getEncoder().setPosition(0), this);
   }
 
   @Override

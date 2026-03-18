@@ -7,13 +7,13 @@
         {
           "type": "path",
           "data": {
-            "pathName": "Simple"
+            "pathName": "CornerShotRightSide"
           }
         },
         {
-          "type": "path",
+          "type": "named",
           "data": {
-            "pathName": "Outpost to shoot"
+            "name": "startShootingSequence"
           }
         }
       ]

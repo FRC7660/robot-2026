@@ -5,15 +5,15 @@
     "data": {
       "commands": [
         {
-          "type": "path",
+          "type": "wait",
           "data": {
-            "pathName": "path_to_center"
+            "waitTime": 13.0
           }
         },
         {
           "type": "path",
           "data": {
-            "pathName": "path_to_alliance"
+            "pathName": "CenterToNZ"
           }
         }
       ]
