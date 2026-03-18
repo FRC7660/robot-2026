@@ -13,6 +13,9 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonPoseEstimator;
 import org.photonvision.PhotonPoseEstimator.PoseStrategy;
+import org.photonvision.simulation.PhotonCameraSim;
+import org.photonvision.simulation.SimCameraProperties;
+import org.photonvision.simulation.VisionSystemSim;
 
 /** Camera Enum to select each camera */
 public enum Cameras {
@@ -60,6 +63,9 @@ public enum Cameras {
   private PhotonCamera camera;
   private PhotonPoseEstimator poseEstimator;
 
+  /** Simulated camera instance which only exists during simulations. */
+  public PhotonCameraSim cameraSim;
+
   /**
    * Construct a Photon Camera class with help. Standard deviations are fake values, experiment and
    * determine estimation noise on an actual robot.
@@ -98,6 +104,14 @@ public enum Cameras {
     }
   }
 
+  private synchronized void ensureSimInitialized() {
+    if (cameraSim == null) {
+      ensureInitialized();
+      cameraSim =
+          new PhotonCameraSim(camera, SimCameraProperties.PERFECT_90DEG(), Vision.fieldLayout);
+    }
+  }
+
   /** Get the latency alert for this camera. */
   public Alert getLatencyAlert() {
     ensureInitialized();
@@ -124,5 +138,20 @@ public enum Cameras {
   /** Get the multi-tag standard deviations for this camera. */
   Matrix<N3, N1> getMultiTagStdDevs() {
     return multiTagStdDevs;
+  }
+
+  /**
+   * Add camera to {@link VisionSystemSim} for simulated photon vision.
+   *
+   * @param systemSim {@link VisionSystemSim} to use.
+   */
+  public void addToVisionSim(VisionSystemSim systemSim) {
+    if (systemSim == null) {
+      return;
+    }
+    ensureSimInitialized();
+    if (cameraSim != null) {
+      systemSim.addCamera(cameraSim, robotToCamTransform);
+    }
   }
 }
