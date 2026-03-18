@@ -227,7 +227,6 @@ public class SwerveSubsystem extends SubsystemBase {
     advantageScopeField.setRobotPose(odomPose);
     odomPosePublisher.set(odomPose);
     odomPoseLogEntry.append(odomPose);
-    Logger.recordOutput("AdvantageScope/Pose/Odometry", odomPose);
 
     // When vision is enabled we must manually update odometry in SwerveDrive
     if (visionDriveTest) {
@@ -241,16 +240,16 @@ public class SwerveSubsystem extends SubsystemBase {
 
     Optional<Pose2d> fusedPose =
         vision == null ? Optional.empty() : vision.getLastSelectedFusedPose();
+    Pose2d fused = new Pose2d();
     if (fusedPose.isPresent()) {
-      Pose2d fused = fusedPose.get();
+      fused = fusedPose.get();
       fusedPosePublisher.set(fused);
       fusedPoseLogEntry.append(fused);
-      Logger.recordOutput("AdvantageScope/Pose/Fused", fused);
       advantageScopeField.getObject("VisionFused").setPose(fused);
     } else {
-      Logger.recordOutput("AdvantageScope/Pose/Fused", new Pose2d[] {});
       advantageScopeField.getObject("VisionFused").setPoses(List.of());
     }
+    Logger.recordOutput("Vision/Pose/Fused", fused);
   }
 
   private void setCurrentLimits() {
