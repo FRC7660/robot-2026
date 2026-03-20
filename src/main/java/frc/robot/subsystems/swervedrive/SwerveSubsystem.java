@@ -17,6 +17,7 @@ import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.util.DriveFeedforwards;
 import com.pathplanner.lib.util.swerve.SwerveSetpoint;
 import com.pathplanner.lib.util.swerve.SwerveSetpointGenerator;
+import com.studica.frc.AHRS;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -68,6 +69,8 @@ public class SwerveSubsystem extends SubsystemBase {
 
   /** Swerve drive object. */
   private final SwerveDrive swerveDrive;
+
+  private AHRS navxIMU;
 
   private final SwerveAutonomousCommands autonomousCommands;
 
@@ -124,6 +127,7 @@ public class SwerveSubsystem extends SubsystemBase {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
+    bindNavxImu();
     swerveDrive.setHeadingCorrection(
         false); // Heading correction should only be used while controlling the robot via angle.
     swerveDrive.setCosineCompensator(
@@ -174,8 +178,14 @@ public class SwerveSubsystem extends SubsystemBase {
             controllerCfg,
             Constants.MAX_SPEED,
             new Pose2d(new Translation2d(Meter.of(2), Meter.of(0)), Rotation2d.fromDegrees(0)));
+    bindNavxImu();
     autonomousCommands = new SwerveAutonomousCommands(this, swerveDrive, () -> vision);
     setCurrentLimits();
+  }
+
+  private void bindNavxImu() {
+    Object imu = swerveDrive.getGyro().getIMU();
+    navxIMU = imu instanceof AHRS ? (AHRS) imu : null;
   }
 
   private void initVisionChoosers() {
@@ -250,6 +260,22 @@ public class SwerveSubsystem extends SubsystemBase {
       advantageScopeField.getObject("VisionFused").setPoses(List.of());
     }
     Logger.recordOutput("Vision/Pose/Fused", fused);
+
+    boolean navxError = navxIMU == null;
+    boolean navxCalibrating = false;
+    double navxYaw = 0.0;
+    if (!navxError) {
+      navxCalibrating = navxIMU.isCalibrating();
+      navxYaw = navxIMU.getYaw();
+    }
+    Logger.recordOutput("Drive/Navx/Error", navxError);
+    Logger.recordOutput("Drive/Navx/IsConnected", navxConnected());
+    Logger.recordOutput("Drive/Navx/IsCalibrating", navxCalibrating);
+    Logger.recordOutput("Drive/Navx/Yaw", navxYaw);
+  }
+
+  public boolean navxConnected() {
+    return navxIMU != null && navxIMU.isConnected();
   }
 
   private void setCurrentLimits() {
