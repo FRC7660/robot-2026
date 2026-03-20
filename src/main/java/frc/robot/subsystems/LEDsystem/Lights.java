@@ -9,6 +9,7 @@ import edu.wpi.first.units.measure.Time;
 import edu.wpi.first.wpilibj.AddressableLED;
 import edu.wpi.first.wpilibj.AddressableLEDBuffer;
 import edu.wpi.first.wpilibj.LEDPattern;
+import edu.wpi.first.wpilibj.Timer;
 import frc.robot.subsystems.LEDsystem.LEDpatternCache.LEDPatternCache;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
@@ -30,6 +31,21 @@ public class Lights extends SubsystemBase {
   
   private Time seconds(double s) {
     return Seconds.of(s);
+  }
+
+  /**
+   * Helper function to create a flickering effect by alternating between a pattern and its reversed version
+   * at a specified period. The pattern will switch every half period, creating a flickering effect.
+   * @param pattern
+   * @param period
+   * @return pattern or pattern.reversed() depending on the current time and the specified period
+   */
+  private LEDPattern flicker(LEDPattern pattern, Time period){
+    if (Timer.getTimestamp() % period.in(Seconds) < period.in(Seconds) / 2) {
+      return pattern;
+    } else {
+      return pattern.reversed();
+    }
   }
 
   /** Called once at the beginning of the robot program. */
@@ -65,7 +81,7 @@ public class Lights extends SubsystemBase {
         xColor = p.staggerRed.blink(seconds(1));
         break;
       case 2:
-        xColor = p.staggerBlue;
+        xColor = flicker(p.staggerBlue, seconds(0.5));
         break;
       case 3:
         xColor = p.green.blink(seconds(1));
