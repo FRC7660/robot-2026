@@ -13,6 +13,7 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import frc.robot.Robot;
 import frc.robot.lib.BufferedLogger;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -23,6 +24,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import org.photonvision.EstimatedRobotPose;
 import org.photonvision.PhotonUtils;
+import org.photonvision.simulation.VisionSystemSim;
 import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 import swervelib.SwerveDrive;
@@ -167,6 +169,9 @@ public class Vision {
   private volatile Map<Cameras, CameraSnapshot> latestCameraData = new EnumMap<>(Cameras.class);
   private double lastTeleopTagRecordLogSec = Double.NEGATIVE_INFINITY;
 
+  /** Photon Vision Simulation */
+  public VisionSystemSim visionSim;
+
   /**
    * Constructor for the Vision class.
    *
@@ -193,6 +198,17 @@ public class Vision {
       pipelineStepMaxMs[i] = Double.NEGATIVE_INFINITY;
       pipelineStepSumMs[i] = 0.0;
       pipelineStepCount[i] = 0;
+    }
+
+    if (Robot.isSimulation()) {
+      visionSim = new VisionSystemSim("Vision");
+      visionSim.addAprilTags(fieldLayout);
+
+      for (Cameras c : Cameras.values()) {
+        c.addToVisionSim(visionSim);
+      }
+
+      openSimCameraViews();
     }
   }
 
@@ -1133,6 +1149,21 @@ public class Vision {
     }
     return null;
   }
+
+  /**
+   * Vision simulation.
+   *
+   * @return Vision Simulation
+   */
+  public VisionSystemSim getVisionSim() {
+    return visionSim;
+  }
+
+  /**
+   * Open up the photon vision camera streams on the localhost, assumes running photon vision on
+   * localhost.
+   */
+  private void openSimCameraViews() {}
 
   /** Update the {@link Field2d} to include tracked targets. */
   public void updateVisionField() {

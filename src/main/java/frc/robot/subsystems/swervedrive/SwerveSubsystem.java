@@ -229,7 +229,7 @@ public class SwerveSubsystem extends SubsystemBase {
     odomPoseLogEntry.append(odomPose);
 
     // When vision is enabled we must manually update odometry in SwerveDrive
-    if (visionDriveTest) {
+    if (visionDriveTest && vision != null) {
       swerveDrive.updateOdometry();
       try {
         vision.process(swerveDrive);
@@ -271,7 +271,11 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   @Override
-  public void simulationPeriodic() {}
+  public void simulationPeriodic() {
+    if (vision != null && vision.getVisionSim() != null) {
+      vision.getVisionSim().update(swerveDrive.getPose());
+    }
+  }
 
   /** Setup AutoBuilder for PathPlanner. */
   public void setupPathPlanner() {
