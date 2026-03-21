@@ -53,7 +53,7 @@ public class Lights extends SubsystemBase {
     // PWM port 9
     // Must be a PWM header, not MXP or DIO
     m_led = new AddressableLED(9);
-    xColor = p.off;
+    xColor = p.red;
 
     // Instantiate the LED pattern manager, which will handle the logic for determining which
     // pattern to display based on the robot's state
