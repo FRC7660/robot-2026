@@ -97,10 +97,14 @@ public class LEDPatternManager extends SubsystemBase {
     public final Supplier<LEDPattern> flickerWhite = flicker(staggerWhite, Seconds.of(0.5));
 
     // Focus colors (Partial overlay pattern to indicate subsystem focus)
-    public final LEDPattern whiteFocus = LEDPattern.steps(Map.of(0.0,Color.kWhite,0.1,Color.kBlack));
-    public final LEDPattern yellowFocus = LEDPattern.steps(Map.of(0.0,Color.kYellow,0.1,Color.kBlack));
-    public final LEDPattern greenFocus = LEDPattern.steps(Map.of(0.0,Color.kGreen,0.1,Color.kBlack));
-    public final LEDPattern blueFocus = LEDPattern.steps(Map.of(0.0,Color.kBlue,0.1,Color.kBlack));
+    public final LEDPattern whiteFocus =
+        LEDPattern.steps(Map.of(0.0, Color.kWhite, 0.1, Color.kBlack));
+    public final LEDPattern yellowFocus =
+        LEDPattern.steps(Map.of(0.0, Color.kYellow, 0.1, Color.kBlack));
+    public final LEDPattern greenFocus =
+        LEDPattern.steps(Map.of(0.0, Color.kGreen, 0.1, Color.kBlack));
+    public final LEDPattern blueFocus =
+        LEDPattern.steps(Map.of(0.0, Color.kBlue, 0.1, Color.kBlack));
 
     // Lights off
     public final LEDPattern off = LEDPattern.kOff;
