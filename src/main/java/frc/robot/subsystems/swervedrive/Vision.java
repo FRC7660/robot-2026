@@ -14,7 +14,6 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.Robot;
-import frc.robot.lib.BufferedLogger;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -22,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
+import org.littletonrobotics.junction.Logger;
 import org.photonvision.EstimatedRobotPose;
 import org.photonvision.PhotonUtils;
 import org.photonvision.simulation.VisionSystemSim;
@@ -640,9 +640,10 @@ public class Vision {
           accepted.pose(), accepted.timestampSec(), accepted.stdDevs());
       lastFusedTimestampSec.put(accepted.camera(), accepted.timestampSec());
       acceptedUpdates++;
-      BufferedLogger.getInstance()
-          .printf(
-              "[VisionPipeline] ACCEPT camera=%s ts=%.3f tags=%d err=%.3f pose=(%.3f, %.3f, %.1fdeg) std=(%.3f, %.3f, %.3f)",
+      Logger.recordOutput(
+          "Vision/Log/PipelineAccept",
+          String.format(
+              "camera=%s ts=%.3f tags=%d err=%.3f pose=(%.3f, %.3f, %.1fdeg) std=(%.3f, %.3f, %.3f)",
               accepted.camera().name(),
               accepted.timestampSec(),
               accepted.tagCount(),
@@ -652,7 +653,7 @@ public class Vision {
               accepted.pose().getRotation().getDegrees(),
               accepted.stdX(),
               accepted.stdY(),
-              accepted.stdTheta());
+              accepted.stdTheta()));
     }
 
     // Track consecutive outlier rejections for override logic
@@ -905,9 +906,10 @@ public class Vision {
     boolean fusedChanged = fusedPose != null && poseChanged(lastLoggedFusedPose, fusedPose);
 
     if (anyTagVisible && (odomChanged || fusedChanged || cameraObsChanged)) {
-      BufferedLogger.getInstance()
-          .printf(
-              "[AprilTagVision] odom=(%.3f, %.3f, %.1fdeg) fused=%s tags=[%s]",
+      Logger.recordOutput(
+          "Vision/Log/AprilTagSummary",
+          String.format(
+              "odom=(%.3f, %.3f, %.1fdeg) fused=%s tags=[%s]",
               odomPose.getX(),
               odomPose.getY(),
               odomPose.getRotation().getDegrees(),
@@ -916,7 +918,7 @@ public class Vision {
                   : String.format(
                       "(%.3f, %.3f, %.1fdeg)",
                       fusedPose.getX(), fusedPose.getY(), fusedPose.getRotation().getDegrees()),
-              tagSummary.toString());
+              tagSummary.toString()));
 
       lastLoggedOdomPose = odomPose;
       if (fusedPose != null) {
@@ -1004,7 +1006,8 @@ public class Vision {
     }
 
     if (sawAnyTag) {
-      BufferedLogger.getInstance().printf("[AprilTagVisionRecord] t=%.3f %s", now, sb.toString());
+      Logger.recordOutput(
+          "Vision/Log/AprilTagRecord", String.format("t=%.3f %s", now, sb.toString()));
       lastTeleopTagRecordLogSec = now;
     }
   }
@@ -1031,18 +1034,20 @@ public class Vision {
     recordPipelineStepTiming(STEP_TOTAL, totalMs);
 
     if (totalMs > 5.0) {
-      BufferedLogger.getInstance()
-          .printf(
-              "[VisionPipeline] SLOW cycle timing=[fetch=%.1fms est=%.1fms select=%.1fms apply=%.1fms total=%.1fms]",
-              fetchMs, estMs, selectMs, applyMs, totalMs);
+      Logger.recordOutput(
+          "Vision/Log/PipelineSlow",
+          String.format(
+              "timing=[fetch=%.1fms est=%.1fms select=%.1fms apply=%.1fms total=%.1fms]",
+              fetchMs, estMs, selectMs, applyMs, totalMs));
     }
 
     double now = Timer.getFPGATimestamp();
     if (now - lastFusionStatusLogSec >= FUSION_STATUS_LOG_PERIOD_SEC) {
       lastFusionStatusLogSec = now;
-      BufferedLogger.getInstance()
-          .printf(
-              "[VisionPipeline] accepted=%d rejected={noEst=%d stale=%d outOfField=%d ambiguity=%d lowTagFar=%d highStd=%d outlier=%d} consecutiveOutlier=%d",
+      Logger.recordOutput(
+          "Vision/Log/PipelineStatus",
+          String.format(
+              "accepted=%d rejected={noEst=%d stale=%d outOfField=%d ambiguity=%d lowTagFar=%d highStd=%d outlier=%d} consecutiveOutlier=%d",
               acceptedUpdates,
               rejectedNoEstimate,
               rejectedStale,
@@ -1051,12 +1056,12 @@ public class Vision {
               rejectedLowTagFar,
               rejectedHighStd,
               rejectedOutlier,
-              consecutiveOutlierCount);
+              consecutiveOutlierCount));
     }
 
     if (now - lastPipelineStatsLogSec >= PIPELINE_STATS_LOG_PERIOD_SEC) {
       lastPipelineStatsLogSec = now;
-      System.out.printf("[VisionPipeline] stats %s%n", formatPipelineStepStats());
+      Logger.recordOutput("Vision/Log/PipelineStats", formatPipelineStepStats());
     }
   }
 
