@@ -232,28 +232,6 @@ public class Launch extends SubsystemBase {
     shooter.simIterate();
   }
 
-  public Command shotSequenceStart(Index indexSystem) {
-    Supplier<AngularVelocity> s_velSupplier = () -> getVelocity();
-    Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity();
-    Trigger optimalVelocityReached =
-        new Trigger(() -> isAtSpeed(s_velSupplier.get(), s_velSetpointSupplier.get()));
-    return Commands.parallel(
-            Commands.startRun(
-                this::startVelocityClosedLoop,
-                () -> setVelocityTargetNoRestart(s_velSetpointSupplier.get()),
-                this),
-            Commands.repeatingSequence(
-                // Pause funnel/index until shooter reaches target speed.
-                Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(0.0))),
-                Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
-                Commands.waitUntil(() -> optimalVelocityReached.getAsBoolean()),
-                // Feed while shooter remains at speed.
-                Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
-                Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(120.0))),
-                Commands.waitUntil(() -> optimalVelocityReached.negate().getAsBoolean())))
-        .handleInterrupt(() -> shotSequenceEnd(indexSystem));
-  }
-
   public Command shotSequenceStartWithTurret(Index indexSystem, Turret turret) {
     return Commands.parallel(turret.autoSetAngle(), shotSequenceStart(indexSystem, turret))
         .handleInterrupt(turret::freeze);
