@@ -17,7 +17,6 @@ import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.util.DriveFeedforwards;
 import com.pathplanner.lib.util.swerve.SwerveSetpoint;
 import com.pathplanner.lib.util.swerve.SwerveSetpointGenerator;
-import com.studica.frc.AHRS;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -31,6 +30,7 @@ import edu.wpi.first.networktables.StructPublisher;
 import edu.wpi.first.util.datalog.StructLogEntry;
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -60,7 +60,9 @@ import swervelib.SwerveModule;
 import swervelib.math.SwerveMath;
 import swervelib.parser.SwerveControllerConfiguration;
 import swervelib.parser.SwerveDriveConfiguration;
+import swervelib.parser.SwerveModuleConfiguration;
 import swervelib.parser.SwerveParser;
+import swervelib.parser.json.ModuleJson;
 import swervelib.telemetry.SwerveDriveTelemetry;
 
 public class SwerveSubsystem extends SubsystemBase {
@@ -70,7 +72,7 @@ public class SwerveSubsystem extends SubsystemBase {
   /** Swerve drive object. */
   private final SwerveDrive swerveDrive;
 
-  private AHRS navxIMU;
+  private final DualNavxSwerveImu dualNavxImu;
 
   private final SwerveAutonomousCommands autonomousCommands;
 
@@ -117,17 +119,8 @@ public class SwerveSubsystem extends SubsystemBase {
     // objects being
     // created.
     SwerveDriveTelemetry.verbosity = Constants.Telemetry.swerveVerbosity();
-    try {
-      swerveDrive =
-          new SwerveParser(directory).createSwerveDrive(Constants.MAX_SPEED, startingPose);
-      // Alternative method if you don't want to supply the conversion factor via JSON
-      // files.
-      // swerveDrive = new SwerveParser(directory).createSwerveDrive(maximumSpeed,
-      // angleConversionFactor, driveConversionFactor);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-    bindNavxImu();
+    dualNavxImu = new DualNavxSwerveImu();
+    swerveDrive = createSwerveDriveWithImu(directory, startingPose, dualNavxImu);
     swerveDrive.setHeadingCorrection(
         false); // Heading correction should only be used while controlling the robot via angle.
     swerveDrive.setCosineCompensator(
@@ -172,20 +165,49 @@ public class SwerveSubsystem extends SubsystemBase {
       SwerveDriveConfiguration driveCfg, SwerveControllerConfiguration controllerCfg) {
     initVisionChoosers();
     SmartDashboard.putData("AdvantageScope/Field", advantageScopeField);
+    dualNavxImu =
+        driveCfg.imu instanceof DualNavxSwerveImu ? (DualNavxSwerveImu) driveCfg.imu : null;
     swerveDrive =
         new SwerveDrive(
             driveCfg,
             controllerCfg,
             Constants.MAX_SPEED,
             new Pose2d(new Translation2d(Meter.of(2), Meter.of(0)), Rotation2d.fromDegrees(0)));
-    bindNavxImu();
     autonomousCommands = new SwerveAutonomousCommands(this, swerveDrive, () -> vision);
     setCurrentLimits();
   }
 
-  private void bindNavxImu() {
-    Object imu = swerveDrive.getGyro().getIMU();
-    navxIMU = imu instanceof AHRS ? (AHRS) imu : null;
+  private SwerveDrive createSwerveDriveWithImu(
+      File directory, Pose2d initialPose, DualNavxSwerveImu imu) {
+    try {
+      new SwerveParser(directory);
+      SwerveModuleConfiguration[] moduleConfigurations =
+          new SwerveModuleConfiguration[SwerveParser.moduleJsons.length];
+      for (int i = 0; i < moduleConfigurations.length; i++) {
+        ModuleJson module = SwerveParser.moduleJsons[i];
+        moduleConfigurations[i] =
+            module.createModuleConfiguration(
+                SwerveParser.pidfPropertiesJson.angle,
+                SwerveParser.pidfPropertiesJson.drive,
+                SwerveParser.physicalPropertiesJson.createPhysicalProperties(),
+                SwerveParser.swerveDriveJson.modules[i]);
+      }
+      SwerveDriveConfiguration driveConfiguration =
+          new SwerveDriveConfiguration(
+              moduleConfigurations,
+              imu,
+              SwerveParser.swerveDriveJson.invertedIMU,
+              SwerveParser.physicalPropertiesJson.createPhysicalProperties());
+
+      return new SwerveDrive(
+          driveConfiguration,
+          SwerveParser.controllerPropertiesJson.createControllerConfiguration(
+              driveConfiguration, Constants.MAX_SPEED),
+          Constants.MAX_SPEED,
+          initialPose);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   private void initVisionChoosers() {
@@ -233,6 +255,9 @@ public class SwerveSubsystem extends SubsystemBase {
 
   @Override
   public void periodic() {
+    if (dualNavxImu != null) {
+      dualNavxImu.updateStatus();
+    }
     Pose2d odomPose = swerveDrive.getPose();
     advantageScopeField.setRobotPose(odomPose);
     odomPosePublisher.set(odomPose);
@@ -261,21 +286,30 @@ public class SwerveSubsystem extends SubsystemBase {
     }
     Logger.recordOutput("Vision/Pose/Fused", fused);
 
-    boolean navxError = navxIMU == null;
-    boolean navxCalibrating = false;
-    double navxYaw = 0.0;
-    if (!navxError) {
-      navxCalibrating = navxIMU.isCalibrating();
-      navxYaw = navxIMU.getYaw();
-    }
+    boolean navxConnected = navxConnected();
+    boolean navxError = !navxConnected;
+    boolean navxCalibrating = dualNavxImu != null && dualNavxImu.isCalibrating();
+    double navxYaw = dualNavxImu == null ? 0.0 : dualNavxImu.getYaw();
     Logger.recordOutput("Drive/Navx/Error", navxError);
-    Logger.recordOutput("Drive/Navx/IsConnected", navxConnected());
+    Logger.recordOutput("Drive/Navx/IsConnected", navxConnected);
+    Logger.recordOutput(
+        "Drive/Navx/PrimaryConnected", dualNavxImu != null && dualNavxImu.primaryConnected());
+    Logger.recordOutput(
+        "Drive/Navx/SecondaryConnected", dualNavxImu != null && dualNavxImu.secondaryConnected());
+    Logger.recordOutput(
+        "Drive/Navx/ActiveSource",
+        dualNavxImu == null ? "UNAVAILABLE" : dualNavxImu.getActiveSourceName());
+    Logger.recordOutput(
+        "Drive/Navx/FailoverCount", dualNavxImu == null ? 0 : dualNavxImu.getFailoverCount());
     Logger.recordOutput("Drive/Navx/IsCalibrating", navxCalibrating);
     Logger.recordOutput("Drive/Navx/Yaw", navxYaw);
   }
 
   public boolean navxConnected() {
-    return navxIMU != null && navxIMU.isConnected();
+    if (RobotBase.isSimulation()) {
+      return true;
+    }
+    return dualNavxImu != null && dualNavxImu.isConnected();
   }
 
   private void setCurrentLimits() {
