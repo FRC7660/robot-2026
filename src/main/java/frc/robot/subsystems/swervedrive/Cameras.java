@@ -20,37 +20,35 @@ import org.photonvision.simulation.VisionSystemSim;
 /** Camera Enum to select each camera */
 public enum Cameras {
   /** Left Front Camera */
-  LEFT_FRONT(
-      "cam2",
-      new Rotation3d(0, Math.toRadians(0), Math.toRadians(0)),
+  FRONT_LEFT(
+      "camFL",
+      new Rotation3d(0, Math.toRadians(-13.9), Math.toRadians(46.6575)),
       new Translation3d(
-          Units.inchesToMeters(1.351478),
-          Units.inchesToMeters(10.625),
-          Units.inchesToMeters(17.860956)),
+          Units.inchesToMeters(-0.243), Units.inchesToMeters(7.376), Units.inchesToMeters(18.222)),
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1)),
   /** Right Front Camera */
-  RIGHT_FRONT(
-      "cam0",
-      new Rotation3d(0, Math.toRadians(0), Math.toRadians(-90)),
+  FRONT_RIGHT(
+      "camFR",
+      new Rotation3d(0, Math.toRadians(-13.9), Math.toRadians(-46.6575)),
       new Translation3d(
-          Units.inchesToMeters(-9.5), Units.inchesToMeters(-7.75), Units.inchesToMeters(12.996)),
+          Units.inchesToMeters(-0.243), Units.inchesToMeters(-7.376), Units.inchesToMeters(18.222)),
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1)),
   /** Left Back Camera */
-  LEFT_BACK(
-      "cam4",
-      new Rotation3d(0, Math.toRadians(0), Math.toRadians(90)),
+  BACK_LEFT(
+      "camBL",
+      new Rotation3d(0, Math.toRadians(-25), Math.toRadians(225)),
       new Translation3d(
-          Units.inchesToMeters(-9.5), Units.inchesToMeters(7.75), Units.inchesToMeters(12.996)),
+          Units.inchesToMeters(-9.8), Units.inchesToMeters(12.31), Units.inchesToMeters(13.9)),
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1)),
   /** Right Back Camera */
-  RIGHT_BACK(
-      "cam6",
-      new Rotation3d(0, Math.toRadians(0), Math.toRadians(-90)),
+  BACK_RIGHT(
+      "camBR",
+      new Rotation3d(0, Math.toRadians(-25), Math.toRadians(135)),
       new Translation3d(
-          Units.inchesToMeters(-9.5), Units.inchesToMeters(-7.75), Units.inchesToMeters(12.996)),
+          Units.inchesToMeters(-9.8), Units.inchesToMeters(-12.31), Units.inchesToMeters(13.9)),
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1));
 

@@ -139,7 +139,7 @@ final class SwerveAutonomousCommands {
                           Optional<Cameras> lockedCameraForDrive = step.nextState().lockedCamera();
                           double commandedForwardMps = step.forwardMps();
                           if (lockedCameraForDrive.isPresent()
-                              && lockedCameraForDrive.get() == Cameras.LEFT_FRONT) {
+                              && lockedCameraForDrive.get() == Cameras.FRONT_LEFT) {
                             commandedForwardMps = -commandedForwardMps;
                           }
                           swerveDrive.drive(
@@ -150,10 +150,10 @@ final class SwerveAutonomousCommands {
                           if (step.completed() || shouldDebugLog(lastStatusLogTimeSec, 1.0)) {
                             Optional<PhotonTrackedTarget> backCameraTarget =
                                 FuelPalantir.getClosestNonFiducialTarget(
-                                    cameraData.get(Cameras.LEFT_FRONT));
+                                    cameraData.get(Cameras.FRONT_LEFT));
                             Optional<PhotonTrackedTarget> frontCameraTarget =
                                 FuelPalantir.getClosestNonFiducialTarget(
-                                    cameraData.get(Cameras.RIGHT_FRONT));
+                                    cameraData.get(Cameras.FRONT_RIGHT));
                             Optional<Cameras> lockedCamera = step.nextState().lockedCamera();
                             Optional<PhotonTrackedTarget> lockedTarget =
                                 lockedCamera.flatMap(
@@ -445,7 +445,7 @@ final class SwerveAutonomousCommands {
   private Optional<TargetObservation> getClosestVisibleAprilTagObservation(int excludedTagId) {
     TargetObservation closest = null;
     double closestDistance = Double.POSITIVE_INFINITY;
-    Cameras[] tagCameras = {Cameras.LEFT_BACK, Cameras.LEFT_FRONT};
+    Cameras[] tagCameras = {Cameras.BACK_LEFT, Cameras.FRONT_LEFT};
 
     for (Cameras camera : tagCameras) {
       var latest = camera.getCamera().getLatestResult();
@@ -473,7 +473,7 @@ final class SwerveAutonomousCommands {
     }
     TargetObservation closest = null;
     double closestDistance = Double.POSITIVE_INFINITY;
-    Cameras[] tagCameras = {Cameras.LEFT_BACK, Cameras.LEFT_FRONT};
+    Cameras[] tagCameras = {Cameras.BACK_LEFT, Cameras.FRONT_LEFT};
 
     for (Cameras camera : tagCameras) {
       var latest = camera.getCamera().getLatestResult();
@@ -520,7 +520,7 @@ final class SwerveAutonomousCommands {
   }
 
   private String buildTagVisibilitySummary(int excludedTagId) {
-    Cameras[] cameras = {Cameras.LEFT_BACK, Cameras.LEFT_FRONT};
+    Cameras[] cameras = {Cameras.BACK_LEFT, Cameras.FRONT_LEFT};
     StringBuilder sb = new StringBuilder();
     for (Cameras cam : cameras) {
       var latest = cam.getCamera().getLatestResult();
@@ -729,8 +729,8 @@ final class SwerveAutonomousCommands {
                         distanceError * 0.9, APPROACH_MIN_FORWARD_MPS, APPROACH_MAX_FORWARD_MPS);
               }
               double cameraForwardSign =
-                  (observation.get().camera() == Cameras.LEFT_FRONT
-                          || observation.get().camera() == Cameras.RIGHT_FRONT)
+                  (observation.get().camera() == Cameras.FRONT_LEFT
+                          || observation.get().camera() == Cameras.FRONT_RIGHT)
                       ? 1.0
                       : -1.0;
               double commandedForward = cameraForwardSign * forwardSpeed;
