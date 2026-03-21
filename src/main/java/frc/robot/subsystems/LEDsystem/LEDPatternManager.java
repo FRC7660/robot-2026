@@ -35,7 +35,7 @@ public class LEDPatternManager extends SubsystemBase {
     public final LEDPattern black = LEDPattern.solid(Color.kBlack);
     public final LEDPattern white = LEDPattern.solid(Color.kWhite);
 
-    // Staggered colors
+    /** Staggered colors */
     private final LEDPattern staggerBasic(Color inputColor) {
       LEDPattern finalColor = LEDPattern.solid(Color.kCrimson); // Error color: Crimson
       // This should alternate between the input color and black color every 10% of the total LED
@@ -77,22 +77,30 @@ public class LEDPatternManager extends SubsystemBase {
     public final LEDPattern staggerOrange = staggerBasic(Color.kOrange);
     public final LEDPattern staggerWhite = staggerBasic(Color.kWhite);
 
-    // Flickering colors
-    private LEDPattern flicker(LEDPattern pattern, Time period) {
-      if (Timer.getTimestamp() % period.in(Seconds) < period.in(Seconds) / 2) {
-        return pattern;
-      } else {
-        return pattern.reversed();
-      }
+    /** Flickering colors (Supplier type to allow for dynamic updates in real time) */
+    private Supplier<LEDPattern> flicker(LEDPattern pattern, Time period) {
+      return () -> {
+        if (Timer.getTimestamp() % period.in(Seconds) < period.in(Seconds) / 2) {
+          return pattern;
+        } else {
+          return pattern.reversed();
+        }
+      };
     }
 
-    public final LEDPattern flickerRed = flicker(staggerRed, Seconds.of(0.5));
-    public final LEDPattern flickerYellow = flicker(staggerYellow, Seconds.of(0.5));
-    public final LEDPattern flickerGreen = flicker(staggerGreen, Seconds.of(0.5));
-    public final LEDPattern flickerBlue = flicker(staggerBlue, Seconds.of(0.5));
-    public final LEDPattern flickerPurple = flicker(staggerPurple, Seconds.of(0.5));
-    public final LEDPattern flickerOrange = flicker(staggerOrange, Seconds.of(0.5));
-    public final LEDPattern flickerWhite = flicker(staggerWhite, Seconds.of(0.5));
+    public final Supplier<LEDPattern> flickerRed = flicker(staggerRed, Seconds.of(0.5));
+    public final Supplier<LEDPattern> flickerYellow = flicker(staggerYellow, Seconds.of(0.5));
+    public final Supplier<LEDPattern> flickerGreen = flicker(staggerGreen, Seconds.of(0.5));
+    public final Supplier<LEDPattern> flickerBlue = flicker(staggerBlue, Seconds.of(0.5));
+    public final Supplier<LEDPattern> flickerPurple = flicker(staggerPurple, Seconds.of(0.5));
+    public final Supplier<LEDPattern> flickerOrange = flicker(staggerOrange, Seconds.of(0.5));
+    public final Supplier<LEDPattern> flickerWhite = flicker(staggerWhite, Seconds.of(0.5));
+
+    // Focus colors (Partial overlay pattern to indicate subsystem focus)
+    public final LEDPattern whiteFocus = LEDPattern.steps(Map.of(0.0,Color.kWhite,0.1,Color.kBlack));
+    public final LEDPattern yellowFocus = LEDPattern.steps(Map.of(0.0,Color.kYellow,0.1,Color.kBlack));
+    public final LEDPattern greenFocus = LEDPattern.steps(Map.of(0.0,Color.kGreen,0.1,Color.kBlack));
+    public final LEDPattern blueFocus = LEDPattern.steps(Map.of(0.0,Color.kBlue,0.1,Color.kBlack));
 
     // Lights off
     public final LEDPattern off = LEDPattern.kOff;
@@ -180,15 +188,18 @@ public class LEDPatternManager extends SubsystemBase {
                 priorityLevel level;
                 Supplier<LEDPattern> returnPattern;
 
-                if (true) {
-                  level = priorityLevel.TEST;
-                  returnPattern =
-                      () -> {
-                        return pBank.rainbow.scrollAtAbsoluteSpeed(
-                            MetersPerSecond.of(0.5), kLedSpacing);
-                      };
-                }
+                level = priorityLevel.TEST;
+                returnPattern =
+                    () -> {
+                      return pBank.rainbow.scrollAtAbsoluteSpeed(
+                          MetersPerSecond.of(0.5), kLedSpacing);
+                    };
 
+                LEDPattern focusPattern = pBank.whiteFocus.overlayOn(returnPattern.get());
+                returnPattern =
+                    () -> {
+                      return focusPattern;
+                    };
                 return new PrioritizedPair(level, returnPattern);
               };
           break;
@@ -213,6 +224,11 @@ public class LEDPatternManager extends SubsystemBase {
                       };
                 }
 
+                LEDPattern focusPattern = pBank.greenFocus.overlayOn(returnPattern.get());
+                returnPattern =
+                    () -> {
+                      return focusPattern;
+                    };
                 return new PrioritizedPair(level, returnPattern);
               };
           break;
@@ -251,6 +267,11 @@ public class LEDPatternManager extends SubsystemBase {
                       };
                 }
 
+                LEDPattern focusPattern = pBank.yellowFocus.overlayOn(returnPattern.get());
+                returnPattern =
+                    () -> {
+                      return focusPattern;
+                    };
                 return new PrioritizedPair(level, returnPattern);
               };
           break;
@@ -278,6 +299,11 @@ public class LEDPatternManager extends SubsystemBase {
                       };
                 }
 
+                LEDPattern focusPattern = pBank.blueFocus.overlayOn(returnPattern.get());
+                returnPattern =
+                    () -> {
+                      return focusPattern;
+                    };
                 return new PrioritizedPair(level, returnPattern);
               };
           break;
