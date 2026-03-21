@@ -217,10 +217,10 @@ public class LEDPatternManager extends SubsystemBase {
                   return pBank.staggerBlue.blink(Seconds.of(0.5));
 
                 } else if (routineName == "ErrorDisplay") {
-                  if (drivebase.getSwerveDrive().getGyro().getAccel().isEmpty()) {
-                    // If the gyro is not providing acceleration data, it is likely disconnected or
-                    // malfunctioning,
-                    // so the LEDs will blink red as an error signal.
+                  if (drivebase.navxConnected() == false) {
+                    // If the gyro is not connected, breathe red to indicate an error.
+                    // This is a critical error since the robot relies on the gyro for
+                    // field-oriented control, so it is prioritized over other potential errors.
                     return pBank.red.breathe(Seconds.of(1));
                   } else if (true) {
                     // Placeholder for another error condition, such as a disconnected motor.
