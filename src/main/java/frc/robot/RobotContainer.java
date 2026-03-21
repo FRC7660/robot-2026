@@ -56,6 +56,7 @@ public class RobotContainer {
   private final Turret turret = new Turret(drivebase::getPose);
   // Launch subsystem
   private final Launch launchSystem = new Launch();
+  private boolean imuFallbackActive = false;
 
   private final AutonomousManager autonomousManager;
 
@@ -194,13 +195,28 @@ public class RobotContainer {
     // Default drive style
     drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
 
-    // IMU fault protection: if the IMU disconnects, force angular-velocity drive so the
-    // driver retains direct rotational control instead of the heading PID spinning uncontrollably.
-    // Recovery is intentionally omitted — an IMU fault mid-match should not silently re-engage
-    // the heading PID. The driver can re-enable the robot to recover normal behavior.
-    new Trigger(() -> !drivebase.navxConnected())
+    // IMU fault protection (Teleop only): if the IMU disconnects, force angular-velocity drive so
+    // the driver retains direct rotational control instead of the heading PID spinning
+    // uncontrollably.
+    new Trigger(
+            () ->
+                DriverStation.isTeleopEnabled() && !drivebase.navxConnected() && !imuFallbackActive)
         .onTrue(
-            Commands.runOnce(() -> drivebase.setDefaultCommand(driveFieldOrientedAngularVelocity)));
+            Commands.runOnce(
+                () -> {
+                  drivebase.setDefaultCommand(driveFieldOrientedAngularVelocity);
+                  imuFallbackActive = true;
+                }));
+
+    // Teleop-only recovery: when IMU communication returns, restore direct-angle drive mode.
+    new Trigger(
+            () -> DriverStation.isTeleopEnabled() && drivebase.navxConnected() && imuFallbackActive)
+        .onTrue(
+            Commands.runOnce(
+                () -> {
+                  drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
+                  imuFallbackActive = false;
+                }));
 
     // SHOOTING CONTROL
     // Trigger (CLASS) which will initiate trigger (INPUT) control of the launch and turret
