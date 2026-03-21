@@ -17,7 +17,6 @@ import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Launch;
 import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
-
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
@@ -143,8 +142,10 @@ public class LEDPatternManager extends SubsystemBase {
       CRITICAL_ERROR
     }
 
-    /** Values for each level to calculate their priority (higher value means higher priority). 
-    This is used to override normal patterns with more important ones across all subsystems.*/
+    /**
+     * Values for each level to calculate their priority (higher value means higher priority). This
+     * is used to override normal patterns with more important ones across all subsystems.
+     */
     public HashMap<priorityLevel, Integer> priorityValues =
         new HashMap<priorityLevel, Integer>() {
           {
