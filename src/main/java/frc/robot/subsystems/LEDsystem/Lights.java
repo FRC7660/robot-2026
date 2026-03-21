@@ -91,7 +91,7 @@ public class Lights extends SubsystemBase {
         xColor = p.staggerRed.blink(seconds(1));
         break;
       case 2:
-        xColor = p.flickerBlue;
+        xColor = p.flickerBlue.get();
         break;
       case 3:
         xColor = p.green.blink(seconds(1));
