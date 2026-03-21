@@ -5,6 +5,7 @@
 package frc.robot;
 
 import com.revrobotics.spark.*;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 import swervelib.math.Matter;
@@ -161,6 +162,9 @@ public final class Constants {
     // Offset from robot-relative target frame to turret mechanism frame.
     // +180 means "robot-forward 0 deg" maps to mechanism 180 deg.
     public static final double MECHANISM_ZERO_OFFSET_DEG = 180.0;
+    // Turret position relative to robot center (robot frame, +X forward, +Y left).
+    public static final Translation2d POSITION_ROBOT_FRAME =
+        new Translation2d(-Units.inchesToMeters(7.0), 0.0);
     // Turret gearing: motor rotations -> turret rotations
     public static final double TURRET_GEAR_RATIO = 40.0;
     // PID for turret position (motor rotations)

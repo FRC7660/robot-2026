@@ -159,12 +159,14 @@ public class Turret extends SubsystemBase {
     Pose2d pose = getPose.get();
     this.lastPose = pose;
     Translation2d robotPos = pose.getTranslation();
+    Translation2d turretPos =
+        robotPos.plus(Constants.Turret.POSITION_ROBOT_FRAME.rotateBy(pose.getRotation()));
     var alliance = DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue);
 
     Translation2d target = TurretHelpers.getTarget(robotPos, alliance);
     // record the chosen target for external inspection / dashboard
     this.lastTarget = target;
-    Rotation2d fieldAngle = TurretHelpers.getFieldRelativeAngle(robotPos, target);
+    Rotation2d fieldAngle = TurretHelpers.getFieldRelativeAngle(turretPos, target);
     this.lastFieldAngle = fieldAngle;
     Rotation2d robotRelative = TurretHelpers.getRobotRelative(fieldAngle, pose.getRotation());
     robotRelative = Rotation2d.fromDegrees(normalizeToSigned180(robotRelative.getDegrees()));

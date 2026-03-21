@@ -12,6 +12,7 @@ import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
 import edu.wpi.first.math.Pair;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.math.system.plant.DCMotor;
@@ -165,12 +166,15 @@ public class Launch extends SubsystemBase {
    * @return interpolated launcher speed setpoint
    */
   public AngularVelocity getOptimalVelocity(Turret turret) {
-    Translation2d robotPosition = turret.getLastPose().getTranslation();
+    Pose2d pose = turret.getLastPose();
+    Translation2d robotPosition = pose.getTranslation();
+    Translation2d turretPosition =
+        robotPosition.plus(Constants.Turret.POSITION_ROBOT_FRAME.rotateBy(pose.getRotation()));
     Translation2d targetPosition = turret.getLastTarget();
     if (robotPosition.equals(new Translation2d()) && targetPosition.equals(new Translation2d())) {
       return RotationsPerSecond.of(SPEED_TABLE.get(0.0));
     }
-    double baseDistance = robotPosition.getDistance(targetPosition);
+    double baseDistance = turretPosition.getDistance(targetPosition);
     double adjustedDistance = adjustDistanceForAllianceZone(robotPosition, baseDistance);
     SmartDashboard.putNumber("baseDistance", baseDistance);
     return getOptimalVelocity(adjustedDistance);
@@ -183,7 +187,11 @@ public class Launch extends SubsystemBase {
    * @return distance in meters
    */
   public double getDistanceToTurretLastTargetMeters(Turret turret) {
-    return turret.getLastPose().getTranslation().getDistance(turret.getLastTarget());
+    Pose2d pose = turret.getLastPose();
+    Translation2d turretPosition =
+        pose.getTranslation()
+            .plus(Constants.Turret.POSITION_ROBOT_FRAME.rotateBy(pose.getRotation()));
+    return turretPosition.getDistance(turret.getLastTarget());
   }
 
   private double adjustDistanceForAllianceZone(Translation2d robotPosition, double distanceMeters) {
