@@ -57,6 +57,7 @@ public class RobotContainer {
   private final Turret turret = new Turret(drivebase::getPose);
   // Launch subsystem
   private final Launch launchSystem = new Launch();
+  private boolean imuFallbackActive = false;
 
   // LED system
   private final Lights lights = new Lights(launchSystem, intakeSystem, drivebase, turret);
@@ -184,6 +185,7 @@ public class RobotContainer {
    */
   private void configureBindings() {
     Command driveFieldOrientedDirectAngle = drivebase.driveFieldOriented(driveDirectAngle);
+    Command driveFieldOrientedAngularVelocity = drivebase.driveFieldOriented(driveAngularVelocity);
 
     // Intake speed init
     DoubleSupplier leftTriggerSupplier =
@@ -196,6 +198,29 @@ public class RobotContainer {
 
     // Default drive style
     drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
+
+    // IMU fault protection (Teleop only): if the IMU disconnects, force angular-velocity drive so
+    // the driver retains direct rotational control instead of the heading PID spinning
+    // uncontrollably.
+    new Trigger(
+            () ->
+                DriverStation.isTeleopEnabled() && !drivebase.navxConnected() && !imuFallbackActive)
+        .onTrue(
+            Commands.runOnce(
+                () -> {
+                  drivebase.setDefaultCommand(driveFieldOrientedAngularVelocity);
+                  imuFallbackActive = true;
+                }));
+
+    // Teleop-only recovery: when IMU communication returns, restore direct-angle drive mode.
+    new Trigger(
+            () -> DriverStation.isTeleopEnabled() && drivebase.navxConnected() && imuFallbackActive)
+        .onTrue(
+            Commands.runOnce(
+                () -> {
+                  drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
+                  imuFallbackActive = false;
+                }));
 
     // SHOOTING CONTROL
     // Trigger (CLASS) which will initiate trigger (INPUT) control of the launch and turret
