@@ -278,5 +278,6 @@ public class RobotContainer {
 
   public void onDisable() {
     drivebase.setMotorBrake(true);
+    intakeSystem.setMotorBrake(false);
   }
 }

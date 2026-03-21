@@ -134,6 +134,7 @@ public class Intake extends SubsystemBase {
   public void setAngleSetpoint(Double angle) {
     Angle convertedAngle = Angle.ofRelativeUnits(angle, Degrees);
     lift.setMechanismPositionSetpoint(convertedAngle);
+    setMotorBrake(true); // Re-enable brake mode when setpoint is changed
   }
 
   public Command set(double dutycycle) {
@@ -251,5 +252,13 @@ public class Intake extends SubsystemBase {
               setAngleSetpoint(110.0);
             })
         .handleInterrupt(() -> liftMotor.set(0.0));
+  }
+
+  public void setMotorBrake(boolean brake) {
+    if (brake == true) {
+      lift.getMotor().setIdleMode(MotorMode.BRAKE);
+    } else {
+      lift.getMotor().setIdleMode(MotorMode.COAST);
+    }
   }
 }
