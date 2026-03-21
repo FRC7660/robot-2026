@@ -8,22 +8,20 @@ import edu.wpi.first.units.measure.Time;
 import edu.wpi.first.wpilibj.AddressableLED;
 import edu.wpi.first.wpilibj.AddressableLEDBuffer;
 import edu.wpi.first.wpilibj.LEDPattern;
-import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.subsystems.Intake;
-import frc.robot.subsystems.Turret;
-import frc.robot.subsystems.Launch;
 import frc.robot.subsystems.LEDsystem.LEDPatternManager.LightRoutine;
 import frc.robot.subsystems.LEDsystem.LEDPatternManager.PatternBank;
+import frc.robot.subsystems.Launch;
+import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 /**
- * This class is responsible for handling the LED display on the robot. It uses the 
- * AddressableLED class to control the lights, and the LEDPattern class to create various 
- * patterns and effects.
- * 
- * Periodically updates the LED pattern based on private conditions, which can be modified using setter methods
- * to reflect the robot's state, errors, or other information.
+ * This class is responsible for handling the LED display on the robot. It uses the AddressableLED
+ * class to control the lights, and the LEDPattern class to create various patterns and effects.
+ *
+ * <p>Periodically updates the LED pattern based on private conditions, which can be modified using
+ * setter methods to reflect the robot's state, errors, or other information.
  */
 public class Lights extends SubsystemBase {
   public int ticks = 0;
@@ -33,26 +31,30 @@ public class Lights extends SubsystemBase {
   private final PatternBank p = new PatternBank();
   // Our LED strip has a density of 120 LEDs per meter
   private static final Distance kLedSpacing = LEDPatternManager.kLedSpacing;
-  
+
   private Time seconds(double s) {
     return Seconds.of(s);
   }
 
   /**
-   * Helper function to create a flickering effect by alternating between a pattern and its reversed version
-   * at a specified period. The pattern will switch every half period, creating a flickering effect.
+   * Helper function to create a flickering effect by alternating between a pattern and its reversed
+   * version at a specified period. The pattern will switch every half period, creating a flickering
+   * effect.
+   *
    * @param pattern
    * @param period
    * @return pattern or pattern.reversed() depending on the current time and the specified period
    */
 
   /** Called once at the beginning of the robot program. */
-  public Lights(Launch launchSystem, Intake intakeSystem, SwerveSubsystem swerveSystem, Turret turretSystem) {
+  public Lights(
+      Launch launchSystem, Intake intakeSystem, SwerveSubsystem swerveSystem, Turret turretSystem) {
     // PWM port 9
     // Must be a PWM header, not MXP or DIO
     m_led = new AddressableLED(9);
 
-    // Instantiate the LED pattern manager, which will handle the logic for determining which pattern to display based on the robot's state
+    // Instantiate the LED pattern manager, which will handle the logic for determining which
+    // pattern to display based on the robot's state
     LEDPatternManager patternManager = new LEDPatternManager();
 
     // Instantiate Routine
@@ -69,10 +71,8 @@ public class Lights extends SubsystemBase {
     m_led.start();
   }
 
-  /**
-   * This function assigns the lights a new routine
-   */
-  public void setRoutine(LightRoutine routine){
+  /** This function assigns the lights a new routine */
+  public void setRoutine(LightRoutine routine) {
     activeRoutine = routine;
   }
 
@@ -81,7 +81,7 @@ public class Lights extends SubsystemBase {
     ticks += 1;
     ticks %= 50000; // will (hopefully) limit ticks to 50000 and then reset it to 0
     // System.out.println(ticks);
-    
+
     LEDPattern xColor = p.off;
     xColor = activeRoutine.get();
 
@@ -110,7 +110,7 @@ public class Lights extends SubsystemBase {
         break;
     }
 
-    // System.out.println(xColor); // Use this print function if LEDs are not currently testable
+    System.out.println(xColor); // Use this print function if LEDs are not currently testable
     xColor.applyTo(m_ledBuffer);
 
     // Set the LEDs
