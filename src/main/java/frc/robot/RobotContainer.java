@@ -25,6 +25,7 @@ import frc.robot.subsystems.Index;
 import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Launch;
 import frc.robot.subsystems.Turret;
+import frc.robot.subsystems.LEDsystem.Lights;
 import frc.robot.subsystems.swervedrive.FuelPalantir.FuelPalantirMode;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
@@ -54,6 +55,9 @@ public class RobotContainer {
   private final Turret turret = new Turret(drivebase::getPose);
   // Launch subsystem
   private final Launch launchSystem = new Launch();
+
+  // LED system
+  private final Lights lights = new Lights(launchSystem, intakeSystem, drivebase, turret);
 
   private final AutonomousManager autonomousManager;
 

@@ -1,6 +1,5 @@
 package frc.robot.subsystems.LEDsystem;
 
-import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.Seconds;
 
@@ -10,7 +9,12 @@ import edu.wpi.first.wpilibj.AddressableLED;
 import edu.wpi.first.wpilibj.AddressableLEDBuffer;
 import edu.wpi.first.wpilibj.LEDPattern;
 import edu.wpi.first.wpilibj.Timer;
-import frc.robot.subsystems.LEDsystem.LEDpatternCache.LEDPatternCache;
+import frc.robot.subsystems.Intake;
+import frc.robot.subsystems.Turret;
+import frc.robot.subsystems.Launch;
+import frc.robot.subsystems.LEDsystem.LEDPatternManager.LightRoutine;
+import frc.robot.subsystems.LEDsystem.LEDPatternManager.PatternBank;
+import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 /**
@@ -24,10 +28,11 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 public class Lights extends SubsystemBase {
   public int ticks = 0;
   private final AddressableLED m_led;
+  private static LightRoutine activeRoutine;
   private final AddressableLEDBuffer m_ledBuffer;
-  private final LEDPatternCache p = new LEDPatternCache();
+  private final PatternBank p = new PatternBank();
   // Our LED strip has a density of 120 LEDs per meter
-  private static final Distance kLedSpacing = Meters.of(1 / 120.0);
+  private static final Distance kLedSpacing = LEDPatternManager.kLedSpacing;
   
   private Time seconds(double s) {
     return Seconds.of(s);
@@ -40,19 +45,18 @@ public class Lights extends SubsystemBase {
    * @param period
    * @return pattern or pattern.reversed() depending on the current time and the specified period
    */
-  private LEDPattern flicker(LEDPattern pattern, Time period){
-    if (Timer.getTimestamp() % period.in(Seconds) < period.in(Seconds) / 2) {
-      return pattern;
-    } else {
-      return pattern.reversed();
-    }
-  }
 
   /** Called once at the beginning of the robot program. */
-  public Lights() {
+  public Lights(Launch launchSystem, Intake intakeSystem, SwerveSubsystem swerveSystem, Turret turretSystem) {
     // PWM port 9
     // Must be a PWM header, not MXP or DIO
     m_led = new AddressableLED(9);
+
+    // Instantiate the LED pattern manager, which will handle the logic for determining which pattern to display based on the robot's state
+    LEDPatternManager patternManager = new LEDPatternManager();
+
+    // Instantiate Routine
+    activeRoutine = new LightRoutine(launchSystem, intakeSystem, swerveSystem, turretSystem);
 
     // Reuse buffer
     // Default to a length of 120, start empty output
@@ -65,23 +69,32 @@ public class Lights extends SubsystemBase {
     m_led.start();
   }
 
+  /**
+   * This function assigns the lights a new routine
+   */
+  public void setRoutine(LightRoutine routine){
+    activeRoutine = routine;
+  }
+
   @Override
   public void periodic() {
     ticks += 1;
     ticks %= 50000; // will (hopefully) limit ticks to 50000 and then reset it to 0
     // System.out.println(ticks);
+    
+    LEDPattern xColor = p.off;
+    xColor = activeRoutine.get();
 
-    // Value for testing conditions
+    // Value for testing conditions (overrides when above 0)
     int testVal = 0;
 
     // test conditions
-    LEDPattern xColor = p.white;
     switch (testVal) {
       case 1:
         xColor = p.staggerRed.blink(seconds(1));
         break;
       case 2:
-        xColor = flicker(p.staggerBlue, seconds(0.5));
+        xColor = p.flickerBlue;
         break;
       case 3:
         xColor = p.green.blink(seconds(1));
@@ -104,9 +117,3 @@ public class Lights extends SubsystemBase {
     m_led.setData(m_ledBuffer);
   }
 }
-
-/// Error codes (non-exhaustive)
-/// Crimson - Colors are not returning, LEDs unusable
-///   + Blink, Stagger functions are somehow broken
-/// Solid White - No conditionals are being met (default color)
-/// ...
