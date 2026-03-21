@@ -20,7 +20,7 @@ import org.photonvision.simulation.VisionSystemSim;
 /** Camera Enum to select each camera */
 public enum Cameras {
   /** Left Front Camera */
-  LEFT_FRONT(
+  FRONT_LEFT(
       "cam2",
       new Rotation3d(0, Math.toRadians(0), Math.toRadians(0)),
       new Translation3d(
@@ -30,7 +30,7 @@ public enum Cameras {
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1)),
   /** Right Front Camera */
-  RIGHT_FRONT(
+  FRONT_RIGHT(
       "cam0",
       new Rotation3d(0, Math.toRadians(0), Math.toRadians(-90)),
       new Translation3d(
@@ -38,7 +38,7 @@ public enum Cameras {
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1)),
   /** Left Back Camera */
-  LEFT_BACK(
+  BACK_LEFT(
       "cam4",
       new Rotation3d(0, Math.toRadians(0), Math.toRadians(90)),
       new Translation3d(
@@ -46,7 +46,7 @@ public enum Cameras {
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1)),
   /** Right Back Camera */
-  RIGHT_BACK(
+  BACK_RIGHT(
       "cam6",
       new Rotation3d(0, Math.toRadians(0), Math.toRadians(-90)),
       new Translation3d(
