@@ -103,7 +103,7 @@ public class FuelPalantir {
 
   static Optional<Cameras> chooseLockCamera(
       Map<Cameras, Vision.CameraSnapshot> cameraData, Optional<Cameras> currentlyLocked) {
-    if (currentlyLocked.isPresent() && currentlyLocked.get() == Cameras.FRONT_CAMERA) {
+    if (currentlyLocked.isPresent() && currentlyLocked.get() == Cameras.LEFT_FRONT) {
       Optional<PhotonTrackedTarget> lockedTarget =
           getClosestNonFiducialTarget(cameraData.get(currentlyLocked.get()));
       if (lockedTarget.isPresent()) {
@@ -111,7 +111,7 @@ public class FuelPalantir {
       }
       // Lock released: locked camera no longer sees any fuel
     }
-    Cameras[] candidates = {Cameras.FRONT_CAMERA};
+    Cameras[] candidates = {Cameras.LEFT_FRONT};
     Cameras bestCamera = null;
     double minAbsYaw = Double.POSITIVE_INFINITY;
     for (Cameras camera : candidates) {

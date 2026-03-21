@@ -30,7 +30,7 @@ class FuelPalantirLogicTest {
 
   private static Vision.CameraSnapshot snapshotWithTarget(
       int fiducialId, double yawDeg, double area, double timestampSec) {
-    return snapshotWithTarget(Cameras.LEFT_CAMERA, fiducialId, yawDeg, area, timestampSec);
+    return snapshotWithTarget(Cameras.LEFT_BACK, fiducialId, yawDeg, area, timestampSec);
   }
 
   private static Vision.CameraSnapshot emptySnapshot(Cameras camera) {
@@ -43,15 +43,15 @@ class FuelPalantirLogicTest {
 
   private static Map<Cameras, Vision.CameraSnapshot> baseCameraData() {
     Map<Cameras, Vision.CameraSnapshot> map = new EnumMap<>(Cameras.class);
-    map.put(Cameras.LEFT_CAMERA, emptySnapshot(Cameras.LEFT_CAMERA));
-    map.put(Cameras.FRONT_CAMERA, emptySnapshot(Cameras.FRONT_CAMERA));
+    map.put(Cameras.LEFT_BACK, emptySnapshot(Cameras.LEFT_BACK));
+    map.put(Cameras.LEFT_FRONT, emptySnapshot(Cameras.LEFT_FRONT));
     return map;
   }
 
   @Test
   void fuelPalantir_locksCameraAndCommandsMotionWhenFuelSeen() {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
-    data.put(Cameras.FRONT_CAMERA, snapshotWithTarget(Cameras.FRONT_CAMERA, -1, 10.0, 1.0, 1.0));
+    data.put(Cameras.LEFT_FRONT, snapshotWithTarget(Cameras.LEFT_FRONT, -1, 10.0, 1.0, 1.0));
 
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
@@ -61,7 +61,7 @@ class FuelPalantirLogicTest {
             1.0);
 
     assertTrue(step.nextState().lockedCamera().isPresent());
-    assertEquals(Cameras.FRONT_CAMERA, step.nextState().lockedCamera().get());
+    assertEquals(Cameras.LEFT_FRONT, step.nextState().lockedCamera().get());
     assertTrue(step.forwardMps() > 0.0);
     assertFalse(step.completed());
   }
@@ -69,12 +69,12 @@ class FuelPalantirLogicTest {
   @Test
   void fuelPalantir_stopsForwardWhenAreaAboveThreshold() {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
-    data.put(Cameras.LEFT_CAMERA, snapshotWithTarget(-1, 1.0, 5.0, 1.0));
+    data.put(Cameras.LEFT_BACK, snapshotWithTarget(-1, 1.0, 5.0, 1.0));
 
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
             data,
-            new FuelPalantir.FuelPalantirState(Optional.of(Cameras.LEFT_CAMERA)),
+            new FuelPalantir.FuelPalantirState(Optional.of(Cameras.LEFT_BACK)),
             FuelPalantir.FuelPalantirMode.AUTONOMOUS,
             2.0);
 
@@ -111,34 +111,32 @@ class FuelPalantirLogicTest {
   @Test
   void chooseLockCamera_releasesLockWhenLockedCameraLosesTarget() {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
-    // LEFT_CAMERA is locked but has no targets; FRONT_CAMERA has a fuel target
-    data.put(Cameras.FRONT_CAMERA, snapshotWithTarget(Cameras.FRONT_CAMERA, -1, 5.0, 1.0, 1.0));
+    // LEFT_BACK is locked but has no targets; LEFT_FRONT has a fuel target
+    data.put(Cameras.LEFT_FRONT, snapshotWithTarget(Cameras.LEFT_FRONT, -1, 5.0, 1.0, 1.0));
 
-    Optional<Cameras> result =
-        FuelPalantir.chooseLockCamera(data, Optional.of(Cameras.LEFT_CAMERA));
+    Optional<Cameras> result = FuelPalantir.chooseLockCamera(data, Optional.of(Cameras.LEFT_BACK));
 
     assertTrue(result.isPresent());
-    assertEquals(Cameras.FRONT_CAMERA, result.get());
+    assertEquals(Cameras.LEFT_FRONT, result.get());
   }
 
   @Test
   void chooseLockCamera_keepsLockWhenLockedCameraStillSeesFuel() {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
-    data.put(Cameras.FRONT_CAMERA, snapshotWithTarget(Cameras.FRONT_CAMERA, -1, 3.0, 2.0, 1.0));
-    data.put(Cameras.FRONT_CAMERA, snapshotWithTarget(Cameras.FRONT_CAMERA, -1, 1.0, 3.0, 1.0));
+    data.put(Cameras.LEFT_FRONT, snapshotWithTarget(Cameras.LEFT_FRONT, -1, 3.0, 2.0, 1.0));
+    data.put(Cameras.LEFT_FRONT, snapshotWithTarget(Cameras.LEFT_FRONT, -1, 1.0, 3.0, 1.0));
 
-    Optional<Cameras> result =
-        FuelPalantir.chooseLockCamera(data, Optional.of(Cameras.FRONT_CAMERA));
+    Optional<Cameras> result = FuelPalantir.chooseLockCamera(data, Optional.of(Cameras.LEFT_FRONT));
 
     assertTrue(result.isPresent());
-    assertEquals(Cameras.FRONT_CAMERA, result.get());
+    assertEquals(Cameras.LEFT_FRONT, result.get());
   }
 
   @Test
   void fuelPalantir_keepsLockDuringBriefDetectionDropout() {
     Map<Cameras, Vision.CameraSnapshot> noTargets = baseCameraData();
     FuelPalantir.FuelPalantirState state =
-        new FuelPalantir.FuelPalantirState(Optional.of(Cameras.LEFT_CAMERA));
+        new FuelPalantir.FuelPalantirState(Optional.of(Cameras.LEFT_BACK));
 
     FuelPalantir.FuelPalantirStep step1 =
         FuelPalantir.fuelPalantir(noTargets, state, FuelPalantir.FuelPalantirMode.TELEOP, 0.1);
@@ -146,15 +144,15 @@ class FuelPalantirLogicTest {
         FuelPalantir.fuelPalantir(
             noTargets, step1.nextState(), FuelPalantir.FuelPalantirMode.TELEOP, 0.2);
 
-    assertEquals(Optional.of(Cameras.LEFT_CAMERA), step1.nextState().lockedCamera());
-    assertEquals(Optional.of(Cameras.LEFT_CAMERA), step2.nextState().lockedCamera());
+    assertEquals(Optional.of(Cameras.LEFT_BACK), step1.nextState().lockedCamera());
+    assertEquals(Optional.of(Cameras.LEFT_BACK), step2.nextState().lockedCamera());
   }
 
   @Test
   void fuelPalantir_releasesLockAfterThreeSecondsWithoutTargets() {
     Map<Cameras, Vision.CameraSnapshot> noTargets = baseCameraData();
     FuelPalantir.FuelPalantirState state =
-        new FuelPalantir.FuelPalantirState(Optional.of(Cameras.LEFT_CAMERA));
+        new FuelPalantir.FuelPalantirState(Optional.of(Cameras.LEFT_BACK));
 
     FuelPalantir.FuelPalantirStep step1 =
         FuelPalantir.fuelPalantir(noTargets, state, FuelPalantir.FuelPalantirMode.TELEOP, 0.1);
@@ -165,15 +163,15 @@ class FuelPalantirLogicTest {
         FuelPalantir.fuelPalantir(
             noTargets, step2.nextState(), FuelPalantir.FuelPalantirMode.TELEOP, 3.2);
 
-    assertEquals(Optional.of(Cameras.LEFT_CAMERA), step1.nextState().lockedCamera());
-    assertEquals(Optional.of(Cameras.LEFT_CAMERA), step2.nextState().lockedCamera());
+    assertEquals(Optional.of(Cameras.LEFT_BACK), step1.nextState().lockedCamera());
+    assertEquals(Optional.of(Cameras.LEFT_BACK), step2.nextState().lockedCamera());
     assertTrue(step3.nextState().lockedCamera().isEmpty());
   }
 
   @Test
   void fuelPalantir_slewLimitsForwardCommand() {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
-    data.put(Cameras.FRONT_CAMERA, snapshotWithTarget(Cameras.FRONT_CAMERA, -1, 0.0, 0.0, 1.0));
+    data.put(Cameras.LEFT_FRONT, snapshotWithTarget(Cameras.LEFT_FRONT, -1, 0.0, 0.0, 1.0));
 
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
@@ -188,7 +186,7 @@ class FuelPalantirLogicTest {
   @Test
   void fuelPalantir_ballSeenNearCenter_stopsRotationSearch() {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
-    data.put(Cameras.FRONT_CAMERA, snapshotWithTarget(Cameras.FRONT_CAMERA, -1, 1.0, 1.0, 1.0));
+    data.put(Cameras.LEFT_FRONT, snapshotWithTarget(Cameras.LEFT_FRONT, -1, 1.0, 1.0, 1.0));
 
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
@@ -203,7 +201,7 @@ class FuelPalantirLogicTest {
   @Test
   void fuelPalantir_ballSeenOffCenter_usesTrackingNotSearchRotation() {
     Map<Cameras, Vision.CameraSnapshot> data = baseCameraData();
-    data.put(Cameras.FRONT_CAMERA, snapshotWithTarget(Cameras.FRONT_CAMERA, -1, 25.0, 1.0, 1.0));
+    data.put(Cameras.LEFT_FRONT, snapshotWithTarget(Cameras.LEFT_FRONT, -1, 25.0, 1.0, 1.0));
 
     FuelPalantir.FuelPalantirStep step =
         FuelPalantir.fuelPalantir(
@@ -221,8 +219,7 @@ class FuelPalantirLogicTest {
   @Test
   void fuelPalantir_afterSeeingBall_doesNotReturnToSearchSpinWhenLost() {
     Map<Cameras, Vision.CameraSnapshot> seenData = baseCameraData();
-    seenData.put(
-        Cameras.FRONT_CAMERA, snapshotWithTarget(Cameras.FRONT_CAMERA, -1, 12.0, 1.0, 1.0));
+    seenData.put(Cameras.LEFT_FRONT, snapshotWithTarget(Cameras.LEFT_FRONT, -1, 12.0, 1.0, 1.0));
 
     FuelPalantir.FuelPalantirStep seenStep =
         FuelPalantir.fuelPalantir(
@@ -242,8 +239,7 @@ class FuelPalantirLogicTest {
   @Test
   void fuelPalantir_afterLockingFrontCamera_doesNotSwitchToBackCamera() {
     Map<Cameras, Vision.CameraSnapshot> frontOnly = baseCameraData();
-    frontOnly.put(
-        Cameras.FRONT_CAMERA, snapshotWithTarget(Cameras.FRONT_CAMERA, -1, 10.0, 1.0, 1.0));
+    frontOnly.put(Cameras.LEFT_FRONT, snapshotWithTarget(Cameras.LEFT_FRONT, -1, 10.0, 1.0, 1.0));
 
     FuelPalantir.FuelPalantirStep frontStep =
         FuelPalantir.fuelPalantir(
@@ -251,15 +247,15 @@ class FuelPalantirLogicTest {
             new FuelPalantir.FuelPalantirState(Optional.empty(), 0, 0.0, 0.0, false),
             FuelPalantir.FuelPalantirMode.TELEOP,
             0.1);
-    assertEquals(Optional.of(Cameras.FRONT_CAMERA), frontStep.nextState().lockedCamera());
+    assertEquals(Optional.of(Cameras.LEFT_FRONT), frontStep.nextState().lockedCamera());
 
     Map<Cameras, Vision.CameraSnapshot> backOnly = baseCameraData();
-    backOnly.put(Cameras.LEFT_CAMERA, snapshotWithTarget(Cameras.LEFT_CAMERA, -1, 5.0, 1.0, 1.0));
+    backOnly.put(Cameras.LEFT_BACK, snapshotWithTarget(Cameras.LEFT_BACK, -1, 5.0, 1.0, 1.0));
 
     FuelPalantir.FuelPalantirStep switchedStep =
         FuelPalantir.fuelPalantir(
             backOnly, frontStep.nextState(), FuelPalantir.FuelPalantirMode.TELEOP, 0.2);
 
-    assertNotEquals(Optional.of(Cameras.LEFT_CAMERA), switchedStep.nextState().lockedCamera());
+    assertNotEquals(Optional.of(Cameras.LEFT_BACK), switchedStep.nextState().lockedCamera());
   }
 }
