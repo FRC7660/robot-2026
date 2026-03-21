@@ -110,7 +110,7 @@ public class Lights extends SubsystemBase {
         break;
     }
 
-    System.out.println(xColor); // Use this print function if LEDs are not currently testable
+    // System.out.println(xColor); // Use this print function if LEDs are not currently testable
     xColor.applyTo(m_ledBuffer);
 
     // Set the LEDs

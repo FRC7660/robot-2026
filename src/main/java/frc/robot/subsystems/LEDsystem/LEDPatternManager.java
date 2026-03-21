@@ -117,7 +117,17 @@ public class LEDPatternManager extends SubsystemBase {
       DRIVE
     };
 
-    TreeMap<focus, Supplier<LEDPattern>> focusRoutines = new TreeMap<>();
+    public enum focusKeys {
+      DEFAULT,
+      DEF_RAINBOW,
+      I_TEST, // Intake
+      S_TEST, // Shooter
+      D_TEST, // Drive
+      S_MUZZLEFLASH,
+      D_ERRORDISPLAY,
+    }
+
+    TreeMap<focusKeys, Supplier<LEDPattern>> focusRoutines = new TreeMap<>();
 
     /** Initialization */
     public LightRoutine(
@@ -125,7 +135,7 @@ public class LEDPatternManager extends SubsystemBase {
         Intake intakeSystem,
         SwerveSubsystem swerveSystem,
         Turret turretSystem) {
-      LEDPattern value = LEDPattern.kOff;
+      value = LEDPattern.kOff;
       currentFocus = focus.DEFAULT;
       pBank = new PatternBank();
 
@@ -136,16 +146,20 @@ public class LEDPatternManager extends SubsystemBase {
       turret = turretSystem;
 
       // Default/Test routines
-      focusRoutines.put(focus.DEFAULT, getRoutine("Test", focus.DEFAULT));
-      focusRoutines.put(focus.DEFAULT, getRoutine("Rainbow", focus.DEFAULT));
+      focusRoutines.put(focusKeys.DEFAULT, loadRoutine("Test", focus.DEFAULT));
+      focusRoutines.put(focusKeys.DEF_RAINBOW, loadRoutine("Rainbow", focus.DEFAULT));
 
       // Subsystem-specific routines
-      focusRoutines.put(focus.INTAKE, getRoutine("Test", focus.INTAKE));
-      focusRoutines.put(focus.SHOOTER, getRoutine("Test", focus.SHOOTER));
-      focusRoutines.put(focus.DRIVE, getRoutine("Test", focus.DRIVE));
+      focusRoutines.put(focusKeys.I_TEST, loadRoutine("Test", focus.INTAKE));
+
+      focusRoutines.put(focusKeys.S_TEST, loadRoutine("Test", focus.SHOOTER));
+      focusRoutines.put(focusKeys.S_MUZZLEFLASH, loadRoutine("MuzzleFlash", focus.SHOOTER));
+
+      focusRoutines.put(focusKeys.D_TEST, loadRoutine("Test", focus.DRIVE));
+      focusRoutines.put(focusKeys.D_ERRORDISPLAY, loadRoutine("ErrorDisplay", focus.DRIVE));
     }
 
-    public Supplier<LEDPattern> getRoutine(String routineName, focus focusName) {
+    public Supplier<LEDPattern> loadRoutine(String routineName, focus focusName) {
       Supplier<LEDPattern> returnPattern = () -> LEDPattern.kOff;
 
       switch (focusName) {
@@ -225,7 +239,9 @@ public class LEDPatternManager extends SubsystemBase {
       return returnPattern;
     }
 
-    public void update() {}
+    public void update() {
+      value = focusRoutines.get(currentFocus).get();
+    }
 
     public LEDPattern testRoutine(LEDPattern basePattern) {
       return basePattern;
