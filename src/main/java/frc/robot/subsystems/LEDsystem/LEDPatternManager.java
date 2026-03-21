@@ -271,7 +271,7 @@ public class LEDPatternManager extends SubsystemBase {
                         return pBank
                             .staggerWhite
                             .scrollAtAbsoluteSpeed(
-                                MetersPerSecond.of(launch.getVelocity().in(RadiansPerSecond) / 300),
+                                MetersPerSecond.of(launch.getVelocity().in(RadiansPerSecond) / 10000),
                                 kLedSpacing)
                             .overlayOn(
                                 pBank.orange.synchronizedBlink(
