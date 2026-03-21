@@ -16,6 +16,8 @@ import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Launch;
 import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
+
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -139,6 +141,20 @@ public class LEDPatternManager extends SubsystemBase {
       ERROR,
       CRITICAL_ERROR
     }
+
+    /** Values for each level to calculate their priority (higher value means higher priority). 
+    This is used to override normal patterns with more important ones across all subsystems.*/
+    public HashMap<priorityLevel, Integer> priorityValues =
+        new HashMap<priorityLevel, Integer>() {
+          {
+            put(priorityLevel.TEST, 0);
+            put(priorityLevel.NORMAL_OPERATION, 1);
+            put(priorityLevel.SPECIAL_OPERATION, 2);
+            put(priorityLevel.WARNING, 3);
+            put(priorityLevel.ERROR, 4);
+            put(priorityLevel.CRITICAL_ERROR, 5);
+          }
+        };
 
     public static class PrioritizedPair {
       public priorityLevel level;
@@ -330,6 +346,13 @@ public class LEDPatternManager extends SubsystemBase {
     }
 
     public LEDPattern update() {
+      focusRoutines.forEach(
+          (focus, routineSupplier) -> {
+            PrioritizedPair routine = routineSupplier.get();
+            if (routine.level.ordinal() > priorityValues.get(priorityLevel.NORMAL_OPERATION)) {
+              currentFocus = focus;
+            }
+          });
       activePattern = focusRoutines.get(currentFocus).get().getPattern();
       return activePattern;
     }
