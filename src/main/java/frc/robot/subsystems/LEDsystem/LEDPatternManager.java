@@ -12,6 +12,7 @@ import edu.wpi.first.wpilibj.LEDPattern;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.lib.DashboardTelemetry;
 import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Launch;
 import frc.robot.subsystems.Turret;
@@ -260,7 +261,10 @@ public class LEDPatternManager extends SubsystemBase {
                 Supplier<LEDPattern> returnPattern;
 
                 if (launch.getVelocity().in(RPM) > 1) {
-                  level = priorityLevel.NORMAL_OPERATION;
+                  DashboardTelemetry.putString(
+                    "LEDS/" + focusName.toString(), "ACTIVE DISPLAY - VELOCITY: " + launch.getVelocity().in(RPM) + " RPM"
+                    );
+                  level = priorityLevel.SPECIAL_OPERATION;
                   returnPattern =
                       () -> {
                         return pBank
@@ -303,6 +307,9 @@ public class LEDPatternManager extends SubsystemBase {
                 Supplier<LEDPattern> returnPattern;
 
                 if (drivebase.navxConnected() == false) {
+                  DashboardTelemetry.putString(
+                    "LEDS/" + focusName.toString(), "NAVX ERROR - CHECK CONNECTION"
+                    );
                   level = priorityLevel.CRITICAL_ERROR;
                   // If the gyro is not connected, breathe red to indicate an error.
                   // This is a critical error since the robot relies on the gyro for
@@ -342,6 +349,8 @@ public class LEDPatternManager extends SubsystemBase {
               };
           break;
       }
+
+      DashboardTelemetry.putString("LEDS/" + focusName.toString(), "routines loaded");
       return routineSupplier;
     }
 
@@ -353,6 +362,11 @@ public class LEDPatternManager extends SubsystemBase {
               currentFocus = focus;
             }
           });
+      if (focusRoutines.get(currentFocus).get().level == priorityLevel.NORMAL_OPERATION) {
+        DashboardTelemetry.putString(
+          "LEDS/" + currentFocus.toString(), "ACTIVE DISPLAY - OK"
+          );
+      }
       activePattern = focusRoutines.get(currentFocus).get().getPattern();
       return activePattern;
     }
