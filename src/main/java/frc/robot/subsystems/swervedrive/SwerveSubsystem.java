@@ -6,6 +6,8 @@ package frc.robot.subsystems.swervedrive;
 
 import static edu.wpi.first.units.Units.Meter;
 
+import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
+import com.ctre.phoenix6.hardware.TalonFX;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.commands.PathfindingCommand;
 import com.pathplanner.lib.config.PIDConstants;
@@ -15,6 +17,7 @@ import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.util.DriveFeedforwards;
 import com.pathplanner.lib.util.swerve.SwerveSetpoint;
 import com.pathplanner.lib.util.swerve.SwerveSetpointGenerator;
+import com.studica.frc.AHRS;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -48,10 +51,12 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.json.simple.parser.ParseException;
 import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 import org.photonvision.EstimatedRobotPose;
 import swervelib.SwerveController;
 import swervelib.SwerveDrive;
 import swervelib.SwerveDriveTest;
+import swervelib.SwerveModule;
 import swervelib.math.SwerveMath;
 import swervelib.parser.SwerveControllerConfiguration;
 import swervelib.parser.SwerveDriveConfiguration;
@@ -64,6 +69,8 @@ public class SwerveSubsystem extends SubsystemBase {
 
   /** Swerve drive object. */
   private final SwerveDrive swerveDrive;
+
+  private AHRS navxIMU;
 
   private final SwerveAutonomousCommands autonomousCommands;
 
@@ -120,6 +127,7 @@ public class SwerveSubsystem extends SubsystemBase {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
+    bindNavxImu();
     swerveDrive.setHeadingCorrection(
         false); // Heading correction should only be used while controlling the robot via angle.
     swerveDrive.setCosineCompensator(
@@ -151,6 +159,7 @@ public class SwerveSubsystem extends SubsystemBase {
     }
     autonomousCommands = new SwerveAutonomousCommands(this, swerveDrive, () -> vision);
     setupPathPlanner();
+    setCurrentLimits();
   }
 
   /**
@@ -169,7 +178,14 @@ public class SwerveSubsystem extends SubsystemBase {
             controllerCfg,
             Constants.MAX_SPEED,
             new Pose2d(new Translation2d(Meter.of(2), Meter.of(0)), Rotation2d.fromDegrees(0)));
+    bindNavxImu();
     autonomousCommands = new SwerveAutonomousCommands(this, swerveDrive, () -> vision);
+    setCurrentLimits();
+  }
+
+  private void bindNavxImu() {
+    Object imu = swerveDrive.getGyro().getIMU();
+    navxIMU = imu instanceof AHRS ? (AHRS) imu : null;
   }
 
   private void initVisionChoosers() {
@@ -223,7 +239,7 @@ public class SwerveSubsystem extends SubsystemBase {
     odomPoseLogEntry.append(odomPose);
 
     // When vision is enabled we must manually update odometry in SwerveDrive
-    if (visionDriveTest) {
+    if (visionDriveTest && vision != null) {
       swerveDrive.updateOdometry();
       try {
         vision.process(swerveDrive);
@@ -234,18 +250,58 @@ public class SwerveSubsystem extends SubsystemBase {
 
     Optional<Pose2d> fusedPose =
         vision == null ? Optional.empty() : vision.getLastSelectedFusedPose();
+    Pose2d fused = new Pose2d();
     if (fusedPose.isPresent()) {
-      Pose2d fused = fusedPose.get();
+      fused = fusedPose.get();
       fusedPosePublisher.set(fused);
       fusedPoseLogEntry.append(fused);
       advantageScopeField.getObject("VisionFused").setPose(fused);
     } else {
       advantageScopeField.getObject("VisionFused").setPoses(List.of());
     }
+    Logger.recordOutput("Vision/Pose/Fused", fused);
+
+    boolean navxError = navxIMU == null;
+    boolean navxCalibrating = false;
+    double navxYaw = 0.0;
+    if (!navxError) {
+      navxCalibrating = navxIMU.isCalibrating();
+      navxYaw = navxIMU.getYaw();
+    }
+    Logger.recordOutput("Drive/Navx/Error", navxError);
+    Logger.recordOutput("Drive/Navx/IsConnected", navxConnected());
+    Logger.recordOutput("Drive/Navx/IsCalibrating", navxCalibrating);
+    Logger.recordOutput("Drive/Navx/Yaw", navxYaw);
+  }
+
+  public boolean navxConnected() {
+    return navxIMU != null && navxIMU.isConnected();
+  }
+
+  private void setCurrentLimits() {
+    for (SwerveModule swerveModule : swerveDrive.getModules()) {
+      TalonFX motor = (TalonFX) swerveModule.getDriveMotor().getMotor();
+      CurrentLimitsConfigs config = new CurrentLimitsConfigs();
+      motor.getConfigurator().refresh(config);
+      motor
+          .getConfigurator()
+          .apply(
+              config
+                  .withStatorCurrentLimitEnable(true)
+                  .withStatorCurrentLimit(120.0) // default 120
+                  .withSupplyCurrentLimitEnable(true)
+                  .withSupplyCurrentLowerTime(2.5) // default 1.0
+                  .withSupplyCurrentLowerLimit(45) // default 40
+              );
+    }
   }
 
   @Override
-  public void simulationPeriodic() {}
+  public void simulationPeriodic() {
+    if (vision != null && vision.getVisionSim() != null) {
+      vision.getVisionSim().update(swerveDrive.getPose());
+    }
+  }
 
   /** Setup AutoBuilder for PathPlanner. */
   public void setupPathPlanner() {
