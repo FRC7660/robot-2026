@@ -253,8 +253,8 @@ public class Launch extends SubsystemBase {
                 Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
                 Commands.waitUntil(() -> optimalVelocityReached.getAsBoolean()),
                 // Feed while shooter remains at speed.
-                Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(200.0))),
-                Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(120.0))),
+                Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(Constants.LaunchConstants.FUNNEL_RPM))),
+                Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(Constants.LaunchConstants.INDEX_RPM))),
                 Commands.waitUntil(() -> optimalVelocityReached.negate().getAsBoolean())))
         .handleInterrupt(() -> shotSequenceEnd(indexSystem));
   }
