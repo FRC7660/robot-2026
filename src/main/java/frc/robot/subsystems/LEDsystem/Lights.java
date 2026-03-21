@@ -24,11 +24,12 @@ import frc.robot.subsystems.swervedrive.SwerveSubsystem;
  * setter methods to reflect the robot's state, errors, or other information.
  */
 public class Lights extends SubsystemBase {
-  public int ticks = 0;
   private final AddressableLED m_led;
   private static LightRoutine activeRoutine;
+  private LEDPattern xColor;
   private final AddressableLEDBuffer m_ledBuffer;
   private final PatternBank p = new PatternBank();
+  private final LEDPatternManager patternManager;
   // Our LED strip has a density of 120 LEDs per meter
   private static final Distance kLedSpacing = LEDPatternManager.kLedSpacing;
 
@@ -52,10 +53,11 @@ public class Lights extends SubsystemBase {
     // PWM port 9
     // Must be a PWM header, not MXP or DIO
     m_led = new AddressableLED(9);
+    xColor = p.off;
 
     // Instantiate the LED pattern manager, which will handle the logic for determining which
     // pattern to display based on the robot's state
-    LEDPatternManager patternManager = new LEDPatternManager();
+    patternManager = new LEDPatternManager();
 
     // Instantiate Routine
     activeRoutine = new LightRoutine(launchSystem, intakeSystem, swerveSystem, turretSystem);
@@ -78,12 +80,7 @@ public class Lights extends SubsystemBase {
 
   @Override
   public void periodic() {
-    ticks += 1;
-    ticks %= 50000; // will (hopefully) limit ticks to 50000 and then reset it to 0
-    // System.out.println(ticks);
-
-    LEDPattern xColor = p.off;
-    xColor = activeRoutine.get();
+    xColor = activeRoutine.update();
 
     // Value for testing conditions (overrides when above 0)
     int testVal = 0;

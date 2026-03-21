@@ -2,6 +2,7 @@ package frc.robot.subsystems.LEDsystem;
 
 import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.RPM;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.Seconds;
 
@@ -15,8 +16,8 @@ import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Launch;
 import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
+import java.util.Hashtable;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.function.Supplier;
 
 public class LEDPatternManager extends SubsystemBase {
@@ -98,8 +99,7 @@ public class LEDPatternManager extends SubsystemBase {
   }
 
   public static class LightRoutine {
-    private PatternBank p = new PatternBank();
-    public LEDPattern value;
+    public LEDPattern activePattern;
     public static focus currentFocus;
     public static LEDPatternManager.PatternBank pBank;
 
@@ -115,19 +115,34 @@ public class LEDPatternManager extends SubsystemBase {
       INTAKE,
       SHOOTER,
       DRIVE
-    };
-
-    public enum focusKeys {
-      DEFAULT,
-      DEF_RAINBOW,
-      I_TEST, // Intake
-      S_TEST, // Shooter
-      D_TEST, // Drive
-      S_MUZZLEFLASH,
-      D_ERRORDISPLAY,
     }
 
-    TreeMap<focusKeys, Supplier<LEDPattern>> focusRoutines = new TreeMap<>();
+    // Priority levels shared across focuses, used to determine which routine within a set should be
+    // displayed if multiple conditions are met.
+    public enum priorityLevel {
+      TEST,
+      NORMAL_OPERATION,
+      SPECIAL_OPERATION,
+      WARNING,
+      ERROR,
+      CRITICAL_ERROR
+    }
+
+    public static class PrioritizedPair {
+      public priorityLevel level;
+      public Supplier<LEDPattern> routine;
+
+      public PrioritizedPair(priorityLevel level, Supplier<LEDPattern> routine) {
+        this.level = level;
+        this.routine = routine;
+      }
+
+      public LEDPattern getPattern() {
+        return routine.get();
+      }
+    }
+
+    Hashtable<focus, Supplier<PrioritizedPair>> focusRoutines = new Hashtable<>();
 
     /** Initialization */
     public LightRoutine(
@@ -135,7 +150,7 @@ public class LEDPatternManager extends SubsystemBase {
         Intake intakeSystem,
         SwerveSubsystem swerveSystem,
         Turret turretSystem) {
-      value = LEDPattern.kOff;
+      activePattern = LEDPattern.kOff;
       currentFocus = focus.DEFAULT;
       pBank = new PatternBank();
 
@@ -145,110 +160,148 @@ public class LEDPatternManager extends SubsystemBase {
       drivebase = swerveSystem;
       turret = turretSystem;
 
-      // Default/Test routines
-      focusRoutines.put(focusKeys.DEFAULT, loadRoutine("Test", focus.DEFAULT));
-      focusRoutines.put(focusKeys.DEF_RAINBOW, loadRoutine("Rainbow", focus.DEFAULT));
-
-      // Subsystem-specific routines
-      focusRoutines.put(focusKeys.I_TEST, loadRoutine("Test", focus.INTAKE));
-
-      focusRoutines.put(focusKeys.S_TEST, loadRoutine("Test", focus.SHOOTER));
-      focusRoutines.put(focusKeys.S_MUZZLEFLASH, loadRoutine("MuzzleFlash", focus.SHOOTER));
-
-      focusRoutines.put(focusKeys.D_TEST, loadRoutine("Test", focus.DRIVE));
-      focusRoutines.put(focusKeys.D_ERRORDISPLAY, loadRoutine("ErrorDisplay", focus.DRIVE));
+      focusRoutines.put(focus.DEFAULT, loadRoutine(focus.DEFAULT));
+      focusRoutines.put(focus.INTAKE, loadRoutine(focus.INTAKE));
+      focusRoutines.put(focus.SHOOTER, loadRoutine(focus.SHOOTER));
+      focusRoutines.put(focus.DRIVE, loadRoutine(focus.DRIVE));
     }
 
-    public Supplier<LEDPattern> loadRoutine(String routineName, focus focusName) {
-      Supplier<LEDPattern> returnPattern = () -> LEDPattern.kOff;
+    // This method contains all the routines for each focus, and returns the appropriate pattern
+    // based on
+    // the routine name and current subsystem conditions.
+    // Routines are loaded as Suppliers to allow for dynamic updates based on changing conditions.
+    public Supplier<PrioritizedPair> loadRoutine(focus focusName) {
+      Supplier<PrioritizedPair> routineSupplier;
 
       switch (focusName) {
         case DEFAULT:
-          returnPattern =
+          routineSupplier =
               () -> {
-                if (routineName == "Rainbow") {
-                  return pBank.rainbow.scrollAtAbsoluteSpeed(MetersPerSecond.of(0.5), kLedSpacing);
+                priorityLevel level;
+                Supplier<LEDPattern> returnPattern;
+
+                if (true) {
+                  level = priorityLevel.TEST;
+                  returnPattern =
+                      () -> {
+                        return pBank.rainbow.scrollAtAbsoluteSpeed(
+                            MetersPerSecond.of(0.5), kLedSpacing);
+                      };
                 }
-                return pBank.white;
+
+                return new PrioritizedPair(level, returnPattern);
               };
           break;
 
         case INTAKE:
-          returnPattern =
+          routineSupplier =
               () -> {
-                if (routineName == "Test") {
-                  return pBank.staggerGreen.blink(Seconds.of(0.5));
+                priorityLevel level;
+                Supplier<LEDPattern> returnPattern;
+
+                if (intake.getRollerSpeed().get() > 0.1) {
+                  level = priorityLevel.NORMAL_OPERATION;
+                  returnPattern =
+                      () -> {
+                        return pBank.staggerGreen.blink(Seconds.of(0.5));
+                      };
+                } else {
+                  level = priorityLevel.NORMAL_OPERATION;
+                  returnPattern =
+                      () -> {
+                        return pBank.green;
+                      };
                 }
-                return pBank.green;
+
+                return new PrioritizedPair(level, returnPattern);
               };
           break;
 
         case SHOOTER:
-          returnPattern =
+          routineSupplier =
               () -> {
-                if (routineName == "Test") {
-                  return pBank.staggerRed.blink(Seconds.of(0.5));
+                priorityLevel level;
+                Supplier<LEDPattern> returnPattern;
 
-                } else if (routineName == "MuzzleFlash") {
-                  return pBank
-                      .staggerWhite
-                      .scrollAtAbsoluteSpeed(
-                          MetersPerSecond.of(launch.getVelocity().in(RadiansPerSecond) / 300),
-                          kLedSpacing)
-                      .overlayOn(
-                          pBank.orange.synchronizedBlink(
-                              () -> {
-                                // Compares the live velocity to the optimal and flashes orange if
-                                // they are not close.
-                                return !launch
-                                    .getVelocity()
-                                    .isNear(launch.getOptimalVelocity(), 0.02);
-                              }));
+                if (launch.getVelocity().in(RPM) > 1) {
+                  level = priorityLevel.NORMAL_OPERATION;
+                  returnPattern =
+                      () -> {
+                        return pBank
+                            .staggerWhite
+                            .scrollAtAbsoluteSpeed(
+                                MetersPerSecond.of(launch.getVelocity().in(RadiansPerSecond) / 300),
+                                kLedSpacing)
+                            .overlayOn(
+                                pBank.orange.synchronizedBlink(
+                                    () -> {
+                                      // Compares the live velocity to the optimal and flashes
+                                      // orange if
+                                      // they are not close.
+                                      return !launch
+                                          .getVelocity()
+                                          .isNear(launch.getOptimalVelocity(), 0.02);
+                                    }));
+                      };
+                } else {
+                  level = priorityLevel.NORMAL_OPERATION;
+                  returnPattern =
+                      () -> {
+                        return pBank.yellow;
+                      };
                 }
-                ;
-                return pBank.yellow;
+
+                return new PrioritizedPair(level, returnPattern);
               };
           break;
 
         case DRIVE:
-          returnPattern =
+          routineSupplier =
               () -> {
-                if (routineName == "Test") {
-                  return pBank.staggerBlue.blink(Seconds.of(0.5));
+                priorityLevel level;
+                Supplier<LEDPattern> returnPattern;
 
-                } else if (routineName == "ErrorDisplay") {
-                  if (drivebase.navxConnected() == false) {
-                    // If the gyro is not connected, breathe red to indicate an error.
-                    // This is a critical error since the robot relies on the gyro for
-                    // field-oriented control, so it is prioritized over other potential errors.
-                    return pBank.red.breathe(Seconds.of(1));
-                  } else if (true) {
-                    // Placeholder for another error condition, such as a disconnected motor.
-                    // This can be updated with an actual condition once the drivebase code is
-                    // implemented.
-                    return pBank.orange.breathe(Seconds.of(1));
-                  }
+                if (drivebase.navxConnected() == false) {
+                  level = priorityLevel.CRITICAL_ERROR;
+                  // If the gyro is not connected, breathe red to indicate an error.
+                  // This is a critical error since the robot relies on the gyro for
+                  // field-oriented control, so it is prioritized over other potential errors.
+                  returnPattern =
+                      () -> {
+                        return pBank.red.breathe(Seconds.of(1));
+                      };
+                } else {
+                  level = priorityLevel.NORMAL_OPERATION;
+                  returnPattern =
+                      () -> {
+                        return pBank.blue;
+                      };
                 }
-                return pBank.blue;
+
+                return new PrioritizedPair(level, returnPattern);
               };
           break;
 
         default:
+          routineSupplier =
+              () -> {
+                priorityLevel level;
+                Supplier<LEDPattern> returnPattern;
+                level = priorityLevel.TEST;
+                returnPattern =
+                    () -> {
+                      return pBank.white;
+                    };
+                return new PrioritizedPair(level, returnPattern);
+              };
           break;
       }
-      return returnPattern;
+      return routineSupplier;
     }
 
-    public void update() {
-      value = focusRoutines.get(currentFocus).get();
-    }
-
-    public LEDPattern testRoutine(LEDPattern basePattern) {
-      return basePattern;
-    }
-
-    public LEDPattern get() {
-      return value;
+    public LEDPattern update() {
+      activePattern = focusRoutines.get(currentFocus).get().getPattern();
+      return activePattern;
     }
   }
 }
