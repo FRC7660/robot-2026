@@ -200,7 +200,7 @@ public class Intake extends SubsystemBase {
         () -> {
           Angle setpointAngle = lift.getMechanismSetpoint().orElse(getAngle());
           if (setpointAngle.in(Degrees) < 0) {
-            setAngleSetpoint(107.0);
+            setAngleSetpoint(110.0);
           } else {
             setAngleSetpoint(-40.0);
           }
