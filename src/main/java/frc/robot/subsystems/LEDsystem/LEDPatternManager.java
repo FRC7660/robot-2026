@@ -5,11 +5,14 @@ import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.RPM;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.Seconds;
+import static edu.wpi.first.units.Units.Second;
+import static edu.wpi.first.units.Units.Percent;
 
 import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.units.measure.Time;
 import edu.wpi.first.wpilibj.LEDPattern;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.lib.DashboardTelemetry;
@@ -36,6 +39,16 @@ public class LEDPatternManager extends SubsystemBase {
     public final LEDPattern orange = LEDPattern.solid(Color.kOrange);
     public final LEDPattern black = LEDPattern.solid(Color.kBlack);
     public final LEDPattern white = LEDPattern.solid(Color.kWhite);
+
+    // Special solid colors
+    public final LEDPattern cyan = LEDPattern.solid(Color.kCyan);
+    public final LEDPattern magenta = LEDPattern.solid(Color.kMagenta);
+    public final LEDPattern lime = LEDPattern.solid(Color.kLime);
+    public final LEDPattern pink = LEDPattern.solid(Color.kPink);
+    public final LEDPattern teal = LEDPattern.solid(Color.kTeal);
+    public final LEDPattern crimson = LEDPattern.solid(Color.kCrimson);
+    public final LEDPattern navy = LEDPattern.solid(Color.kNavy);
+    public final LEDPattern indigo = LEDPattern.solid(Color.kIndigo);
 
     /** Staggered colors */
     private final LEDPattern staggerBasic(Color inputColor) {
@@ -107,6 +120,8 @@ public class LEDPatternManager extends SubsystemBase {
         LEDPattern.steps(Map.of(0.45, Color.kGreen, 0.5, Color.kBlack));
     public final LEDPattern blueFocus =
         LEDPattern.steps(Map.of(0.45, Color.kBlue, 0.5, Color.kBlack));
+    public final LEDPattern purpleFocus =
+        LEDPattern.steps(Map.of(0.45, Color.kPurple, 0.5, Color.kBlack));
 
     // Lights off
     public final LEDPattern off = LEDPattern.kOff;
@@ -128,7 +143,8 @@ public class LEDPatternManager extends SubsystemBase {
       DEFAULT,
       INTAKE,
       SHOOTER,
-      DRIVE
+      DRIVE,
+      VISION
     }
 
     // Priority levels shared across focuses, used to determine which routine within a set should be
@@ -136,7 +152,11 @@ public class LEDPatternManager extends SubsystemBase {
     public enum priorityLevel {
       TEST,
       NORMAL_OPERATION,
-      SPECIAL_OPERATION,
+      SPECIAL_OPERATION_1,
+      SPECIAL_OPERATION_2,
+      SPECIAL_OPERATION_3,
+      SPECIAL_OPERATION_4,
+      SPECIAL_OPERATION_5,
       WARNING,
       ERROR,
       CRITICAL_ERROR
@@ -146,15 +166,19 @@ public class LEDPatternManager extends SubsystemBase {
      * Values for each level to calculate their priority (higher value means higher priority). This
      * is used to override normal patterns with more important ones across all subsystems.
      */
-    public HashMap<priorityLevel, Integer> priorityValues =
-        new HashMap<priorityLevel, Integer>() {
+    public HashMap<priorityLevel, Double> priorityValues =
+        new HashMap<priorityLevel, Double>() {
           {
-            put(priorityLevel.TEST, 0);
-            put(priorityLevel.NORMAL_OPERATION, 1);
-            put(priorityLevel.SPECIAL_OPERATION, 2);
-            put(priorityLevel.WARNING, 3);
-            put(priorityLevel.ERROR, 4);
-            put(priorityLevel.CRITICAL_ERROR, 5);
+            put(priorityLevel.TEST, 0.0);
+            put(priorityLevel.NORMAL_OPERATION, 1.0);
+            put(priorityLevel.SPECIAL_OPERATION_1, 2.0);
+            put(priorityLevel.SPECIAL_OPERATION_2, 2.1);
+            put(priorityLevel.SPECIAL_OPERATION_3, 2.2);
+            put(priorityLevel.SPECIAL_OPERATION_4, 2.3);
+            put(priorityLevel.SPECIAL_OPERATION_5, 2.4);
+            put(priorityLevel.WARNING, 3.0);
+            put(priorityLevel.ERROR, 4.0);
+            put(priorityLevel.CRITICAL_ERROR, 5.0);
           }
         };
 
@@ -194,6 +218,7 @@ public class LEDPatternManager extends SubsystemBase {
       focusRoutines.put(focus.INTAKE, loadRoutine(focus.INTAKE));
       focusRoutines.put(focus.SHOOTER, loadRoutine(focus.SHOOTER));
       focusRoutines.put(focus.DRIVE, loadRoutine(focus.DRIVE));
+      focusRoutines.put(focus.VISION, loadRoutine(focus.VISION));
     }
 
     // This method contains all the routines for each focus, and returns the appropriate pattern
@@ -232,11 +257,17 @@ public class LEDPatternManager extends SubsystemBase {
                 priorityLevel level;
                 Supplier<LEDPattern> returnPattern;
 
-                if (intake.getRollerSpeed().get() > 0.1) {
-                  level = priorityLevel.NORMAL_OPERATION;
+                if (intake.getRollerOutput() > 0.1) {
+                  DashboardTelemetry.putString(
+                    "LEDS/" + focusName.toString(), "ACTIVE DISPLAY - ROLLER OUTPUT: " + intake.getRollerOutput()*100 + "%"
+                    );
+                  level = priorityLevel.SPECIAL_OPERATION_1;
                   returnPattern =
                       () -> {
-                        return pBank.staggerGreen.blink(Seconds.of(0.5));
+                        // Flicker green and overlay with red at a brightness corresponding to the roller speed.
+                        return pBank.flickerGreen.get()
+                        .overlayOn(pBank.lime)
+                        .blend(pBank.red.atBrightness(Percent.of(intake.getRollerOutput())));
                       };
                 } else {
                   level = priorityLevel.NORMAL_OPERATION;
@@ -261,28 +292,24 @@ public class LEDPatternManager extends SubsystemBase {
                 priorityLevel level;
                 Supplier<LEDPattern> returnPattern;
 
-                if (launch.getVelocity().in(RPM) > 1) {
+                if (launch.getVelocity().in(RPM) > 5) {
                   DashboardTelemetry.putString(
                     "LEDS/" + focusName.toString(), "ACTIVE DISPLAY - VELOCITY: " + launch.getVelocity().in(RPM) + " RPM"
                     );
-                  level = priorityLevel.SPECIAL_OPERATION;
+                  level = priorityLevel.SPECIAL_OPERATION_3;
                   returnPattern =
                       () -> {
                         return pBank
                             .staggerWhite
-                            .scrollAtAbsoluteSpeed(
-                                MetersPerSecond.of(launch.getVelocity().in(RadiansPerSecond) / 10000),
-                                kLedSpacing)
+                            .scrollAtRelativeSpeed(Percent.per(Second).of(25))
                             .overlayOn(
                                 pBank.orange.synchronizedBlink(
                                     () -> {
                                       // Compares the live velocity to the optimal and flashes
-                                      // orange if
-                                      // they are not close.
-                                      return !launch
-                                          .getVelocity()
-                                          .isNear(launch.getOptimalVelocity(), 0.02);
-                                    }));
+                                      // orange if they are not close.
+                                      return !(launch.getVelocity().isNear(launch.getOptimalVelocity(turret), 0.1));
+                                    }))
+                            .overlayOn(pBank.lime); // Show green when speed is optimal
                       };
                 } else {
                   level = priorityLevel.NORMAL_OPERATION;
@@ -336,6 +363,56 @@ public class LEDPatternManager extends SubsystemBase {
               };
           break;
 
+        case VISION:
+          routineSupplier =
+              () -> {
+                priorityLevel level;
+                Supplier<LEDPattern> returnPattern;
+                LEDPattern sightedPattern;
+
+                // Default level and return pattern if no targets are visible is solid purple.
+                level = priorityLevel.NORMAL_OPERATION;
+                returnPattern =
+                    () -> {
+                      return pBank.purple;
+                    };
+
+                String[] cameraKeys = SmartDashboard.getStringArray("Vision/", new String[]{"NO DATA"}); // Get list of cameras with visible targets from SmartDashboard
+                int sightings = 0;
+                for (String cameraKey : cameraKeys) {
+                  if (SmartDashboard.getBoolean("Vision/" + cameraKey + "/TagVisible", false)) {
+                    sightings++;
+                    DashboardTelemetry.putString(
+                      "LEDS/" + focusName.toString(), "ACTIVE DISPLAY - TARGET VISIBLE ON " + cameraKey
+                      );
+                    // If any camera has a visible target, overlay flashing pink to indicate vision tracking.
+                    // Faster blinking = more targets visible.
+                    break; // Exit loop after finding the first camera with a visible target.
+                  }
+                }
+                
+                // Apply sighting indicator and determine priority level.
+                if (sightings > 0) {
+                  level = priorityLevel.SPECIAL_OPERATION_2;
+                  sightedPattern = pBank.pink.blink(Seconds.of(1 / sightings)).overlayOn(returnPattern.get());
+                } else {
+                  sightedPattern = returnPattern.get();
+                }
+                // Update returnPattern to display sightings
+                returnPattern =
+                    () -> {
+                      return sightedPattern;
+                    };
+
+                LEDPattern focusPattern = pBank.purpleFocus.overlayOn(returnPattern.get());
+                returnPattern =
+                    () -> {
+                      return focusPattern;
+                    };
+                return new PrioritizedPair(level, returnPattern);
+              };
+          break;
+
         default:
           routineSupplier =
               () -> {
@@ -356,18 +433,36 @@ public class LEDPatternManager extends SubsystemBase {
     }
 
     public LEDPattern update() {
-      focusRoutines.forEach(
-          (focus, routineSupplier) -> {
-            PrioritizedPair routine = routineSupplier.get();
-            if (routine.level.ordinal() > priorityValues.get(priorityLevel.NORMAL_OPERATION)) {
-              currentFocus = focus;
-            }
-          });
-      if (focusRoutines.get(currentFocus).get().level == priorityLevel.NORMAL_OPERATION) {
+      PrioritizedPair currentRoutinePair = focusRoutines.get(currentFocus).get();
+      Boolean allNormal = true; // Used to check if all routines are at normal operation, changing how they are displayed.
+      for (focus focus: focusRoutines.keySet()) {
+        PrioritizedPair routinePair = focusRoutines.get(focus).get();
+        // Compares the priority level of the current routine with the one being iterated through, 
+        // updating the focus if the new one has a higher priority (higher value in the priorityValues map).
+        if (priorityValues.get(routinePair.level) > priorityValues.get(currentRoutinePair.level)) {
+          currentFocus = focus;
+        }
+        if (priorityValues.get(routinePair.level) <= priorityValues.get(priorityLevel.NORMAL_OPERATION)) {
+          DashboardTelemetry.putString(
+            "LEDS/" + focus.toString(), "INACTIVE DISPLAY - NORMAL OPERATION"
+          );
+        } else {
+          allNormal = false;
+        }
+      };
+
+      // Publish the displayed focus' status if it is not already published by the routine (ex. shooter publishing with velocity)
+      if (!SmartDashboard.getString("LEDS/" + currentFocus.toString(), "INACTIVE").contains("ACTIVE DISPLAY")) {
         DashboardTelemetry.putString(
-          "LEDS/" + currentFocus.toString(), "ACTIVE DISPLAY - OK"
+          "LEDS/" + currentFocus.toString(), "ACTIVE DISPLAY - " + focusRoutines.get(currentFocus).get().level.toString()
           );
       }
+
+      if (allNormal) {
+        // Show the default focus if all routines are at normal operation
+        currentFocus = focus.DEFAULT;
+      }
+
       activePattern = focusRoutines.get(currentFocus).get().getPattern();
       return activePattern;
     }
