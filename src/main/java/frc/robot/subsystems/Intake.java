@@ -59,7 +59,7 @@ public class Intake extends SubsystemBase {
       new SmartMotorControllerConfig(this)
           .withControlMode(ControlMode.CLOSED_LOOP)
           .withClosedLoopController(
-              170.0, 0.0, 15.0, RPM.of(50), RPM.per(Second).of(300)) // decreased these for safety
+              170.0, 0.0, 15.0, RPM.of(25), RPM.per(Second).of(100)) // decreased these for safety
           .withFeedforward(new ArmFeedforward(0.02, 0.005, 4.5))
           // sim
           .withSimClosedLoopController(175.0, 0, 20.0, RPM.of(1000), RPM.per(Second).of(6000))
@@ -78,8 +78,8 @@ public class Intake extends SubsystemBase {
 
   private ArmConfig liftCfg =
       new ArmConfig(liftSmartMotorController)
-          .withSoftLimits(Degrees.of(-40), Degrees.of(110))
-          .withHardLimit(Degrees.of(-45), Degrees.of(110))
+          .withSoftLimits(Degrees.of(-30), Degrees.of(110))
+          .withHardLimit(Degrees.of(-35), Degrees.of(110))
           .withStartingPosition(Degrees.of(110))
           .withLength(Inches.of(8))
           .withMass(Pounds.of(8.466))
@@ -200,9 +200,9 @@ public class Intake extends SubsystemBase {
         () -> {
           Angle setpointAngle = lift.getMechanismSetpoint().orElse(getAngle());
           if (setpointAngle.in(Degrees) < 0) {
-            setAngleSetpoint(107.0);
+            setAngleSetpoint(110.0);
           } else {
-            setAngleSetpoint(-40.0);
+            setAngleSetpoint(-30.0);
           }
         });
   }
