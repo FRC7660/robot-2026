@@ -73,10 +73,10 @@ public class Lights extends SubsystemBase {
     m_led.start();
   }
 
-  /** This function assigns the lights a new routine */
-  public void setRoutine(LightRoutine routine) {
-    activeRoutine = routine;
-  }
+  // /** This function assigns the lights a new routine */
+  // public void setRoutine(LightRoutine routine) {
+  //   activeRoutine = routine;
+  // }
 
   @Override
   public void periodic() {
