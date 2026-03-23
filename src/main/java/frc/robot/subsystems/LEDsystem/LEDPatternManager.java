@@ -2,11 +2,10 @@ package frc.robot.subsystems.LEDsystem;
 
 import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.MetersPerSecond;
-import static edu.wpi.first.units.Units.RPM;
-import static edu.wpi.first.units.Units.RadiansPerSecond;
-import static edu.wpi.first.units.Units.Seconds;
-import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Percent;
+import static edu.wpi.first.units.Units.RPM;
+import static edu.wpi.first.units.Units.Second;
+import static edu.wpi.first.units.Units.Seconds;
 
 import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.units.measure.Time;
@@ -259,15 +258,18 @@ public class LEDPatternManager extends SubsystemBase {
 
                 if (intake.getRollerOutput() > 0.1) {
                   DashboardTelemetry.putString(
-                    "LEDS/" + focusName.toString(), "ACTIVE DISPLAY - ROLLER OUTPUT: " + intake.getRollerOutput()*100 + "%"
-                    );
+                      "LEDS/" + focusName.toString(),
+                      "ACTIVE DISPLAY - ROLLER OUTPUT: " + intake.getRollerOutput() * 100 + "%");
                   level = priorityLevel.SPECIAL_OPERATION_1;
                   returnPattern =
                       () -> {
-                        // Flicker green and overlay with red at a brightness corresponding to the roller speed.
-                        return pBank.flickerGreen.get()
-                        .overlayOn(pBank.lime)
-                        .blend(pBank.red.atBrightness(Percent.of(intake.getRollerOutput())));
+                        // Flicker green and overlay with red at a brightness corresponding to the
+                        // roller speed.
+                        return pBank
+                            .flickerGreen
+                            .get()
+                            .overlayOn(pBank.lime)
+                            .blend(pBank.red.atBrightness(Percent.of(intake.getRollerOutput())));
                       };
                 } else {
                   level = priorityLevel.NORMAL_OPERATION;
@@ -294,8 +296,8 @@ public class LEDPatternManager extends SubsystemBase {
 
                 if (launch.getVelocity().in(RPM) > 5) {
                   DashboardTelemetry.putString(
-                    "LEDS/" + focusName.toString(), "ACTIVE DISPLAY - VELOCITY: " + launch.getVelocity().in(RPM) + " RPM"
-                    );
+                      "LEDS/" + focusName.toString(),
+                      "ACTIVE DISPLAY - VELOCITY: " + launch.getVelocity().in(RPM) + " RPM");
                   level = priorityLevel.SPECIAL_OPERATION_3;
                   returnPattern =
                       () -> {
@@ -307,7 +309,9 @@ public class LEDPatternManager extends SubsystemBase {
                                     () -> {
                                       // Compares the live velocity to the optimal and flashes
                                       // orange if they are not close.
-                                      return !(launch.getVelocity().isNear(launch.getOptimalVelocity(turret), 0.1));
+                                      return !(launch
+                                          .getVelocity()
+                                          .isNear(launch.getOptimalVelocity(turret), 0.1));
                                     }))
                             .overlayOn(pBank.lime); // Show green when speed is optimal
                       };
@@ -336,8 +340,7 @@ public class LEDPatternManager extends SubsystemBase {
 
                 if (drivebase.navxConnected() == false) {
                   DashboardTelemetry.putString(
-                    "LEDS/" + focusName.toString(), "NAVX ERROR - CHECK CONNECTION"
-                    );
+                      "LEDS/" + focusName.toString(), "NAVX ERROR - CHECK CONNECTION");
                   level = priorityLevel.CRITICAL_ERROR;
                   // If the gyro is not connected, breathe red to indicate an error.
                   // This is a critical error since the robot relies on the gyro for
@@ -377,24 +380,31 @@ public class LEDPatternManager extends SubsystemBase {
                       return pBank.purple;
                     };
 
-                String[] cameraKeys = SmartDashboard.getStringArray("Vision/", new String[]{"NO DATA"}); // Get list of cameras with visible targets from SmartDashboard
+                String[] cameraKeys =
+                    SmartDashboard.getStringArray(
+                        "Vision/",
+                        new String[] {
+                          "NO DATA"
+                        }); // Get list of cameras with visible targets from SmartDashboard
                 int sightings = 0;
                 for (String cameraKey : cameraKeys) {
                   if (SmartDashboard.getBoolean("Vision/" + cameraKey + "/TagVisible", false)) {
                     sightings++;
                     DashboardTelemetry.putString(
-                      "LEDS/" + focusName.toString(), "ACTIVE DISPLAY - TARGET VISIBLE ON " + cameraKey
-                      );
-                    // If any camera has a visible target, overlay flashing pink to indicate vision tracking.
+                        "LEDS/" + focusName.toString(),
+                        "ACTIVE DISPLAY - TARGET VISIBLE ON " + cameraKey);
+                    // If any camera has a visible target, overlay flashing pink to indicate vision
+                    // tracking.
                     // Faster blinking = more targets visible.
                     break; // Exit loop after finding the first camera with a visible target.
                   }
                 }
-                
+
                 // Apply sighting indicator and determine priority level.
                 if (sightings > 0) {
                   level = priorityLevel.SPECIAL_OPERATION_2;
-                  sightedPattern = pBank.pink.blink(Seconds.of(1 / sightings)).overlayOn(returnPattern.get());
+                  sightedPattern =
+                      pBank.pink.blink(Seconds.of(1 / sightings)).overlayOn(returnPattern.get());
                 } else {
                   sightedPattern = returnPattern.get();
                 }
@@ -434,28 +444,34 @@ public class LEDPatternManager extends SubsystemBase {
 
     public LEDPattern update() {
       PrioritizedPair currentRoutinePair = focusRoutines.get(currentFocus).get();
-      Boolean allNormal = true; // Used to check if all routines are at normal operation, changing how they are displayed.
-      for (focus focus: focusRoutines.keySet()) {
+      Boolean allNormal =
+          true; // Used to check if all routines are at normal operation, changing how they are
+      // displayed.
+      for (focus focus : focusRoutines.keySet()) {
         PrioritizedPair routinePair = focusRoutines.get(focus).get();
-        // Compares the priority level of the current routine with the one being iterated through, 
-        // updating the focus if the new one has a higher priority (higher value in the priorityValues map).
+        // Compares the priority level of the current routine with the one being iterated through,
+        // updating the focus if the new one has a higher priority (higher value in the
+        // priorityValues map).
         if (priorityValues.get(routinePair.level) > priorityValues.get(currentRoutinePair.level)) {
           currentFocus = focus;
         }
-        if (priorityValues.get(routinePair.level) <= priorityValues.get(priorityLevel.NORMAL_OPERATION)) {
+        if (priorityValues.get(routinePair.level)
+            <= priorityValues.get(priorityLevel.NORMAL_OPERATION)) {
           DashboardTelemetry.putString(
-            "LEDS/" + focus.toString(), "INACTIVE DISPLAY - NORMAL OPERATION"
-          );
+              "LEDS/" + focus.toString(), "INACTIVE DISPLAY - NORMAL OPERATION");
         } else {
           allNormal = false;
         }
-      };
+      }
+      ;
 
-      // Publish the displayed focus' status if it is not already published by the routine (ex. shooter publishing with velocity)
-      if (!SmartDashboard.getString("LEDS/" + currentFocus.toString(), "INACTIVE").contains("ACTIVE DISPLAY")) {
+      // Publish the displayed focus' status if it is not already published by the routine (ex.
+      // shooter publishing with velocity)
+      if (!SmartDashboard.getString("LEDS/" + currentFocus.toString(), "INACTIVE")
+          .contains("ACTIVE DISPLAY")) {
         DashboardTelemetry.putString(
-          "LEDS/" + currentFocus.toString(), "ACTIVE DISPLAY - " + focusRoutines.get(currentFocus).get().level.toString()
-          );
+            "LEDS/" + currentFocus.toString(),
+            "ACTIVE DISPLAY - " + focusRoutines.get(currentFocus).get().level.toString());
       }
 
       if (allNormal) {
