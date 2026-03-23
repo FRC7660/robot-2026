@@ -313,8 +313,15 @@ public class LEDPatternManager extends SubsystemBase {
                             100 - ((5000 - launch.getVelocity().in(RPM)) / 5000) * 100;
                         return pBank
                             .red
-                            .atBrightness(Percent.of(75 - launchPercent * 0.5))
-                            .blend(pBank.lime.atBrightness(Percent.of(launchPercent)))
+                            .atBrightness(Percent.of(100 - launchPercent))
+                            .blend(
+                                LEDPattern.gradient(
+                                        LEDPattern.GradientType.kDiscontinuous,
+                                        Color.kLime,
+                                        Color.kLime,
+                                        Color.kAzure,
+                                        Color.kSkyBlue)
+                                    .atBrightness(Percent.of(launchPercent)))
                             .mask(
                                 LEDPattern.steps(
                                     Map.of(
