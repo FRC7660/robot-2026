@@ -17,8 +17,8 @@ import frc.robot.lib.DashboardTelemetry;
 import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Launch;
 import frc.robot.subsystems.Turret;
-import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import frc.robot.subsystems.swervedrive.Cameras;
+import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
@@ -426,7 +426,8 @@ public class LEDPatternManager extends SubsystemBase {
                 int sightings = 0;
                 String[] sightedCameras = new String[4];
                 for (Cameras cameraKey : Cameras.values()) {
-                  if (SmartDashboard.getBoolean("Vision/" + cameraKey.toString() + "/TagVisible", false)) {
+                  if (SmartDashboard.getBoolean(
+                      "Vision/" + cameraKey.toString() + "/TagVisible", false)) {
                     sightings++;
                     sightedCameras[sightings - 1] = cameraKey.toString();
                   }
@@ -438,10 +439,13 @@ public class LEDPatternManager extends SubsystemBase {
                 if (sightings > 0) {
                   level = priorityLevel.SPECIAL_OPERATION_2;
                   sightedPattern =
-                      pBank.pink.blink(Seconds.of(1 / (0.1+sightings))).overlayOn(returnPattern.get());
+                      pBank
+                          .pink
+                          .blink(Seconds.of(1 / (0.1 + sightings)))
+                          .overlayOn(returnPattern.get());
                   DashboardTelemetry.putString(
-                        "LEDS/" + focusName.toString(),
-                        "ACTIVE DISPLAY - " + sightings + " TARGET(s) VISIBLE");
+                      "LEDS/" + focusName.toString(),
+                      "ACTIVE DISPLAY - " + sightings + " TARGET(s) VISIBLE");
                 } else {
                   sightedPattern = returnPattern.get();
                 }
