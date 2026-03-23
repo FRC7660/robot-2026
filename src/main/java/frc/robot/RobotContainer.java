@@ -240,7 +240,8 @@ public class RobotContainer {
 
     // INTAKE CONTROL
     // Toggle the arm out/in
-    driverXbox.leftBumper().onTrue(intakeSystem.toggleIntake());
+    Trigger intakeSingleTap = driverXbox.leftBumper().multiPress(1, 0.25);
+    intakeSingleTap.onTrue(intakeSystem.toggleIntake());
     Trigger intakeDoubleTap = driverXbox.leftBumper().multiPress(2, 0.25);
     intakeDoubleTap.onTrue(Commands.run(() -> intakeSystem.setAngleSetpoint(90.0)));
     // Run and stop the intake based on the Left Trigger value (threshold/deadzone of 0.1)
