@@ -29,7 +29,6 @@ public class Lights extends SubsystemBase {
   private LEDPattern xColor;
   private final AddressableLEDBuffer m_ledBuffer;
   private final PatternBank p = new PatternBank();
-  private final LEDPatternManager patternManager;
   // Our LED strip has a density of 120 LEDs per meter
   private static final Distance kLedSpacing = LEDPatternManager.kLedSpacing;
 
@@ -55,10 +54,6 @@ public class Lights extends SubsystemBase {
     m_led = new AddressableLED(9);
     xColor = p.red;
 
-    // Instantiate the LED pattern manager, which will handle the logic for determining which
-    // pattern to display based on the robot's state
-    patternManager = new LEDPatternManager();
-
     // Instantiate Routine
     activeRoutine = new LightRoutine(launchSystem, intakeSystem, swerveSystem, turretSystem);
 
@@ -72,11 +67,6 @@ public class Lights extends SubsystemBase {
     m_led.setData(m_ledBuffer);
     m_led.start();
   }
-
-  // /** This function assigns the lights a new routine */
-  // public void setRoutine(LightRoutine routine) {
-  //   activeRoutine = routine;
-  // }
 
   @Override
   public void periodic() {
