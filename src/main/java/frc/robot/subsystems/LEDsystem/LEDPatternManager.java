@@ -294,26 +294,20 @@ public class LEDPatternManager extends SubsystemBase {
                 priorityLevel level;
                 Supplier<LEDPattern> returnPattern;
 
-                if (launch.getVelocity().in(RPM) > 5) {
+                if (launch.getVelocity().in(RPM) > 50) {
                   DashboardTelemetry.putString(
                       "LEDS/" + focusName.toString(),
                       "ACTIVE DISPLAY - VELOCITY: " + launch.getVelocity().in(RPM) + " RPM");
                   level = priorityLevel.SPECIAL_OPERATION_3;
                   returnPattern =
                       () -> {
-                        return pBank
-                            .staggerWhite
-                            .scrollAtRelativeSpeed(Percent.per(Second).of(25))
-                            .overlayOn(
-                                pBank.orange.synchronizedBlink(
-                                    () -> {
-                                      // Compares the live velocity to the optimal and flashes
-                                      // orange if they are not close.
-                                      return !(launch
-                                          .getVelocity()
-                                          .isNear(launch.getOptimalVelocity(turret), 0.1));
-                                    }))
-                            .overlayOn(pBank.lime); // Show green when speed is optimal
+                        // 0 -> 100 correlating with difference from optimal velocity
+                        double launchPercent = 100 - (Math.abs(launch.getOptimalVelocity(turret).in(RPM) - launch.getVelocity().in(RPM)) / launch.getOptimalVelocity(turret).in(RPM)) * 95;
+                        // 0 approaching 100 based on absolute current velocity
+                        double absolutePercent = 100 - ((4000 - launch.getVelocity().in(RPM)*0.75)/4000) * 100;
+                        return pBank.red.atBrightness(Percent.of(75-launchPercent*0.5)).blend(pBank.lime.atBrightness(Percent.of(launchPercent)))
+                        .mask(LEDPattern.steps(Map.of(0,Color.kWhite,(launchPercent/100)/4,Color.kBlack,0.25,Color.kBlack,0.5-(launchPercent/100)/4,Color.kWhite,
+                          0.5,Color.kWhite,0.5+(absolutePercent/100)/2,Color.kBlack)));
                       };
                 } else {
                   level = priorityLevel.NORMAL_OPERATION;
