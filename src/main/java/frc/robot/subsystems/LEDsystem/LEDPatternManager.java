@@ -437,7 +437,7 @@ public class LEDPatternManager extends SubsystemBase {
                 // Faster blinking = more targets visible.
                 // Apply sighting indicator and determine priority level.
                 if (sightings > 0) {
-                  level = priorityLevel.SPECIAL_OPERATION_2;
+                  level = priorityLevel.NORMAL_OPERATION;
                   sightedPattern =
                       pBank
                           .pink
