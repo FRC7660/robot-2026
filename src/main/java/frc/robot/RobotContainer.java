@@ -251,8 +251,8 @@ public class RobotContainer {
     driverXbox.povDown().onTrue(turret.zeroTurret());
 
     // LED STAND-IN
-    driverXbox.y().onTrue(Commands.idle());
-    // Y is used within the LED class to enable vision display
+    driverXbox.button(10).onTrue(Commands.idle());
+    // R3 (right stick button/button 10) is used within the LED class to enable vision display
 
     if (Robot.isSimulation()) {
       driverXbox.back().onTrue(Commands.runOnce(() -> drivebase.resetToStartingPosition()));

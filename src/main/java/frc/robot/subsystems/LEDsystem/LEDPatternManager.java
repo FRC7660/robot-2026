@@ -446,7 +446,7 @@ public class LEDPatternManager extends SubsystemBase {
                 // Faster blinking = more targets visible.
                 // Apply sighting indicator and determine priority level.
                 // Only activates if the Y button is down.
-                if (driveXbox.y().getAsBoolean() == true && camDisconnect == false) {
+                if (driveXbox.button(10).getAsBoolean() == true && camDisconnect == false) {
                   level = priorityLevel.SPECIAL_OPERATION_2;
                   sightedPattern =
                       pBank
