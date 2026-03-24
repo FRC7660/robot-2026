@@ -13,6 +13,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.lib.DashboardTelemetry;
 import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Launch;
@@ -136,6 +137,7 @@ public class LEDPatternManager extends SubsystemBase {
     Intake intake;
     SwerveSubsystem drivebase;
     Turret turret;
+    CommandXboxController driveXbox;
 
     // Focuses for different subsystems, used to determine which set of routines should be used.
     public enum focus {
@@ -202,7 +204,8 @@ public class LEDPatternManager extends SubsystemBase {
         Launch launchSystem,
         Intake intakeSystem,
         SwerveSubsystem swerveSystem,
-        Turret turretSystem) {
+        Turret turretSystem,
+        CommandXboxController driverXbox) {
       activePattern = LEDPattern.kOff;
       currentFocus = focus.DEFAULT;
       pBank = new PatternBank();
@@ -212,6 +215,7 @@ public class LEDPatternManager extends SubsystemBase {
       intake = intakeSystem;
       drivebase = swerveSystem;
       turret = turretSystem;
+      driveXbox = driverXbox;
 
       focusRoutines.put(focus.DEFAULT, loadRoutine(focus.DEFAULT));
       focusRoutines.put(focus.INTAKE, loadRoutine(focus.INTAKE));
@@ -437,7 +441,8 @@ public class LEDPatternManager extends SubsystemBase {
                 // tracking.
                 // Faster blinking = more targets visible.
                 // Apply sighting indicator and determine priority level.
-                if (sightings > 0) {
+                // Only activates if the Y button is down.
+                if (sightings > 0 && driveXbox.y().getAsBoolean() == true) {
                   level = priorityLevel.SPECIAL_OPERATION_2;
                   sightedPattern =
                       pBank
@@ -450,7 +455,7 @@ public class LEDPatternManager extends SubsystemBase {
                 } else {
                   sightedPattern = returnPattern.get();
                 }
-                // Update returnPattern to display sightings
+                // Update returnPattern to display sightings if the Y button is down
                 returnPattern =
                     () -> {
                       return sightedPattern;

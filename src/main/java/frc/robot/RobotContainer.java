@@ -60,7 +60,7 @@ public class RobotContainer {
   private boolean imuFallbackActive = false;
 
   // LED system
-  private final Lights lights = new Lights(launchSystem, intakeSystem, drivebase, turret);
+  private final Lights lights = new Lights(launchSystem, intakeSystem, drivebase, turret, driverXbox);
 
   private final AutonomousManager autonomousManager;
 
@@ -249,6 +249,10 @@ public class RobotContainer {
     driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
     driverXbox.back().whileTrue(intakeSystem.zeroArm());
     driverXbox.povDown().onTrue(turret.zeroTurret());
+
+    // LED STAND-IN
+    driverXbox.y().onTrue(Commands.idle());
+    // Y is used within the LED class to enable vision display
 
     if (Robot.isSimulation()) {
       driverXbox.back().onTrue(Commands.runOnce(() -> drivebase.resetToStartingPosition()));

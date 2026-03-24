@@ -9,6 +9,7 @@ import edu.wpi.first.wpilibj.AddressableLED;
 import edu.wpi.first.wpilibj.AddressableLEDBuffer;
 import edu.wpi.first.wpilibj.LEDPattern;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.LEDsystem.LEDPatternManager.LightRoutine;
 import frc.robot.subsystems.LEDsystem.LEDPatternManager.PatternBank;
@@ -48,14 +49,14 @@ public class Lights extends SubsystemBase {
 
   /** Called once at the beginning of the robot program. */
   public Lights(
-      Launch launchSystem, Intake intakeSystem, SwerveSubsystem swerveSystem, Turret turretSystem) {
+      Launch launchSystem, Intake intakeSystem, SwerveSubsystem swerveSystem, Turret turretSystem, CommandXboxController driverXbox) {
     // PWM port 9
     // Must be a PWM header, not MXP or DIO
     m_led = new AddressableLED(9);
     xColor = p.red;
 
     // Instantiate Routine
-    activeRoutine = new LightRoutine(launchSystem, intakeSystem, swerveSystem, turretSystem);
+    activeRoutine = new LightRoutine(launchSystem, intakeSystem, swerveSystem, turretSystem, driverXbox);
 
     // Reuse buffer
     // Default to a length of 120, start empty output
