@@ -459,7 +459,7 @@ public class LEDPatternManager extends SubsystemBase {
                 LEDPattern focusPattern = pBank.purpleFocus.overlayOn(returnPattern.get());
                 returnPattern =
                     () -> {
-                      return focusPattern;
+                      return focusPattern.atBrightness(Percent.of(25));
                     };
                 return new PrioritizedPair(level, returnPattern);
               };
