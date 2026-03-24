@@ -153,7 +153,7 @@ public final class Constants {
   public static final class LaunchConstants {
     public static final int MOTOR1_ID = 51;
     public static final int MOTOR2_ID = 52;
-    public static final double INDEX_RPM = 250.0;
+    public static final double INDEX_RPM = 350.0;
     public static final double FUNNEL_RPM = 200.0;
   }
 
