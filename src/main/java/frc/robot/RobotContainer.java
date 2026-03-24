@@ -243,7 +243,7 @@ public class RobotContainer {
     Trigger intakeSingleTap = driverXbox.leftBumper().multiPress(1, 0.25);
     intakeSingleTap.onTrue(intakeSystem.toggleIntake());
     Trigger intakeDoubleTap = driverXbox.leftBumper().multiPress(2, 0.25);
-    intakeDoubleTap.onTrue(Commands.runOnce(() -> intakeSystem.setAngleSetpoint(70.0)));
+    intakeDoubleTap.onTrue(Commands.runOnce(() -> intakeSystem.setAngleSetpoint(110.0)));
     // Run and stop the intake based on the Left Trigger value (threshold/deadzone of 0.1)
     driverXbox.leftTrigger(0.1).whileTrue(runIntakeWithSpeed);
     driverXbox.leftTrigger(0.1).onFalse(stopIntake);
