@@ -78,9 +78,9 @@ public class Intake extends SubsystemBase {
 
   private ArmConfig liftCfg =
       new ArmConfig(liftSmartMotorController)
-          .withSoftLimits(Degrees.of(-30), Degrees.of(110))
-          .withHardLimit(Degrees.of(-35), Degrees.of(110))
-          .withStartingPosition(Degrees.of(110))
+          .withSoftLimits(Degrees.of(-30), Degrees.of(115))
+          .withHardLimit(Degrees.of(-35), Degrees.of(115))
+          .withStartingPosition(Degrees.of(113))
           .withLength(Inches.of(8))
           .withMass(Pounds.of(8.466))
           .withTelemetry("YIntakeArm", Constants.Telemetry.yamsVerbosity())
@@ -200,7 +200,7 @@ public class Intake extends SubsystemBase {
         () -> {
           Angle setpointAngle = lift.getMechanismSetpoint().orElse(getAngle());
           if (setpointAngle.in(Degrees) < 0) {
-            setAngleSetpoint(110.0);
+            setAngleSetpoint(70.0);
           } else {
             setAngleSetpoint(-30.0);
           }
@@ -219,7 +219,7 @@ public class Intake extends SubsystemBase {
     return run(
         () -> {
           setRollerSpeed(0.0);
-          setAngleSetpoint(110.0);
+          setAngleSetpoint(115.0);
         });
   }
 
@@ -249,9 +249,9 @@ public class Intake extends SubsystemBase {
               // Stop the motor
               liftMotor.set(0);
               // Set the arm position setpoint to 110 degrees after calibration
-              setAngleSetpoint(110.0);
+              setAngleSetpoint(115.0);
             })
-        .handleInterrupt(() -> liftMotor.set(0.0));
+        .handleInterrupt(() -> {liftMotor.set(0.0);});
   }
 
   public void setMotorBrake(boolean brake) {
