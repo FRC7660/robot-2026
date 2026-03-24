@@ -9,12 +9,9 @@ import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Seconds;
 import static edu.wpi.first.units.Units.Volts;
 
-import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.hardware.TalonFX;
-import com.ctre.phoenix6.signals.InvertedValue;
-import com.ctre.phoenix6.signals.NeutralModeValue;
 import edu.wpi.first.math.controller.ArmFeedforward;
+import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.DigitalInput;
@@ -29,7 +26,9 @@ import org.littletonrobotics.junction.AutoLogOutput;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
 import yams.mechanisms.config.ArmConfig;
+import yams.mechanisms.config.FlyWheelConfig;
 import yams.mechanisms.positional.Arm;
+import yams.mechanisms.velocity.FlyWheel;
 import yams.motorcontrollers.SmartMotorController;
 import yams.motorcontrollers.SmartMotorControllerConfig;
 import yams.motorcontrollers.SmartMotorControllerConfig.ControlMode;
@@ -44,16 +43,45 @@ public class Intake extends SubsystemBase {
   // Limit switch for intake
   private final DigitalInput limitSwitch = new DigitalInput(Constants.Intake.LIMIT_SWITCH_PORT);
 
-  // Roller Motor Config
-  public void configureRollerMotor() {
-    TalonFXConfiguration rollerConfig = new TalonFXConfiguration();
-    rollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
-    rollerConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+  // Roller Motor Config using YAMS FlyWheel
+  SmartMotorControllerConfig rollerConfig =
+      new SmartMotorControllerConfig(this)
+          .withControlMode(ControlMode.CLOSED_LOOP)
+          // Feedback Constants (PID Constants)
+          .withClosedLoopController(1, 0, 0, RPM.of(5000), RPM.per(Second).of(10000))
+          .withSimClosedLoopController(0, 0, 0, RPM.of(5000), RPM.per(Second).of(10000))
+          // Feedforward Constants
+          .withFeedforward(new SimpleMotorFeedforward(0.02, 0.6, 0))
+          .withSimFeedforward(new SimpleMotorFeedforward(0.02, 1.3, 0))
+          // Telemetry name and verbosity level
+          .withTelemetry("IntakeRoller", Constants.Telemetry.yamsVerbosity())
+          // Roller has a 5:1 gear ratio from motor to wheel
+          .withGearing(new MechanismGearing(GearBox.fromReductionStages(5)))
+          // Motor properties to prevent over currenting.
+          .withMotorInverted(true)
+          .withIdleMode(MotorMode.COAST)
+          .withStatorCurrentLimit(Amps.of(40))
+          .withClosedLoopRampRate(Seconds.of(0.25))
+          .withOpenLoopRampRate(Seconds.of(0.25));
 
-    rollerMotor.getConfigurator().apply(rollerConfig);
-  }
+  // Create our SmartMotorController from our TalonFX and config
+  private SmartMotorController rollerSmartMotorController =
+      new TalonFXWrapper(rollerMotor, DCMotor.getKrakenX60(1), rollerConfig);
 
-  private final DutyCycleOut rollerDutyCycle = new DutyCycleOut(0);
+  // Roller FlyWheel Config
+  FlyWheelConfig rollerFlyWheelConfig =
+      new FlyWheelConfig(rollerSmartMotorController)
+          // Diameter of the roller wheel.
+          .withDiameter(Inches.of(2))
+          // Mass of the roller wheel.
+          .withMass(Pounds.of(0.5))
+          // Maximum speed of the roller.
+          .withUpperSoftLimit(RPM.of(5000))
+          // Telemetry name and verbosity for the roller.
+          .withTelemetry("YIntakeRoller", Constants.Telemetry.yamsVerbosity());
+
+  // Roller Mechanism
+  private FlyWheel roller = new FlyWheel(rollerFlyWheelConfig);
 
   private SmartMotorControllerConfig liftConfig =
       new SmartMotorControllerConfig(this)
@@ -92,13 +120,14 @@ public class Intake extends SubsystemBase {
   private double lastRequestedAngle = 115.0;
 
   public Intake() {
-    configureRollerMotor();
+    // YAMS mechanisms are automatically configured through their configs
   }
 
   @Override
   public void periodic() {
     // Update telemetry for the arm mechanism
     lift.updateTelemetry();
+    roller.updateTelemetry();
 
     // Update limit switch status on SmartDashboard
     DashboardTelemetry.putBoolean("Intake/LimitSwitchPressed", isLimitSwitchPressed());
@@ -108,6 +137,7 @@ public class Intake extends SubsystemBase {
   public void simulationPeriodic() {
     // Update simulation physics and visualization
     lift.simIterate();
+    roller.simIterate();
   }
 
   public Command setAngle(Double angle) {
@@ -150,21 +180,21 @@ public class Intake extends SubsystemBase {
   public void setArmSpeed(double speed) {}
 
   public void setRollerSpeed(double speed) {
-    this.rollerMotor.setControl(rollerDutyCycle.withOutput(speed));
+    this.roller.setDutyCycleSetpoint(speed);
   }
 
   public Supplier<Double> getRollerSpeed() {
-    return (() -> this.rollerMotor.get());
+    return (() -> this.roller.getSpeed().in(RPM));
   }
 
   @AutoLogOutput(key = "Intake/RollerOutput")
   public double getRollerOutput() {
-    return rollerMotor.get();
+    return roller.getMotor().getDutyCycle();
   }
 
   @AutoLogOutput(key = "Intake/RollerVelocityRps")
   public double getRollerVelocityRps() {
-    return rollerMotor.getVelocity().getValueAsDouble();
+    return roller.getSpeed().in(RPM) / 60;
   }
 
   @AutoLogOutput(key = "Intake/LiftSupplyCurrentAmps")
