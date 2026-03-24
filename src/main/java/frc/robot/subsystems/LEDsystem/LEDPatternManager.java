@@ -427,11 +427,15 @@ public class LEDPatternManager extends SubsystemBase {
                     () -> {
                       return pBank.purple;
                     };
-
+                
+                boolean camDisconnect = false;
                 int sightings = 0;
                 String[] sightedCameras = new String[4];
                 for (Cameras cameraKey : Cameras.values()) {
-                  if (SmartDashboard.getBoolean(
+                  if (!cameraKey.getCamera().isConnected()) {
+                    camDisconnect = true;
+                    DashboardTelemetry.putString("LEDS/" + focusName.toString(), "CAMERA ERROR - MISSING " + cameraKey.toString());
+                  } else if (SmartDashboard.getBoolean(
                       "Vision/" + cameraKey.toString() + "/TagVisible", false)) {
                     sightings++;
                     sightedCameras[sightings - 1] = cameraKey.toString();
@@ -442,7 +446,7 @@ public class LEDPatternManager extends SubsystemBase {
                 // Faster blinking = more targets visible.
                 // Apply sighting indicator and determine priority level.
                 // Only activates if the Y button is down.
-                if (driveXbox.y().getAsBoolean() == true) {
+                if (driveXbox.y().getAsBoolean() == true && camDisconnect == false) {
                   level = priorityLevel.SPECIAL_OPERATION_2;
                   sightedPattern =
                       pBank
@@ -452,10 +456,13 @@ public class LEDPatternManager extends SubsystemBase {
                   DashboardTelemetry.putString(
                       "LEDS/" + focusName.toString(),
                       "ACTIVE DISPLAY - " + sightings + " TARGET(s) VISIBLE");
+                } else if (camDisconnect == true) {
+                  level = priorityLevel.ERROR;
+                  sightedPattern = pBank.staggerPurple.overlayOn(pBank.flickerRed.get());
                 } else {
                   sightedPattern = returnPattern.get();
                 }
-                // Update returnPattern to display sightings if the Y button is down
+                
                 returnPattern =
                     () -> {
                       return sightedPattern;
