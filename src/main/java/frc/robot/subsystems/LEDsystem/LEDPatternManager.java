@@ -320,19 +320,20 @@ public class LEDPatternManager extends SubsystemBase {
                                         LEDPattern.GradientType.kDiscontinuous,
                                         Color.kLime,
                                         Color.kLime,
-                                        Color.kAzure,
-                                        Color.kSkyBlue)
+                                        Color.kLime,
+                                        Color.kGold,
+                                        Color.kRed)
                                     .atBrightness(Percent.of(launchPercent)))
                             .mask(
                                 LEDPattern.steps(
                                     Map.of(
                                         0,
                                         Color.kWhite,
-                                        (launchPercent / 100) / 4,
+                                        (launchPercent / 100) * (0.45/2),
                                         Color.kBlack,
-                                        0.25,
+                                        (0.45/2),
                                         Color.kBlack,
-                                        0.5 - (launchPercent / 100) / 4,
+                                        0.45 - (launchPercent / 100) * (0.45/2),
                                         Color.kWhite,
                                         0.5,
                                         Color.kWhite,
