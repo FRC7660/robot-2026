@@ -279,6 +279,6 @@ public class Launch extends SubsystemBase {
   private static boolean isAtSpeed(AngularVelocity actualVelocity, AngularVelocity targetVelocity) {
     double actualRps = Math.abs(actualVelocity.in(RotationsPerSecond));
     double targetRps = Math.abs(targetVelocity.in(RotationsPerSecond));
-    return actualRps >= targetRps * 0.97;
+    return actualRps >= targetRps * 0.60;
   }
 }
