@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public final class WPILogToText {
@@ -101,13 +102,15 @@ public final class WPILogToText {
           firstTimestamp = timestamp;
         }
         long monotonic = timestamp - firstTimestamp;
+        double monotonicSeconds = monotonic / 1e6;
+        String ts = String.format(Locale.ROOT, "%8.3f", monotonicSeconds);
 
         EntryInfo info = entries.get(record.getEntry());
         String name = info != null ? info.name : "entry/" + record.getEntry();
         String type = info != null ? info.type : "raw";
         String value = decodeValue(type, record);
 
-        out.write(Long.toString(monotonic));
+        out.write(ts);
         out.write('\t');
         out.write(name);
         out.write('\t');
