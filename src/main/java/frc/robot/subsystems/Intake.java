@@ -251,7 +251,10 @@ public class Intake extends SubsystemBase {
               // Set the arm position setpoint to 110 degrees after calibration
               setAngleSetpoint(115.0);
             })
-        .handleInterrupt(() -> {liftMotor.set(0.0);});
+        .handleInterrupt(
+            () -> {
+              liftMotor.set(0.0);
+            });
   }
 
   public void setMotorBrake(boolean brake) {
