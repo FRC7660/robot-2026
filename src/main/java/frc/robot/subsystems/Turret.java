@@ -142,12 +142,14 @@ public class Turret extends SubsystemBase {
 
   public Command autoSetAngleThenFreeze() {
     return turretPivot
-        .setAngle(() -> getRobotRelativeAngle().getMeasure())
+        .setAngle(
+            () -> Degrees.of(robotToMechanismDeg(getRobotRelativeAngle().getDegrees())))
         .finallyDo(() -> freeze());
   }
 
   public Command autoSetAngle() {
-    return turretPivot.setAngle(() -> getRobotRelativeAngle().getMeasure());
+    return turretPivot.setAngle(
+        () -> Degrees.of(robotToMechanismDeg(getRobotRelativeAngle().getDegrees())));
   }
 
   /** Nudge the turret zero trim left (CCW) by a small step. */

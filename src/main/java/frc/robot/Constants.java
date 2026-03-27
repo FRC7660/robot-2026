@@ -165,7 +165,7 @@ public final class Constants {
     public static final double ZERO_TRIM_STEP_DEG = 0.5;
     // Offset from robot-relative target frame to turret mechanism frame.
     // +180 means "robot-forward 0 deg" maps to mechanism 180 deg.
-    public static final double MECHANISM_ZERO_OFFSET_DEG = 180.0;
+    public static final double MECHANISM_ZERO_OFFSET_DEG = 0.0;
     // Turret position relative to robot center (robot frame, +X forward, +Y left).
     public static final Translation2d POSITION_ROBOT_FRAME =
         new Translation2d(-Units.inchesToMeters(7.0), 0.0);
