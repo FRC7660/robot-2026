@@ -38,7 +38,7 @@ public enum Cameras {
   /** Left Back Camera */
   BACK_LEFT(
       "camBL",
-      new Rotation3d(0, Math.toRadians(-25), Math.toRadians(135)),
+      new Rotation3d(0, Math.toRadians(-10), Math.toRadians(135)),
       new Translation3d(
           Units.inchesToMeters(-9.8), Units.inchesToMeters(12.31), Units.inchesToMeters(13.9)),
       VecBuilder.fill(4, 4, 8),
@@ -46,7 +46,7 @@ public enum Cameras {
   /** Right Back Camera */
   BACK_RIGHT(
       "camBR",
-      new Rotation3d(0, Math.toRadians(-25), Math.toRadians(225)),
+      new Rotation3d(0, Math.toRadians(-10), Math.toRadians(225)),
       new Translation3d(
           Units.inchesToMeters(-9.8), Units.inchesToMeters(-12.31), Units.inchesToMeters(13.9)),
       VecBuilder.fill(4, 4, 8),
