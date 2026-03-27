@@ -252,6 +252,7 @@ public class RobotContainer {
     driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
     driverXbox.back().whileTrue(intakeSystem.zeroArm());
     driverXbox.povDown().onTrue(turret.zeroTurret());
+    driverXbox.leftStick().onTrue(drivebase.resetOdometryFromRecentVisionCommand(1, 2));
 
     if (Robot.isSimulation()) {
       driverXbox.back().onTrue(Commands.runOnce(() -> drivebase.resetToStartingPosition()));
