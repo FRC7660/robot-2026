@@ -145,6 +145,7 @@ public class Vision {
   private final Supplier<EstimatorMode> estimatorModeInput;
   private final Supplier<Boolean> debugTelemetryEnabledInput;
   private final EnumMap<Cameras, Double> lastFusedTimestampSec = new EnumMap<>(Cameras.class);
+  private final EnumMap<Cameras, Double> lastVisionOnlyTimestampSec = new EnumMap<>(Cameras.class);
   private double lastFusionStatusLogSec = Double.NEGATIVE_INFINITY;
   private double lastPipelineStatsLogSec = Double.NEGATIVE_INFINITY;
   private int acceptedUpdates = 0;
@@ -164,6 +165,8 @@ public class Vision {
   private Pose2d lastLoggedFusedPose = null;
   private Optional<Pose2d> lastSelectedFusedPose = Optional.empty();
   private Optional<FusionCandidate> lastSelectedCandidate = Optional.empty();
+  private Optional<Pose2d> lastVisionOnlyPose = Optional.empty();
+  private Optional<FusionCandidate> lastVisionOnlyCandidate = Optional.empty();
   private final EnumMap<Cameras, CameraTagObservation> lastLoggedCameraTagObs =
       new EnumMap<>(Cameras.class);
   // volatile: defensive guard so any future move of process() to a background thread stays safe.
@@ -193,6 +196,7 @@ public class Vision {
 
     for (Cameras camera : Cameras.values()) {
       lastFusedTimestampSec.put(camera, Double.NEGATIVE_INFINITY);
+      lastVisionOnlyTimestampSec.put(camera, Double.NEGATIVE_INFINITY);
     }
     for (int i = 0; i < PIPELINE_STEP_COUNT; i++) {
       pipelineStepMinMs[i] = Double.POSITIVE_INFINITY;
@@ -779,6 +783,16 @@ public class Vision {
     }
     long t2 = System.nanoTime();
 
+    // Compute vision-only best candidate for fallback use (no odometry influence)
+    double nowSec = Timer.getFPGATimestamp();
+    SelectionResult visionOnlySelection =
+        selectVisionOnlyPose(estimations, lastVisionOnlyTimestampSec, nowSec);
+    lastVisionOnlyCandidate = visionOnlySelection.bestCandidate();
+    lastVisionOnlyPose = lastVisionOnlyCandidate.map(FusionCandidate::pose);
+    for (FusionCandidate accepted : visionOnlySelection.acceptedCandidates()) {
+      lastVisionOnlyTimestampSec.put(accepted.camera(), accepted.timestampSec());
+    }
+
     // Select the best pose candidate
     SelectionResult selection = selectBestPose(estimations, swerveDrive);
     lastSelectedCandidate = selection.bestCandidate();
@@ -797,7 +811,8 @@ public class Vision {
           rawLatestPoseByCamera,
           estimations,
           swerveDrive.getPose(),
-          selection.bestCandidate());
+          selection.bestCandidate(),
+          lastVisionOnlyCandidate);
     }
     logAprilTagTelemetryOnChange(cameraData, swerveDrive.getPose(), selection.bestCandidate());
     logTeleopAprilTagRecord(cameraData, estimations);
@@ -812,6 +827,16 @@ public class Vision {
   /** Returns the latest selected fusion candidate from the vision pipeline. */
   public Optional<FusionCandidate> getLastSelectedCandidate() {
     return lastSelectedCandidate;
+  }
+
+  /** Returns the latest vision-only pose candidate (no odometry influence). */
+  public Optional<Pose2d> getLastVisionOnlyPose() {
+    return lastVisionOnlyPose;
+  }
+
+  /** Returns the latest vision-only fusion candidate (no odometry influence). */
+  public Optional<FusionCandidate> getLastVisionOnlyCandidate() {
+    return lastVisionOnlyCandidate;
   }
 
   private Optional<CameraTagObservation> getClosestTagObservation(CameraSnapshot snapshot) {
@@ -897,10 +922,13 @@ public class Vision {
       Map<Cameras, Optional<EstimatedRobotPose>> rawLatestPoseByCamera,
       List<PoseEstimationResult> estimations,
       Pose2d odomPose,
-      Optional<FusionCandidate> fusedCandidate) {
+      Optional<FusionCandidate> fusedCandidate,
+      Optional<FusionCandidate> visionOnlyCandidate) {
     publishPoseToDashboard("Pose/Odom", odomPose, true);
     Pose2d fusedPose = fusedCandidate.map(FusionCandidate::pose).orElse(null);
     publishPoseToDashboard("Pose/Fused", fusedPose, fusedPose != null);
+    Pose2d visionOnlyPose = visionOnlyCandidate.map(FusionCandidate::pose).orElse(null);
+    publishPoseToDashboard("Pose/VisionOnly", visionOnlyPose, visionOnlyPose != null);
 
     StringBuilder tagSummary = new StringBuilder();
     for (Cameras camera : Cameras.values()) {
@@ -945,7 +973,7 @@ public class Vision {
     SmartDashboard.putString(
         "Pose/Summary",
         String.format(
-            "odom=(%.2f, %.2f, %.1fdeg) fused=%s tags=[%s]",
+            "odom=(%.2f, %.2f, %.1fdeg) fused=%s visionOnly=%s tags=[%s]",
             odomPose.getX(),
             odomPose.getY(),
             odomPose.getRotation().getDegrees(),
@@ -954,6 +982,13 @@ public class Vision {
                 : String.format(
                     "(%.2f, %.2f, %.1fdeg)",
                     fusedPose.getX(), fusedPose.getY(), fusedPose.getRotation().getDegrees()),
+            visionOnlyPose == null
+                ? "none"
+                : String.format(
+                    "(%.2f, %.2f, %.1fdeg)",
+                    visionOnlyPose.getX(),
+                    visionOnlyPose.getY(),
+                    visionOnlyPose.getRotation().getDegrees()),
             tagSummary.length() == 0 ? "none" : tagSummary.toString()));
   }
 
