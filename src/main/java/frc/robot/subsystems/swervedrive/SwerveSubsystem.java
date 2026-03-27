@@ -517,6 +517,11 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     Optional<Vision.FusionCandidate> candidate = vision.getLastSelectedCandidate();
+    boolean usedVisionOnly = false;
+    if (candidate.isEmpty()) {
+      candidate = vision.getLastVisionOnlyCandidate();
+      usedVisionOnly = candidate.isPresent();
+    }
     if (candidate.isEmpty()) {
       Logger.recordOutput("Vision/Log/ResetOdometry", "source=VISION_RECENT failed=no_candidate");
       return false;
@@ -546,7 +551,8 @@ public class SwerveSubsystem extends SubsystemBase {
     Logger.recordOutput(
         "Vision/Log/ResetOdometry",
         String.format(
-            "source=VISION_RECENT from=(%.3f, %.3f, %.1fdeg) to=(%.3f, %.3f, %.1fdeg) tags=%d age=%.3f",
+            "source=VISION_RECENT%s from=(%.3f, %.3f, %.1fdeg) to=(%.3f, %.3f, %.1fdeg) tags=%d age=%.3f",
+            usedVisionOnly ? "_VISION_ONLY" : "",
             fromPose.getX(),
             fromPose.getY(),
             fromPose.getRotation().getDegrees(),
