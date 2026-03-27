@@ -10,6 +10,7 @@ import static edu.wpi.first.units.Units.Seconds;
 
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.Pair;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -98,6 +99,8 @@ public class Launch extends SubsystemBase {
 
   // Shooter Mechanism
   private FlyWheel shooter = new FlyWheel(shooterConfig);
+  // Operator trim applied to the launch wheel speed (fractional).
+  private double velocityTrimPct = 0.0;
 
   /**
    * Gets the current velocity of the shooter.
@@ -131,6 +134,11 @@ public class Launch extends SubsystemBase {
     return shooter.getMechanismSetpointVelocity().orElse(RPM.of(0)).in(RPM);
   }
 
+  @AutoLogOutput(key = "Launch/VelocityTrimPct")
+  public double getVelocityTrimPct() {
+    return velocityTrimPct;
+  }
+
   /**
    * Set the shooter velocity. Speed should be POSITIVE.
    *
@@ -145,7 +153,7 @@ public class Launch extends SubsystemBase {
   /** Calculate and return a velocity setpoint based on distance */
   @AutoLogOutput(key = "Launch/OptimalVelocityRpm")
   public AngularVelocity getOptimalVelocity() {
-    return RPM.of(15);
+    return applyVelocityTrim(RPM.of(15));
   }
 
   /**
@@ -177,7 +185,7 @@ public class Launch extends SubsystemBase {
     double baseDistance = turretPosition.getDistance(targetPosition);
     double adjustedDistance = adjustDistanceForAllianceZone(robotPosition, baseDistance);
     SmartDashboard.putNumber("baseDistance", baseDistance);
-    return getOptimalVelocity(adjustedDistance);
+    return applyVelocityTrim(getOptimalVelocity(adjustedDistance));
   }
 
   /**
@@ -214,6 +222,16 @@ public class Launch extends SubsystemBase {
 
   public void stop() {
     shooter.run(RPM.of(0));
+  }
+
+  public Command adjustVelocityTrimUp() {
+    return this.runOnce(
+        () -> adjustVelocityTrimPct(Constants.LaunchConstants.VELOCITY_TRIM_STEP_PCT));
+  }
+
+  public Command adjustVelocityTrimDown() {
+    return this.runOnce(
+        () -> adjustVelocityTrimPct(-Constants.LaunchConstants.VELOCITY_TRIM_STEP_PCT));
   }
 
   /**
@@ -286,6 +304,19 @@ public class Launch extends SubsystemBase {
      * down.
      */
     shooter.setDutyCycleSetpoint(0);
+  }
+
+  private AngularVelocity applyVelocityTrim(AngularVelocity base) {
+    double scale = 1.0 + velocityTrimPct;
+    return RPM.of(base.in(RPM) * scale);
+  }
+
+  private void adjustVelocityTrimPct(double deltaPct) {
+    velocityTrimPct =
+        MathUtil.clamp(
+            velocityTrimPct + deltaPct,
+            Constants.LaunchConstants.VELOCITY_TRIM_MIN_PCT,
+            Constants.LaunchConstants.VELOCITY_TRIM_MAX_PCT);
   }
 
   private static boolean isAtSpeed(AngularVelocity actualVelocity, AngularVelocity targetVelocity) {

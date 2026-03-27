@@ -197,6 +197,7 @@ public class RobotContainer {
 
     // Default drive style
     drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
+    turret.setDefaultCommand(turret.autoSetAngle());
 
     // IMU fault protection (Teleop only): if the IMU disconnects, force angular-velocity drive so
     // the driver retains direct rotational control instead of the heading PID spinning
@@ -271,6 +272,16 @@ public class RobotContainer {
                 buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisLeftRight)
                     >= Constants.ButtonBox.dpadRightValue - 0.1)
         .onTrue(turret.adjustRight());
+    new Trigger(
+            () ->
+                buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisUpDown)
+                    >= Constants.ButtonBox.dpadUpValue - 0.1)
+        .onTrue(launchSystem.adjustVelocityTrimUp());
+    new Trigger(
+            () ->
+                buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisUpDown)
+                    <= Constants.ButtonBox.dpadDownValue + 0.1)
+        .onTrue(launchSystem.adjustVelocityTrimDown());
   }
 
   /**

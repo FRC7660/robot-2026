@@ -155,6 +155,10 @@ public final class Constants {
     public static final int MOTOR2_ID = 52;
     public static final double INDEX_RPM = 250.0;
     public static final double FUNNEL_RPM = 200.0;
+    // Operator fine-adjust step for launch wheel speed (fractional, 0.01 = 1%).
+    public static final double VELOCITY_TRIM_STEP_PCT = 0.01;
+    public static final double VELOCITY_TRIM_MIN_PCT = -0.20;
+    public static final double VELOCITY_TRIM_MAX_PCT = 0.20;
   }
 
   // Turret Constants

@@ -142,8 +142,7 @@ public class Turret extends SubsystemBase {
 
   public Command autoSetAngleThenFreeze() {
     return turretPivot
-        .setAngle(
-            () -> Degrees.of(robotToMechanismDeg(getRobotRelativeAngle().getDegrees())))
+        .setAngle(() -> Degrees.of(robotToMechanismDeg(getRobotRelativeAngle().getDegrees())))
         .finallyDo(() -> freeze());
   }
 
