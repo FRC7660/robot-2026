@@ -310,7 +310,8 @@ public class LEDPatternManager extends SubsystemBase {
                       () -> {
                         // 0 -> 100 correlating with difference from optimal velocity
                         double launchPercent =
-                            (100 - (Math.abs(cacheOptimal - cacheVelocity) / cacheOptimal) * 100) * 0.9;
+                            (100 - (Math.abs(cacheOptimal - cacheVelocity) / cacheOptimal) * 100)
+                                * 0.9;
                         // 0 approaching 100 based on absolute current velocity
                         double absolutePercent = 100 - ((5000 - cacheVelocity) / 5000) * 100;
                         return pBank
