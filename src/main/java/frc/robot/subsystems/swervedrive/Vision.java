@@ -586,6 +586,87 @@ public class Vision {
         Optional.ofNullable(best), acceptedCandidates, rejNoEst, rejStale, 0, 0, 0, 0, 0);
   }
 
+  static SelectionResult selectVisionOnlyPose(
+      List<PoseEstimationResult> estimations,
+      Map<Cameras, Double> lastFusedTimestamps,
+      double nowSec) {
+    int rejNoEst = 0;
+    int rejStale = 0;
+    int rejHighStd = 0;
+    FusionCandidate best = null;
+    List<FusionCandidate> acceptedCandidates = new ArrayList<>();
+
+    for (PoseEstimationResult est : estimations) {
+      if (est.estimatedPose().isEmpty()) {
+        rejNoEst++;
+        continue;
+      }
+
+      var pose = est.estimatedPose().get();
+      double lastTs = lastFusedTimestamps.getOrDefault(est.camera(), Double.NEGATIVE_INFINITY);
+      if (pose.timestampSeconds <= lastTs + STALE_TIMESTAMP_EPSILON_SEC) {
+        rejStale++;
+        continue;
+      }
+      if ((nowSec - pose.timestampSeconds) > MAX_VISION_MEASUREMENT_AGE_SEC) {
+        rejStale++;
+        continue;
+      }
+      double cameraLatencySec = Math.max(0.0, nowSec - est.cameraLatestTimestampSec());
+      if (cameraLatencySec > MAX_CAMERA_LATENCY_SEC) {
+        rejStale++;
+        continue;
+      }
+
+      Matrix<N3, N1> stdDevs = est.stdDevs();
+      if (stdDevs == null) {
+        rejNoEst++;
+        continue;
+      }
+      double stdX = stdDevs.get(0, 0);
+      double stdY = stdDevs.get(1, 0);
+      double stdTheta = stdDevs.get(2, 0);
+      if (stdX > MAX_STD_XY_METERS || stdY > MAX_STD_XY_METERS || stdTheta > MAX_STD_THETA_RAD) {
+        rejHighStd++;
+        continue;
+      }
+
+      Pose2d pose2d = pose.estimatedPose.toPose2d();
+      int tagCount = pose.targetsUsed.size();
+      if (tagCount < 2) {
+        rejNoEst++;
+        continue;
+      }
+      double score = (stdX + stdY) + (0.5 * stdTheta);
+
+      FusionCandidate candidate =
+          new FusionCandidate(
+              est.camera(),
+              pose2d,
+              pose.timestampSeconds,
+              stdX,
+              stdY,
+              stdTheta,
+              tagCount,
+              0.0,
+              true,
+              stdDevs,
+              score);
+      acceptedCandidates.add(candidate);
+      if (best == null
+          || candidate.tagCount() > best.tagCount()
+          || (candidate.tagCount() == best.tagCount() && candidate.score() < best.score())) {
+        best = candidate;
+      }
+    }
+
+    acceptedCandidates.sort(
+        Comparator.comparingDouble(FusionCandidate::timestampSec)
+            .thenComparingDouble(FusionCandidate::score));
+    return new SelectionResult(
+        Optional.ofNullable(best), acceptedCandidates, rejNoEst, rejStale, 0, rejHighStd, 0, 0, 0);
+  }
+
   // -- Pipeline: selectBestPose (instance) ----------------------------------
 
   /**
