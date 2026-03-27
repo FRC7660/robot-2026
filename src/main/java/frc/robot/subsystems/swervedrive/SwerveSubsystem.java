@@ -504,6 +504,67 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
+   * Reset odometry to a recent "good" vision reading.
+   *
+   * @param maxAgeSec maximum age (seconds) of the vision reading
+   * @param minTags minimum AprilTag count required
+   */
+  public boolean resetOdometryFromRecentVision(double maxAgeSec, int minTags) {
+    if (vision == null) {
+      Logger.recordOutput(
+          "Vision/Log/ResetOdometry", "source=VISION_RECENT failed=vision_not_initialized");
+      return false;
+    }
+
+    Optional<Vision.FusionCandidate> candidate = vision.getLastSelectedCandidate();
+    if (candidate.isEmpty()) {
+      Logger.recordOutput("Vision/Log/ResetOdometry", "source=VISION_RECENT failed=no_candidate");
+      return false;
+    }
+
+    Vision.FusionCandidate selected = candidate.get();
+    double nowSec = Timer.getFPGATimestamp();
+    double ageSec = nowSec - selected.timestampSec();
+    if (ageSec > maxAgeSec) {
+      Logger.recordOutput(
+          "Vision/Log/ResetOdometry",
+          String.format("source=VISION_RECENT failed=stale age=%.3f max=%.3f", ageSec, maxAgeSec));
+      return false;
+    }
+    if (selected.tagCount() < minTags) {
+      Logger.recordOutput(
+          "Vision/Log/ResetOdometry",
+          String.format(
+              "source=VISION_RECENT failed=insufficient_tags tags=%d min=%d",
+              selected.tagCount(), minTags));
+      return false;
+    }
+
+    Pose2d pose = selected.pose();
+    Pose2d fromPose = getPose();
+    resetOdometry(pose);
+    Logger.recordOutput(
+        "Vision/Log/ResetOdometry",
+        String.format(
+            "source=VISION_RECENT from=(%.3f, %.3f, %.1fdeg) to=(%.3f, %.3f, %.1fdeg) tags=%d age=%.3f",
+            fromPose.getX(),
+            fromPose.getY(),
+            fromPose.getRotation().getDegrees(),
+            pose.getX(),
+            pose.getY(),
+            pose.getRotation().getDegrees(),
+            selected.tagCount(),
+            ageSec));
+    return true;
+  }
+
+  /** Command to reset odometry to a recent "good" vision reading. */
+  public Command resetOdometryFromRecentVisionCommand(double maxAgeSec, int minTags) {
+    return Commands.runOnce(() -> resetOdometryFromRecentVision(maxAgeSec, minTags), this)
+        .withName("ResetOdometryFromRecentVision");
+  }
+
+  /**
    * Drive with {@link SwerveSetpointGenerator} from 254, implemented by PathPlanner.
    *
    * @param robotRelativeChassisSpeed Robot relative {@link ChassisSpeeds} to achieve.
