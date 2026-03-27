@@ -9,6 +9,7 @@ import edu.wpi.first.wpilibj.AddressableLED;
 import edu.wpi.first.wpilibj.AddressableLEDBuffer;
 import edu.wpi.first.wpilibj.LEDPattern;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.LEDsystem.LEDPatternManager.LightRoutine;
 import frc.robot.subsystems.LEDsystem.LEDPatternManager.PatternBank;
@@ -29,7 +30,6 @@ public class Lights extends SubsystemBase {
   private LEDPattern xColor;
   private final AddressableLEDBuffer m_ledBuffer;
   private final PatternBank p = new PatternBank();
-  private final LEDPatternManager patternManager;
   // Our LED strip has a density of 120 LEDs per meter
   private static final Distance kLedSpacing = LEDPatternManager.kLedSpacing;
 
@@ -49,18 +49,19 @@ public class Lights extends SubsystemBase {
 
   /** Called once at the beginning of the robot program. */
   public Lights(
-      Launch launchSystem, Intake intakeSystem, SwerveSubsystem swerveSystem, Turret turretSystem) {
+      Launch launchSystem,
+      Intake intakeSystem,
+      SwerveSubsystem swerveSystem,
+      Turret turretSystem,
+      CommandXboxController driverXbox) {
     // PWM port 9
     // Must be a PWM header, not MXP or DIO
     m_led = new AddressableLED(9);
     xColor = p.red;
 
-    // Instantiate the LED pattern manager, which will handle the logic for determining which
-    // pattern to display based on the robot's state
-    patternManager = new LEDPatternManager();
-
     // Instantiate Routine
-    activeRoutine = new LightRoutine(launchSystem, intakeSystem, swerveSystem, turretSystem);
+    activeRoutine =
+        new LightRoutine(launchSystem, intakeSystem, swerveSystem, turretSystem, driverXbox);
 
     // Reuse buffer
     // Default to a length of 120, start empty output
@@ -73,14 +74,16 @@ public class Lights extends SubsystemBase {
     m_led.start();
   }
 
-  /** This function assigns the lights a new routine */
-  public void setRoutine(LightRoutine routine) {
-    activeRoutine = routine;
-  }
+  private int ticks = 0;
 
   @Override
   public void periodic() {
-    xColor = activeRoutine.update();
+    ticks += 1;
+    ticks %= 2; // third reduction of .update() frequency
+
+    if (ticks == 0) {
+      xColor = activeRoutine.update();
+    }
 
     // Value for testing conditions (overrides when above 0)
     int testVal = 0;
