@@ -256,10 +256,10 @@ public class SwerveSubsystem extends SubsystemBase {
       fusedPosePublisher.set(fused);
       fusedPoseLogEntry.append(fused);
       advantageScopeField.getObject("VisionFused").setPose(fused);
+      Logger.recordOutput("Vision/Pose/Fused", fused);
     } else {
       advantageScopeField.getObject("VisionFused").setPoses(List.of());
     }
-    Logger.recordOutput("Vision/Pose/Fused", fused);
 
     boolean navxError = navxIMU == null;
     boolean navxCalibrating = false;
