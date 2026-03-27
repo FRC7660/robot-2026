@@ -69,9 +69,15 @@ public class Lights extends SubsystemBase {
     m_led.start();
   }
 
+  private int ticks = 0;
   @Override
   public void periodic() {
-    xColor = activeRoutine.update();
+    ticks += 1;
+    ticks %= 2; // third reduction of .update() frequency
+
+    if (ticks == 0){
+      xColor = activeRoutine.update();
+    }
 
     // Value for testing conditions (overrides when above 0)
     int testVal = 0;
