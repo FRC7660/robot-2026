@@ -60,7 +60,8 @@ public class RobotContainer {
   private boolean imuFallbackActive = false;
 
   // LED system
-  private final Lights lights = new Lights(launchSystem, intakeSystem, drivebase, turret, driverXbox);
+  private final Lights lights =
+      new Lights(launchSystem, intakeSystem, drivebase, turret, driverXbox);
 
   private final AutonomousManager autonomousManager;
 

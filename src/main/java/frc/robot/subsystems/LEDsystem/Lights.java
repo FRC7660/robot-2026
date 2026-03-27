@@ -49,14 +49,19 @@ public class Lights extends SubsystemBase {
 
   /** Called once at the beginning of the robot program. */
   public Lights(
-      Launch launchSystem, Intake intakeSystem, SwerveSubsystem swerveSystem, Turret turretSystem, CommandXboxController driverXbox) {
+      Launch launchSystem,
+      Intake intakeSystem,
+      SwerveSubsystem swerveSystem,
+      Turret turretSystem,
+      CommandXboxController driverXbox) {
     // PWM port 9
     // Must be a PWM header, not MXP or DIO
     m_led = new AddressableLED(9);
     xColor = p.red;
 
     // Instantiate Routine
-    activeRoutine = new LightRoutine(launchSystem, intakeSystem, swerveSystem, turretSystem, driverXbox);
+    activeRoutine =
+        new LightRoutine(launchSystem, intakeSystem, swerveSystem, turretSystem, driverXbox);
 
     // Reuse buffer
     // Default to a length of 120, start empty output
@@ -70,12 +75,13 @@ public class Lights extends SubsystemBase {
   }
 
   private int ticks = 0;
+
   @Override
   public void periodic() {
     ticks += 1;
     ticks %= 2; // third reduction of .update() frequency
 
-    if (ticks == 0){
+    if (ticks == 0) {
       xColor = activeRoutine.update();
     }
 

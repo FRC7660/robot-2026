@@ -424,14 +424,16 @@ public class LEDPatternManager extends SubsystemBase {
                     () -> {
                       return pBank.purple;
                     };
-                
+
                 boolean camDisconnect = false;
                 int sightings = 0;
                 String[] sightedCameras = new String[4];
                 for (Cameras cameraKey : Cameras.values()) {
                   if (!cameraKey.getCamera().isConnected()) {
                     camDisconnect = true;
-                    DashboardTelemetry.putString("LEDS/" + focusName.toString(), "CAMERA ERROR - MISSING " + cameraKey.toString());
+                    DashboardTelemetry.putString(
+                        "LEDS/" + focusName.toString(),
+                        "CAMERA ERROR - MISSING " + cameraKey.toString());
                   } else if (SmartDashboard.getBoolean(
                       "Vision/" + cameraKey.toString() + "/TagVisible", false)) {
                     sightings++;
@@ -459,7 +461,7 @@ public class LEDPatternManager extends SubsystemBase {
                 } else {
                   sightedPattern = returnPattern.get();
                 }
-                
+
                 returnPattern =
                     () -> {
                       return sightedPattern;
