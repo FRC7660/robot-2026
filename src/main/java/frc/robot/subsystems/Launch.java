@@ -206,6 +206,12 @@ public class Launch extends SubsystemBase {
     return inOwnAllianceZone ? distanceMeters + 0.75 : distanceMeters;
   }
 
+  private boolean isAimed(Turret turret) {
+    double currentSetpoint = turret.getSetpointDegrees();
+    double currentAngle = turret.getCurrentAngleDegrees();
+    return Math.abs(currentSetpoint - currentAngle) < 15;
+  }
+
   public void stop() {
     shooter.run(RPM.of(0));
   }
@@ -251,7 +257,10 @@ public class Launch extends SubsystemBase {
                 // Pause funnel/index until shooter reaches target speed.
                 Commands.runOnce(() -> indexSystem.setVelocitySetpointindex(RPM.of(0.0))),
                 Commands.runOnce(() -> indexSystem.setVelocitySetpointfunnel(RPM.of(0.0))),
-                Commands.waitUntil(() -> optimalVelocityReached.getAsBoolean()),
+                Commands.waitUntil(
+                    () -> {
+                      return (optimalVelocityReached.getAsBoolean() && isAimed(turret));
+                    }),
                 // Feed while shooter remains at speed.
                 Commands.runOnce(
                     () ->
@@ -261,7 +270,10 @@ public class Launch extends SubsystemBase {
                     () ->
                         indexSystem.setVelocitySetpointindex(
                             RPM.of(Constants.LaunchConstants.INDEX_RPM))),
-                Commands.waitUntil(() -> optimalVelocityReached.negate().getAsBoolean())))
+                Commands.waitUntil(
+                    () -> {
+                      return !(optimalVelocityReached.getAsBoolean() && isAimed(turret));
+                    })))
         .handleInterrupt(() -> shotSequenceEnd(indexSystem));
   }
 
