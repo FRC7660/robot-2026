@@ -259,11 +259,12 @@ public class LEDPatternManager extends SubsystemBase {
               () -> {
                 priorityLevel level;
                 Supplier<LEDPattern> returnPattern;
+                double cacheRollerOutput = intake.getRollerOutput();
 
-                if (intake.getRollerOutput() > 0.1) {
+                if (cacheRollerOutput > 0.1) {
                   DashboardTelemetry.putString(
                       "LEDS/" + focusName.toString(),
-                      "ACTIVE DISPLAY - ROLLER OUTPUT: " + intake.getRollerOutput() * 100 + "%");
+                      "ACTIVE DISPLAY - ROLLER OUTPUT: " + cacheRollerOutput * 100 + "%");
                   level = priorityLevel.SPECIAL_OPERATION_1;
                   returnPattern =
                       () -> {
@@ -273,7 +274,7 @@ public class LEDPatternManager extends SubsystemBase {
                             .flickerGreen
                             .get()
                             .overlayOn(pBank.lime)
-                            .blend(pBank.red.atBrightness(Percent.of(intake.getRollerOutput())));
+                            .blend(pBank.red.atBrightness(Percent.of(cacheRollerOutput)));
                       };
                 } else {
                   level = priorityLevel.NORMAL_OPERATION;
@@ -297,11 +298,13 @@ public class LEDPatternManager extends SubsystemBase {
               () -> {
                 priorityLevel level;
                 Supplier<LEDPattern> returnPattern;
+                double cacheVelocity = launch.getVelocity().in(RPM);
+                double cacheOptimal = launch.getOptimalVelocity(turret).in(RPM);
 
-                if (launch.getVelocity().in(RPM) > 50 || turret.autoSetAngle().isScheduled()) {
+                if (cacheVelocity > 50 || turret.autoSetAngle().isScheduled()) {
                   DashboardTelemetry.putString(
                       "LEDS/" + focusName.toString(),
-                      "ACTIVE DISPLAY - VELOCITY: " + launch.getVelocity().in(RPM) + " RPM");
+                      "ACTIVE DISPLAY - VELOCITY: " + cacheVelocity + " RPM");
                   level = priorityLevel.SPECIAL_OPERATION_3;
                   returnPattern =
                       () -> {
@@ -309,13 +312,13 @@ public class LEDPatternManager extends SubsystemBase {
                         double launchPercent =
                             100
                                 - (Math.abs(
-                                            launch.getOptimalVelocity(turret).in(RPM)
-                                                - launch.getVelocity().in(RPM))
-                                        / launch.getOptimalVelocity(turret).in(RPM))
+                                            cacheOptimal
+                                                - cacheVelocity)
+                                        / cacheOptimal)
                                     * 95;
                         // 0 approaching 100 based on absolute current velocity
                         double absolutePercent =
-                            100 - ((5000 - launch.getVelocity().in(RPM)) / 5000) * 100;
+                            100 - ((5000 - cacheVelocity) / 5000) * 100;
                         return pBank
                             .red
                             .atBrightness(Percent.of(100 - launchPercent))
