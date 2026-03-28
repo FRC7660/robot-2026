@@ -147,6 +147,8 @@ public final class Constants {
     public static final double ROLLER_SPEED = 0.5;
     public static final int ROLLER_CURRENT_LIMIT = 25; // amps
     public static final int LIMIT_SWITCH_PORT = 0; // DIO port
+    // Operator fine-adjust step for arm angle offset (degrees).
+    public static final double ARM_OFFSET_STEP_DEG = 1.0;
   }
 
   // Launch Constants
