@@ -109,8 +109,8 @@ public class Intake extends SubsystemBase {
     lift.simIterate();
   }
 
-  public Command setAngle(Double angle) {
-    Angle convertedAngle = Angle.ofRelativeUnits(angle, Degrees).plus(armAngleOffset);
+  public Command setAngle(Angle angle) {
+    Angle convertedAngle = angle.plus(armAngleOffset);
     return lift.setAngle(convertedAngle);
   }
 
@@ -127,13 +127,13 @@ public class Intake extends SubsystemBase {
         .orElse(0.0);
   }
 
-  public Command setAngleAndStop(Double angle) {
-    Angle convertedAngle = Angle.ofRelativeUnits(angle, Degrees).plus(armAngleOffset);
+  public Command setAngleAndStop(Angle angle) {
+    Angle convertedAngle = angle.plus(armAngleOffset);
     return lift.runTo(convertedAngle, Angle.ofRelativeUnits(2, Degrees));
   }
 
-  public void setAngleSetpoint(Double angle) {
-    Angle convertedAngle = Angle.ofRelativeUnits(angle, Degrees).plus(armAngleOffset);
+  public void setAngleSetpoint(Angle angle) {
+    Angle convertedAngle = angle.plus(armAngleOffset);
     lift.setMechanismPositionSetpoint(convertedAngle);
     setMotorBrake(true); // Re-enable brake mode when setpoint is changed
   }
@@ -193,7 +193,7 @@ public class Intake extends SubsystemBase {
   }
 
   public void fullDeploy() {
-    setAngleSetpoint(-30.0);
+    setAngleSetpoint(Degrees.of(-30.0));
   }
 
   @AutoLogOutput(key = "Intake/ArmAngleOffsetDegrees")
@@ -228,9 +228,9 @@ public class Intake extends SubsystemBase {
         () -> {
           Angle setpointAngle = lift.getMechanismSetpoint().orElse(getAngle());
           if (setpointAngle.in(Degrees) < 0) {
-            setAngleSetpoint(70.0);
+            setAngleSetpoint(Degrees.of(70.0));
           } else {
-            setAngleSetpoint(-30.0);
+            setAngleSetpoint(Degrees.of(-30.0));
           }
         });
   }
@@ -247,7 +247,7 @@ public class Intake extends SubsystemBase {
     return run(
         () -> {
           setRollerSpeed(0.0);
-          setAngleSetpoint(115.0);
+          setAngleSetpoint(Degrees.of(115.0));
         });
   }
 
@@ -277,7 +277,7 @@ public class Intake extends SubsystemBase {
               // Stop the motor
               liftMotor.set(0);
               // Set the arm position setpoint to 110 degrees after calibration
-              setAngleSetpoint(115.0);
+              setAngleSetpoint(Degrees.of(115.0));
             })
         .handleInterrupt(
             () -> {
