@@ -295,14 +295,14 @@ public class RobotContainer {
             Commands.runOnce(
                 () ->
                     intakeSystem.adjustArmAngleOffsetAndReapplySetpoint(
-                        -Constants.Intake.ARM_OFFSET_STEP_DEG)));
+                        Degrees.of(-Constants.Intake.ARM_OFFSET_STEP_DEG))));
     buttonBox
         .button(Constants.ButtonBox.topRight)
         .onTrue(
             Commands.runOnce(
                 () ->
                     intakeSystem.adjustArmAngleOffsetAndReapplySetpoint(
-                        Constants.Intake.ARM_OFFSET_STEP_DEG)));
+                        Degrees.of(Constants.Intake.ARM_OFFSET_STEP_DEG))));
   }
 
   /**
