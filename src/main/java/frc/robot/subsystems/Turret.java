@@ -61,6 +61,8 @@ public class Turret extends SubsystemBase {
   private double lastRotationCommandDeg = 0.0;
   // Zero-point regulator
   private final TurretZeroPoint zeroPoint;
+  // Operator fine-tuning offset added to the mechanism zero (degrees).
+  private double zeroTrimDeg = 0.0;
 
   /** Default constructor. Uses a trivial Pose2d supplier (origin) when no supplier is provided. */
   public Turret() {
@@ -140,12 +142,23 @@ public class Turret extends SubsystemBase {
 
   public Command autoSetAngleThenFreeze() {
     return turretPivot
-        .setAngle(() -> getRobotRelativeAngle().getMeasure())
+        .setAngle(() -> Degrees.of(robotToMechanismDeg(getRobotRelativeAngle().getDegrees())))
         .finallyDo(() -> freeze());
   }
 
   public Command autoSetAngle() {
-    return turretPivot.setAngle(() -> getRobotRelativeAngle().getMeasure());
+    return turretPivot.setAngle(
+        () -> Degrees.of(robotToMechanismDeg(getRobotRelativeAngle().getDegrees())));
+  }
+
+  /** Nudge the turret zero trim left (CCW) by a small step. */
+  public Command adjustLeft() {
+    return this.runOnce(() -> adjustZeroTrimDeg(Constants.Turret.ZERO_TRIM_STEP_DEG));
+  }
+
+  /** Nudge the turret zero trim right (CW) by a small step. */
+  public Command adjustRight() {
+    return this.runOnce(() -> adjustZeroTrimDeg(-Constants.Turret.ZERO_TRIM_STEP_DEG));
   }
 
   /**
@@ -247,6 +260,7 @@ public class Turret extends SubsystemBase {
     DashboardTelemetry.putNumber("Turret/CurrentDeg", currentDegSigned);
     DashboardTelemetry.putNumber("Turret/CurrentRobotFrameDeg", currentRobotFrameDegSigned);
     DashboardTelemetry.putNumber("Turret/FieldRelDeg", fieldAngleDegSigned);
+    DashboardTelemetry.putNumber("Turret/MechanismOffset", getMechanismZeroOffsetDeg());
     DashboardTelemetry.putNumber("Turret/RobotRelDeg", robotAngleDegSigned);
     DashboardTelemetry.putNumber("Turret/SetpointDeg", setPoint);
     DashboardTelemetry.putNumber("Turret/SetpointCalcDeg", calcSetpointDegSigned);
@@ -262,16 +276,21 @@ public class Turret extends SubsystemBase {
     return normalized;
   }
 
-  private static double robotToMechanismDeg(double robotDeg) {
+  private double robotToMechanismDeg(double robotDeg) {
     return normalizeToSigned180(robotDeg + getMechanismZeroOffsetDeg());
   }
 
-  private static double mechanismToRobotDeg(double mechanismDeg) {
+  private double mechanismToRobotDeg(double mechanismDeg) {
     return normalizeToSigned180(mechanismDeg - getMechanismZeroOffsetDeg());
   }
 
-  private static double getMechanismZeroOffsetDeg() {
-    return RobotBase.isSimulation() ? 0.0 : Constants.Turret.MECHANISM_ZERO_OFFSET_DEG;
+  private double getMechanismZeroOffsetDeg() {
+    double base = RobotBase.isSimulation() ? 0.0 : Constants.Turret.MECHANISM_ZERO_OFFSET_DEG;
+    return normalizeToSigned180(base + zeroTrimDeg);
+  }
+
+  private void adjustZeroTrimDeg(double deltaDeg) {
+    zeroTrimDeg = normalizeToSigned180(zeroTrimDeg + deltaDeg);
   }
 
   @Override

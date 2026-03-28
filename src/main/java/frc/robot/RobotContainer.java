@@ -17,7 +17,6 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandGenericHID;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
-import frc.robot.Constants.OperatorConstants;
 import frc.robot.autonomous.AutonomousManager;
 import frc.robot.commands.swervedrive.MisalignCorrection;
 import frc.robot.commands.swervedrive.YAGSLPitCheck;
@@ -99,7 +98,7 @@ public class RobotContainer {
               () -> driverXbox.getLeftY() * -1,
               () -> driverXbox.getLeftX() * -1)
           .withControllerRotationAxis(() -> driverXbox.getRightX() * -1)
-          .deadband(OperatorConstants.DEADBAND)
+          .deadband(Constants.OperatorConstants.DEADBAND)
           .scaleTranslation(1.0)
           .allianceRelativeControl(true);
 
@@ -120,7 +119,7 @@ public class RobotContainer {
               () -> -driverXbox.getLeftY(),
               () -> -driverXbox.getLeftX())
           .withControllerRotationAxis(() -> driverXbox.getRawAxis(2))
-          .deadband(OperatorConstants.DEADBAND)
+          .deadband(Constants.OperatorConstants.DEADBAND)
           .scaleTranslation(1.0)
           .allianceRelativeControl(true);
   // Derive the heading axis with math!
@@ -199,6 +198,7 @@ public class RobotContainer {
 
     // Default drive style
     drivebase.setDefaultCommand(driveFieldOrientedDirectAngle);
+    // turret.setDefaultCommand(turret.autoSetAngle());
 
     // IMU fault protection (Teleop only): if the IMU disconnects, force angular-velocity drive so
     // the driver retains direct rotational control instead of the heading PID spinning
@@ -266,6 +266,28 @@ public class RobotContainer {
     if (DriverStation.isTest()) {
       driverXbox.povDown().whileTrue(new YAGSLPitCheck(drivebase));
     }
+
+    // ButtonBox D-pad left/right for turret zero trim
+    new Trigger(
+            () ->
+                buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisLeftRight)
+                    <= Constants.ButtonBox.dpadLeftValue + 0.1)
+        .onTrue(turret.adjustLeft());
+    new Trigger(
+            () ->
+                buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisLeftRight)
+                    >= Constants.ButtonBox.dpadRightValue - 0.1)
+        .onTrue(turret.adjustRight());
+    new Trigger(
+            () ->
+                buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisUpDown)
+                    >= Constants.ButtonBox.dpadUpValue - 0.1)
+        .onTrue(launchSystem.adjustVelocityTrimUp());
+    new Trigger(
+            () ->
+                buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisUpDown)
+                    <= Constants.ButtonBox.dpadDownValue + 0.1)
+        .onTrue(launchSystem.adjustVelocityTrimDown());
   }
 
   /**
