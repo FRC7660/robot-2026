@@ -7,6 +7,9 @@ plugins {
 def akitJson = new groovy.json.JsonSlurper().parseText(new File(projectDir, "vendordeps/AdvantageKit.json").text)
 
 java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
 }
@@ -148,7 +151,7 @@ spotless {
             exclude '**/build/**', '**/build-*/**', '**/bin/**'
         }
         toggleOffOn()
-        googleJavaFormat()
+        googleJavaFormat('1.17.0')
         removeUnusedImports()
         trimTrailingWhitespace()
         endWithNewline()
