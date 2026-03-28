@@ -164,9 +164,8 @@ public class RobotContainer {
       // turret.autoSetAngle().repeatedly().andThen(Commands.run(turret::freeze)));
       NamedCommands.registerCommand(
           "startShootingSequence",
-          Commands.parallel(
-              launchSystem.shotSequenceStartWithTurret(indexSystem, turret),
-              drivebase.resetOdometryFromRecentVisionCommand(1, 2)));
+          launchSystem.shotSequenceStartWithTurret(indexSystem, turret));
+      NamedCommands.registerCommand("forceVision", drivebase.resetOdometryFromRecentVisionCommand(1, 2));
       NamedCommands.registerCommand("armOut&Running", intakeSystem.fullIntake());
       NamedCommands.registerCommand("armIn", intakeSystem.retract());
       NamedCommands.registerCommand("armToggle", intakeSystem.toggleIntake());
