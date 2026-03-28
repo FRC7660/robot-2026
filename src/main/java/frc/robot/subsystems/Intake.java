@@ -136,6 +136,8 @@ public class Intake extends SubsystemBase {
     Angle convertedAngle = Angle.ofRelativeUnits(angle, Degrees).plus(armAngleOffset);
     lift.setMechanismPositionSetpoint(convertedAngle);
     setMotorBrake(true); // Re-enable brake mode when setpoint is changed
+    this.rollerMotor.setControl(
+        rollerDutyCycle.withOutput(0)); // Stop roller when setpoint is changed
   }
 
   public Command set(double dutycycle) {
@@ -149,7 +151,11 @@ public class Intake extends SubsystemBase {
   public void setArmSpeed(double speed) {}
 
   public void setRollerSpeed(double speed) {
-    this.rollerMotor.setControl(rollerDutyCycle.withOutput(speed));
+    if (this.getAngle().in(Degrees) < 0) {
+      this.rollerMotor.setControl(rollerDutyCycle.withOutput(speed));
+    } else {
+      this.rollerMotor.setControl(rollerDutyCycle.withOutput(0));
+    }
   }
 
   public Supplier<Double> getRollerSpeed() {
