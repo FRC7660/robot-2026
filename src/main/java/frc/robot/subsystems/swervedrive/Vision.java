@@ -12,8 +12,8 @@ import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.Robot;
+import frc.robot.lib.DashboardTelemetry;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
-import org.littletonrobotics.junction.Logger;
 import org.photonvision.EstimatedRobotPose;
 import org.photonvision.PhotonUtils;
 import org.photonvision.simulation.VisionSystemSim;
@@ -145,6 +144,7 @@ public class Vision {
   private final Supplier<EstimatorMode> estimatorModeInput;
   private final Supplier<Boolean> debugTelemetryEnabledInput;
   private final EnumMap<Cameras, Double> lastFusedTimestampSec = new EnumMap<>(Cameras.class);
+  private final EnumMap<Cameras, Double> lastVisionOnlyTimestampSec = new EnumMap<>(Cameras.class);
   private double lastFusionStatusLogSec = Double.NEGATIVE_INFINITY;
   private double lastPipelineStatsLogSec = Double.NEGATIVE_INFINITY;
   private int acceptedUpdates = 0;
@@ -164,6 +164,8 @@ public class Vision {
   private Pose2d lastLoggedFusedPose = null;
   private Optional<Pose2d> lastSelectedFusedPose = Optional.empty();
   private Optional<FusionCandidate> lastSelectedCandidate = Optional.empty();
+  private Optional<Pose2d> lastVisionOnlyPose = Optional.empty();
+  private Optional<FusionCandidate> lastVisionOnlyCandidate = Optional.empty();
   private final EnumMap<Cameras, CameraTagObservation> lastLoggedCameraTagObs =
       new EnumMap<>(Cameras.class);
   // volatile: defensive guard so any future move of process() to a background thread stays safe.
@@ -193,6 +195,7 @@ public class Vision {
 
     for (Cameras camera : Cameras.values()) {
       lastFusedTimestampSec.put(camera, Double.NEGATIVE_INFINITY);
+      lastVisionOnlyTimestampSec.put(camera, Double.NEGATIVE_INFINITY);
     }
     for (int i = 0; i < PIPELINE_STEP_COUNT; i++) {
       pipelineStepMinMs[i] = Double.POSITIVE_INFINITY;
@@ -586,6 +589,87 @@ public class Vision {
         Optional.ofNullable(best), acceptedCandidates, rejNoEst, rejStale, 0, 0, 0, 0, 0);
   }
 
+  static SelectionResult selectVisionOnlyPose(
+      List<PoseEstimationResult> estimations,
+      Map<Cameras, Double> lastFusedTimestamps,
+      double nowSec) {
+    int rejNoEst = 0;
+    int rejStale = 0;
+    int rejHighStd = 0;
+    FusionCandidate best = null;
+    List<FusionCandidate> acceptedCandidates = new ArrayList<>();
+
+    for (PoseEstimationResult est : estimations) {
+      if (est.estimatedPose().isEmpty()) {
+        rejNoEst++;
+        continue;
+      }
+
+      var pose = est.estimatedPose().get();
+      double lastTs = lastFusedTimestamps.getOrDefault(est.camera(), Double.NEGATIVE_INFINITY);
+      if (pose.timestampSeconds <= lastTs + STALE_TIMESTAMP_EPSILON_SEC) {
+        rejStale++;
+        continue;
+      }
+      if ((nowSec - pose.timestampSeconds) > MAX_VISION_MEASUREMENT_AGE_SEC) {
+        rejStale++;
+        continue;
+      }
+      double cameraLatencySec = Math.max(0.0, nowSec - est.cameraLatestTimestampSec());
+      if (cameraLatencySec > MAX_CAMERA_LATENCY_SEC) {
+        rejStale++;
+        continue;
+      }
+
+      Matrix<N3, N1> stdDevs = est.stdDevs();
+      if (stdDevs == null) {
+        rejNoEst++;
+        continue;
+      }
+      double stdX = stdDevs.get(0, 0);
+      double stdY = stdDevs.get(1, 0);
+      double stdTheta = stdDevs.get(2, 0);
+      if (stdX > MAX_STD_XY_METERS || stdY > MAX_STD_XY_METERS || stdTheta > MAX_STD_THETA_RAD) {
+        rejHighStd++;
+        continue;
+      }
+
+      Pose2d pose2d = pose.estimatedPose.toPose2d();
+      int tagCount = pose.targetsUsed.size();
+      if (tagCount < 2) {
+        rejNoEst++;
+        continue;
+      }
+      double score = (stdX + stdY) + (0.5 * stdTheta);
+
+      FusionCandidate candidate =
+          new FusionCandidate(
+              est.camera(),
+              pose2d,
+              pose.timestampSeconds,
+              stdX,
+              stdY,
+              stdTheta,
+              tagCount,
+              0.0,
+              true,
+              stdDevs,
+              score);
+      acceptedCandidates.add(candidate);
+      if (best == null
+          || candidate.tagCount() > best.tagCount()
+          || (candidate.tagCount() == best.tagCount() && candidate.score() < best.score())) {
+        best = candidate;
+      }
+    }
+
+    acceptedCandidates.sort(
+        Comparator.comparingDouble(FusionCandidate::timestampSec)
+            .thenComparingDouble(FusionCandidate::score));
+    return new SelectionResult(
+        Optional.ofNullable(best), acceptedCandidates, rejNoEst, rejStale, 0, rejHighStd, 0, 0, 0);
+  }
+
   // -- Pipeline: selectBestPose (instance) ----------------------------------
 
   /**
@@ -641,7 +725,7 @@ public class Vision {
           accepted.pose(), accepted.timestampSec(), accepted.stdDevs());
       lastFusedTimestampSec.put(accepted.camera(), accepted.timestampSec());
       acceptedUpdates++;
-      Logger.recordOutput(
+      DashboardTelemetry.recordOutput(
           "Vision/Log/PipelineAccept",
           String.format(
               "camera=%s ts=%.3f tags=%d err=%.3f pose=(%.3f, %.3f, %.1fdeg) std=(%.3f, %.3f, %.3f)",
@@ -698,6 +782,16 @@ public class Vision {
     }
     long t2 = System.nanoTime();
 
+    // Compute vision-only best candidate for fallback use (no odometry influence)
+    double nowSec = Timer.getFPGATimestamp();
+    SelectionResult visionOnlySelection =
+        selectVisionOnlyPose(estimations, lastVisionOnlyTimestampSec, nowSec);
+    lastVisionOnlyCandidate = visionOnlySelection.bestCandidate();
+    lastVisionOnlyPose = lastVisionOnlyCandidate.map(FusionCandidate::pose);
+    for (FusionCandidate accepted : visionOnlySelection.acceptedCandidates()) {
+      lastVisionOnlyTimestampSec.put(accepted.camera(), accepted.timestampSec());
+    }
+
     // Select the best pose candidate
     SelectionResult selection = selectBestPose(estimations, swerveDrive);
     lastSelectedCandidate = selection.bestCandidate();
@@ -716,7 +810,8 @@ public class Vision {
           rawLatestPoseByCamera,
           estimations,
           swerveDrive.getPose(),
-          selection.bestCandidate());
+          selection.bestCandidate(),
+          lastVisionOnlyCandidate);
     }
     logAprilTagTelemetryOnChange(cameraData, swerveDrive.getPose(), selection.bestCandidate());
     logTeleopAprilTagRecord(cameraData, estimations);
@@ -731,6 +826,16 @@ public class Vision {
   /** Returns the latest selected fusion candidate from the vision pipeline. */
   public Optional<FusionCandidate> getLastSelectedCandidate() {
     return lastSelectedCandidate;
+  }
+
+  /** Returns the latest vision-only pose candidate (no odometry influence). */
+  public Optional<Pose2d> getLastVisionOnlyPose() {
+    return lastVisionOnlyPose;
+  }
+
+  /** Returns the latest vision-only fusion candidate (no odometry influence). */
+  public Optional<FusionCandidate> getLastVisionOnlyCandidate() {
+    return lastVisionOnlyCandidate;
   }
 
   private Optional<CameraTagObservation> getClosestTagObservation(CameraSnapshot snapshot) {
@@ -792,22 +897,16 @@ public class Vision {
   }
 
   private void publishPoseToDashboard(String prefix, Pose2d pose, boolean valid) {
-    SmartDashboard.putBoolean(prefix + "/Valid", valid);
+    DashboardTelemetry.recordOutput(prefix + "/Valid", valid);
     if (valid && pose != null) {
-      SmartDashboard.putNumber(prefix + "/X", pose.getX());
-      SmartDashboard.putNumber(prefix + "/Y", pose.getY());
-      SmartDashboard.putNumber(prefix + "/HeadingDeg", pose.getRotation().getDegrees());
+      DashboardTelemetry.putStruct(prefix + "/Pose", Pose2d.struct, pose);
     }
   }
 
   private void publishPose3dToDashboard(String prefix, Pose3d pose, boolean valid) {
-    SmartDashboard.putBoolean(prefix + "/Valid", valid);
+    DashboardTelemetry.recordOutput(prefix + "/Valid", valid);
     if (valid && pose != null) {
-      SmartDashboard.putNumber(prefix + "/X", pose.getX());
-      SmartDashboard.putNumber(prefix + "/Y", pose.getY());
-      SmartDashboard.putNumber(prefix + "/Z", pose.getZ());
-      SmartDashboard.putNumber(
-          prefix + "/HeadingDeg", pose.getRotation().toRotation2d().getDegrees());
+      DashboardTelemetry.putStruct(prefix + "/Pose", Pose3d.struct, pose);
     }
   }
 
@@ -816,22 +915,25 @@ public class Vision {
       Map<Cameras, Optional<EstimatedRobotPose>> rawLatestPoseByCamera,
       List<PoseEstimationResult> estimations,
       Pose2d odomPose,
-      Optional<FusionCandidate> fusedCandidate) {
+      Optional<FusionCandidate> fusedCandidate,
+      Optional<FusionCandidate> visionOnlyCandidate) {
     publishPoseToDashboard("Pose/Odom", odomPose, true);
     Pose2d fusedPose = fusedCandidate.map(FusionCandidate::pose).orElse(null);
     publishPoseToDashboard("Pose/Fused", fusedPose, fusedPose != null);
+    Pose2d visionOnlyPose = visionOnlyCandidate.map(FusionCandidate::pose).orElse(null);
+    publishPoseToDashboard("Pose/VisionOnly", visionOnlyPose, visionOnlyPose != null);
 
     StringBuilder tagSummary = new StringBuilder();
     for (Cameras camera : Cameras.values()) {
       Optional<CameraTagObservation> observation = getClosestTagObservation(cameraData.get(camera));
       String cameraKey = "Vision/" + camera.name();
-      SmartDashboard.putBoolean(cameraKey + "/TagVisible", observation.isPresent());
+      DashboardTelemetry.putBoolean(cameraKey + "/TagVisible", observation.isPresent());
       if (observation.isPresent()) {
         CameraTagObservation obs = observation.get();
-        SmartDashboard.putNumber(cameraKey + "/TagId", obs.tagId());
-        SmartDashboard.putNumber(cameraKey + "/YawDeg", obs.yawDeg());
-        SmartDashboard.putNumber(cameraKey + "/DistanceM", obs.distanceMeters());
-        SmartDashboard.putNumber(cameraKey + "/TimestampSec", obs.tsSec());
+        DashboardTelemetry.putNumber(cameraKey + "/TagId", obs.tagId());
+        DashboardTelemetry.putNumber(cameraKey + "/YawDeg", obs.yawDeg());
+        DashboardTelemetry.putNumber(cameraKey + "/DistanceM", obs.distanceMeters());
+        DashboardTelemetry.putNumber(cameraKey + "/TimestampSec", obs.tsSec());
         if (tagSummary.length() > 0) {
           tagSummary.append(" | ");
         }
@@ -861,10 +963,10 @@ public class Vision {
       }
     }
 
-    SmartDashboard.putString(
+    DashboardTelemetry.recordOutput(
         "Pose/Summary",
         String.format(
-            "odom=(%.2f, %.2f, %.1fdeg) fused=%s tags=[%s]",
+            "odom=(%.2f, %.2f, %.1fdeg) fused=%s visionOnly=%s tags=[%s]",
             odomPose.getX(),
             odomPose.getY(),
             odomPose.getRotation().getDegrees(),
@@ -873,6 +975,13 @@ public class Vision {
                 : String.format(
                     "(%.2f, %.2f, %.1fdeg)",
                     fusedPose.getX(), fusedPose.getY(), fusedPose.getRotation().getDegrees()),
+            visionOnlyPose == null
+                ? "none"
+                : String.format(
+                    "(%.2f, %.2f, %.1fdeg)",
+                    visionOnlyPose.getX(),
+                    visionOnlyPose.getY(),
+                    visionOnlyPose.getRotation().getDegrees()),
             tagSummary.length() == 0 ? "none" : tagSummary.toString()));
   }
 
@@ -913,7 +1022,7 @@ public class Vision {
     boolean fusedChanged = fusedPose != null && poseChanged(lastLoggedFusedPose, fusedPose);
 
     if (anyTagVisible && (odomChanged || fusedChanged || cameraObsChanged)) {
-      Logger.recordOutput(
+      DashboardTelemetry.recordOutput(
           "Vision/Log/AprilTagSummary",
           String.format(
               "odom=(%.3f, %.3f, %.1fdeg) fused=%s tags=[%s]",
@@ -1013,7 +1122,7 @@ public class Vision {
     }
 
     if (sawAnyTag) {
-      Logger.recordOutput(
+      DashboardTelemetry.recordOutput(
           "Vision/Log/AprilTagRecord", String.format("t=%.3f %s", now, sb.toString()));
       lastTeleopTagRecordLogSec = now;
     }
@@ -1041,7 +1150,7 @@ public class Vision {
     recordPipelineStepTiming(STEP_TOTAL, totalMs);
 
     if (totalMs > 5.0) {
-      Logger.recordOutput(
+      DashboardTelemetry.recordOutput(
           "Vision/Log/PipelineSlow",
           String.format(
               "timing=[fetch=%.1fms est=%.1fms select=%.1fms apply=%.1fms total=%.1fms]",
@@ -1051,7 +1160,7 @@ public class Vision {
     double now = Timer.getFPGATimestamp();
     if (now - lastFusionStatusLogSec >= FUSION_STATUS_LOG_PERIOD_SEC) {
       lastFusionStatusLogSec = now;
-      Logger.recordOutput(
+      DashboardTelemetry.recordOutput(
           "Vision/Log/PipelineStatus",
           String.format(
               "accepted=%d rejected={noEst=%d stale=%d outOfField=%d ambiguity=%d lowTagFar=%d highStd=%d outlier=%d} consecutiveOutlier=%d",
@@ -1068,7 +1177,7 @@ public class Vision {
 
     if (now - lastPipelineStatsLogSec >= PIPELINE_STATS_LOG_PERIOD_SEC) {
       lastPipelineStatsLogSec = now;
-      Logger.recordOutput("Vision/Log/PipelineStats", formatPipelineStepStats());
+      DashboardTelemetry.recordOutput("Vision/Log/PipelineStats", formatPipelineStepStats());
     }
   }
 
