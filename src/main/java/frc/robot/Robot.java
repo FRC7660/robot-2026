@@ -5,6 +5,7 @@
 package frc.robot;
 
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.PowerDistribution;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -58,7 +59,8 @@ public class Robot extends LoggedRobot {
       case REAL:
         Logger.addDataReceiver(new WPILOGWriter());
         Logger.addDataReceiver(new NT4Publisher());
-        LoggedPowerDistribution.getInstance();
+        LoggedPowerDistribution.getInstance(
+            Constants.PowerDistributionConstants.PDH_CAN_ID, PowerDistribution.ModuleType.kRev);
         break;
       case SIM:
         Logger.addDataReceiver(new NT4Publisher());
