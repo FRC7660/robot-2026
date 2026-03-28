@@ -296,7 +296,8 @@ public class Launch extends SubsystemBase {
     return actualRps >= targetRps * 0.90;
   }
 
-  private static boolean isLowVelocity(AngularVelocity actualVelocity, AngularVelocity targetVelocity) {
+  private static boolean isLowVelocity(
+      AngularVelocity actualVelocity, AngularVelocity targetVelocity) {
     double actualRps = Math.abs(actualVelocity.in(RotationsPerSecond));
     double targetRps = Math.abs(targetVelocity.in(RotationsPerSecond));
     return actualRps <= targetRps * 0.60;
