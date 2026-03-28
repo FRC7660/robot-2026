@@ -207,9 +207,7 @@ public class Intake extends SubsystemBase {
 
   public void adjustArmAngleOffsetAndReapplySetpoint(Angle deltaAngle) {
     Angle currentSetpoint =
-        liftSmartMotorController
-            .getMechanismPositionSetpoint()
-            .orElseGet(this::getAngle);
+        liftSmartMotorController.getMechanismPositionSetpoint().orElseGet(this::getAngle);
     Angle oldOffset = armAngleOffset;
     armAngleOffset = armAngleOffset.plus(deltaAngle);
     Angle commandedSetpoint = currentSetpoint.minus(oldOffset);
