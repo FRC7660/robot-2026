@@ -1,2 +1,2 @@
-# Handle line endings automatically for all text files
-* text=auto
+* text=auto eol=lf
+*.bat text eol=crlf
