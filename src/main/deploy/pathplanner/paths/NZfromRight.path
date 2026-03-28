@@ -21,7 +21,7 @@
       },
       "prevControl": {
         "x": 5.995512099164305,
-        "y": 0.5249972859022494
+        "y": 0.5249972859022493
       },
       "nextControl": {
         "x": 7.4989651529227315,
@@ -49,15 +49,15 @@
     {
       "anchor": {
         "x": 6.849033333333333,
-        "y": 0.8109999999999999
+        "y": 0.6
       },
       "prevControl": {
-        "x": 7.911937943549518,
-        "y": 0.9858574447969947
+        "x": 7.926224744559654,
+        "y": 0.6000000000000001
       },
       "nextControl": {
-        "x": 4.52106924008976,
-        "y": 0.4280288010690524
+        "x": 4.489778417339307,
+        "y": 0.5999999999999996
       },
       "isLocked": false,
       "linkedName": null
@@ -89,10 +89,10 @@
   "constraintZones": [
     {
       "name": "Constraints Zone",
-      "minWaypointRelativePos": 1.193146417445479,
+      "minWaypointRelativePos": 0.8318965517241342,
       "maxWaypointRelativePos": 1.9408099688473508,
       "constraints": {
-        "maxVelocity": 1.0,
+        "maxVelocity": 0.5,
         "maxAcceleration": 4.0,
         "maxAngularVelocity": 540.0,
         "maxAngularAcceleration": 720.0,
@@ -105,7 +105,7 @@
   "eventMarkers": [
     {
       "name": "arm out",
-      "waypointRelativePos": 0.6012461059190075,
+      "waypointRelativePos": 0.4525862068965606,
       "endWaypointRelativePos": null,
       "command": {
         "type": "named",

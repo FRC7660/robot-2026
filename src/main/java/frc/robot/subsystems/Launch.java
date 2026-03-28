@@ -248,6 +248,8 @@ public class Launch extends SubsystemBase {
     Supplier<AngularVelocity> s_velSetpointSupplier = () -> getOptimalVelocity(turret);
     Trigger optimalVelocityReached =
         new Trigger(() -> isAtSpeed(s_velSupplier.get(), s_velSetpointSupplier.get()));
+    Trigger lowVelocityHit =
+        new Trigger(() -> isLowVelocity(s_velSupplier.get(), s_velSetpointSupplier.get()));
     return Commands.parallel(
             Commands.startRun(
                 this::startVelocityClosedLoop,
@@ -272,7 +274,7 @@ public class Launch extends SubsystemBase {
                             RPM.of(Constants.LaunchConstants.INDEX_RPM))),
                 Commands.waitUntil(
                     () -> {
-                      return !(optimalVelocityReached.getAsBoolean() && isAimed(turret));
+                      return (lowVelocityHit.getAsBoolean() || !isAimed(turret));
                     })))
         .handleInterrupt(() -> shotSequenceEnd(indexSystem));
   }
@@ -291,6 +293,12 @@ public class Launch extends SubsystemBase {
   private static boolean isAtSpeed(AngularVelocity actualVelocity, AngularVelocity targetVelocity) {
     double actualRps = Math.abs(actualVelocity.in(RotationsPerSecond));
     double targetRps = Math.abs(targetVelocity.in(RotationsPerSecond));
-    return actualRps >= targetRps * 0.60;
+    return actualRps >= targetRps * 0.90;
+  }
+
+  private static boolean isLowVelocity(AngularVelocity actualVelocity, AngularVelocity targetVelocity) {
+    double actualRps = Math.abs(actualVelocity.in(RotationsPerSecond));
+    double targetRps = Math.abs(targetVelocity.in(RotationsPerSecond));
+    return actualRps <= targetRps * 0.60;
   }
 }
