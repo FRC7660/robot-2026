@@ -27,14 +27,6 @@ public enum Cameras {
           Units.inchesToMeters(-0.243), Units.inchesToMeters(7.376), Units.inchesToMeters(18.222)),
       VecBuilder.fill(4, 4, 8),
       VecBuilder.fill(0.5, 0.5, 1)),
-  /** Right Front Camera */
-  FRONT_RIGHT(
-      "camFR",
-      new Rotation3d(Math.toRadians(28), Math.toRadians(-20), Math.toRadians(40)),
-      new Translation3d(
-          Units.inchesToMeters(-0.243), Units.inchesToMeters(-7.376), Units.inchesToMeters(18.222)),
-      VecBuilder.fill(4, 4, 8),
-      VecBuilder.fill(0.5, 0.5, 1)),
   /** Left Back Camera */
   BACK_LEFT(
       "camBL",
