@@ -430,7 +430,7 @@ public class LEDPatternManager extends SubsystemBase {
                 int sightings = 0;
                 String[] sightedCameras = new String[4];
                 for (Cameras cameraKey : Cameras.values()) {
-                  if (!cameraKey.getCamera().isConnected() && cameraKey != Cameras.FRONT_RIGHT) {
+                  if (!cameraKey.getCamera().isConnected()) {
                     camDisconnect = true;
                     DashboardTelemetry.putString(
                         "LEDS/" + focusName.toString(),

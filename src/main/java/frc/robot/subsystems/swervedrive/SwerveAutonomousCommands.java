@@ -151,9 +151,6 @@ final class SwerveAutonomousCommands {
                             Optional<PhotonTrackedTarget> backCameraTarget =
                                 FuelPalantir.getClosestNonFiducialTarget(
                                     cameraData.get(Cameras.FRONT_LEFT));
-                            Optional<PhotonTrackedTarget> frontCameraTarget =
-                                FuelPalantir.getClosestNonFiducialTarget(
-                                    cameraData.get(Cameras.FRONT_RIGHT));
                             Optional<Cameras> lockedCamera = step.nextState().lockedCamera();
                             Optional<PhotonTrackedTarget> lockedTarget =
                                 lockedCamera.flatMap(
@@ -164,14 +161,13 @@ final class SwerveAutonomousCommands {
                             debugAuto(
                                 String.format(
                                     "FUEL PALANTIR STATUS mode=%s elapsed=%.2fs"
-                                        + " locked=%s backTarget=%s frontTarget=%s"
+                                        + " locked=%s backTarget=%s"
                                         + " lockedYaw=%.1f lockedArea=%.2f"
                                         + " fwd=%.2f rot=%.2f reason=%s",
                                     mode,
                                     elapsed,
                                     lockedCamera.map(Enum::name).orElse("none"),
                                     backCameraTarget.isPresent(),
-                                    frontCameraTarget.isPresent(),
                                     lockedTarget
                                         .map(PhotonTrackedTarget::getYaw)
                                         .orElse(Double.NaN),
@@ -729,10 +725,7 @@ final class SwerveAutonomousCommands {
                         distanceError * 0.9, APPROACH_MIN_FORWARD_MPS, APPROACH_MAX_FORWARD_MPS);
               }
               double cameraForwardSign =
-                  (observation.get().camera() == Cameras.FRONT_LEFT
-                          || observation.get().camera() == Cameras.FRONT_RIGHT)
-                      ? 1.0
-                      : -1.0;
+                  (observation.get().camera() == Cameras.FRONT_LEFT) ? 1.0 : -1.0;
               double commandedForward = cameraForwardSign * forwardSpeed;
               swerveDrive.drive(new Translation2d(commandedForward, 0), rotation, false, false);
               boolean noProgressLongEnough =
