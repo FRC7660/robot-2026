@@ -151,6 +151,10 @@ spotless {
             exclude '**/build/**', '**/build-*/**', '**/bin/**'
         }
         toggleOffOn()
+        // Normalize problematic whitespace/line endings to keep CI and local consistent.
+        lineEndings 'UNIX'
+        replaceRegex('No-break spaces', '\u00A0', ' ')
+        replaceRegex('Zero-width spaces', '\u200B', '')
         googleJavaFormat('1.17.0')
         removeUnusedImports()
         trimTrailingWhitespace()
