@@ -89,7 +89,7 @@
   "constraintZones": [
     {
       "name": "Constraints Zone",
-      "minWaypointRelativePos": 1.193146417445479,
+      "minWaypointRelativePos": 0.83,
       "maxWaypointRelativePos": 1.9408099688473508,
       "constraints": {
         "maxVelocity": 1.0,
@@ -105,7 +105,7 @@
   "eventMarkers": [
     {
       "name": "arm out",
-      "waypointRelativePos": 0.6012461059190075,
+      "waypointRelativePos": 0.45,
       "endWaypointRelativePos": null,
       "command": {
         "type": "named",
