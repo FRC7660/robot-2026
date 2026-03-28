@@ -89,6 +89,7 @@ public class Intake extends SubsystemBase {
   // Arm Mechanism
   private Arm lift = new Arm(liftCfg);
   private Angle armAngleOffset = Degrees.of(0.0);
+  private double lastRequestedAngle = 115.0;
 
   public Intake() {
     configureRollerMotor();
@@ -110,8 +111,8 @@ public class Intake extends SubsystemBase {
   }
 
   public Command setAngle(Double angle) {
-    Angle convertedAngle = Angle.ofRelativeUnits(angle, Degrees).plus(armAngleOffset);
-    return lift.setAngle(convertedAngle);
+    lastRequestedAngle = angle;
+    return lift.setAngle(Degrees.of(angle));
   }
 
   @AutoLogOutput(key = "Intake/ArmAngle")
@@ -128,13 +129,13 @@ public class Intake extends SubsystemBase {
   }
 
   public Command setAngleAndStop(Double angle) {
-    Angle convertedAngle = Angle.ofRelativeUnits(angle, Degrees).plus(armAngleOffset);
-    return lift.runTo(convertedAngle, Angle.ofRelativeUnits(2, Degrees));
+    lastRequestedAngle = angle;
+    return lift.runTo(Degrees.of(angle), Degrees.of(2));
   }
 
   public void setAngleSetpoint(Double angle) {
-    Angle convertedAngle = Angle.ofRelativeUnits(angle, Degrees).plus(armAngleOffset);
-    lift.setMechanismPositionSetpoint(convertedAngle);
+    lastRequestedAngle = angle;
+    lift.setMechanismPositionSetpoint(Degrees.of(angle));
     setMotorBrake(true); // Re-enable brake mode when setpoint is changed
   }
 
@@ -206,13 +207,10 @@ public class Intake extends SubsystemBase {
   }
 
   public void adjustArmAngleOffsetAndReapplySetpoint(Angle deltaAngle) {
-    Angle currentSetpoint =
-        liftSmartMotorController.getMechanismPositionSetpoint().orElseGet(this::getAngle);
-    Angle oldOffset = armAngleOffset;
     armAngleOffset = armAngleOffset.plus(deltaAngle);
-    Angle commandedSetpoint = currentSetpoint.minus(oldOffset);
-    lift.setMechanismPositionSetpoint(commandedSetpoint.plus(armAngleOffset));
-    setMotorBrake(true);
+    Angle currentPos = liftSmartMotorController.getMechanismPosition();
+    liftSmartMotorController.setPosition(currentPos.minus(deltaAngle));
+    setAngleSetpoint(lastRequestedAngle);
   }
 
   public void incrementArmAngleOffsetDegrees() {
@@ -276,7 +274,10 @@ public class Intake extends SubsystemBase {
             () -> {
               // Stop the motor
               liftMotor.set(0);
-              // Set the arm position setpoint to 110 degrees after calibration
+              // Reset the arm position to 115 degrees at the hard stop
+              liftSmartMotorController.setPosition(Degrees.of(115.0));
+              armAngleOffset = Degrees.of(0.0);
+              // Set the arm position setpoint to 115 degrees after calibration
               setAngleSetpoint(115.0);
             })
         .handleInterrupt(
