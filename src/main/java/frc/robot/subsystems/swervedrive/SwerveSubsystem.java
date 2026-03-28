@@ -71,6 +71,7 @@ public class SwerveSubsystem extends SubsystemBase {
   private final SwerveDrive swerveDrive;
 
   private AHRS navxIMU;
+  private int navxRetryCounter = 0;
 
   private final SwerveAutonomousCommands autonomousCommands;
 
@@ -261,6 +262,16 @@ public class SwerveSubsystem extends SubsystemBase {
       advantageScopeField.getObject("VisionFused").setPoses(List.of());
     }
 
+    if (!navxConnected()) {
+      navxRetryCounter++;
+      if (navxRetryCounter >= 250) {
+        bindNavxImu();
+        navxRetryCounter = 0;
+      }
+    } else {
+      navxRetryCounter = 0;
+    }
+
     boolean navxError = navxIMU == null;
     boolean navxCalibrating = false;
     double navxYaw = 0.0;
@@ -272,6 +283,7 @@ public class SwerveSubsystem extends SubsystemBase {
     Logger.recordOutput("Drive/Navx/IsConnected", navxConnected());
     Logger.recordOutput("Drive/Navx/IsCalibrating", navxCalibrating);
     Logger.recordOutput("Drive/Navx/Yaw", navxYaw);
+    Logger.recordOutput("Drive/Navx/RetryCount", navxRetryCounter);
   }
 
   public boolean navxConnected() {
