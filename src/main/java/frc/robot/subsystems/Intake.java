@@ -88,6 +88,7 @@ public class Intake extends SubsystemBase {
 
   // Arm Mechanism
   private Arm lift = new Arm(liftCfg);
+  private double armAngleOffsetDeg = 0.0;
 
   public Intake() {
     configureRollerMotor();
@@ -109,7 +110,7 @@ public class Intake extends SubsystemBase {
   }
 
   public Command setAngle(Double angle) {
-    Angle convertedAngle = Angle.ofRelativeUnits(angle, Degrees);
+    Angle convertedAngle = Angle.ofRelativeUnits(angle + armAngleOffsetDeg, Degrees);
     return lift.setAngle(convertedAngle);
   }
 
@@ -127,12 +128,12 @@ public class Intake extends SubsystemBase {
   }
 
   public Command setAngleAndStop(Double angle) {
-    Angle convertedAngle = Angle.ofRelativeUnits(angle, Degrees);
+    Angle convertedAngle = Angle.ofRelativeUnits(angle + armAngleOffsetDeg, Degrees);
     return lift.runTo(convertedAngle, Angle.ofRelativeUnits(2, Degrees));
   }
 
   public void setAngleSetpoint(Double angle) {
-    Angle convertedAngle = Angle.ofRelativeUnits(angle, Degrees);
+    Angle convertedAngle = Angle.ofRelativeUnits(angle + armAngleOffsetDeg, Degrees);
     lift.setMechanismPositionSetpoint(convertedAngle);
     setMotorBrake(true); // Re-enable brake mode when setpoint is changed
   }
@@ -192,7 +193,24 @@ public class Intake extends SubsystemBase {
   }
 
   public void fullDeploy() {
-    lift.setMechanismPositionSetpoint(Angle.ofRelativeUnits(-30.0, Degrees));
+    setAngleSetpoint(-30.0);
+  }
+
+  @AutoLogOutput(key = "Intake/ArmAngleOffsetDegrees")
+  public double getArmAngleOffsetDegrees() {
+    return armAngleOffsetDeg;
+  }
+
+  public void adjustArmAngleOffsetDegrees(double deltaDegrees) {
+    armAngleOffsetDeg += deltaDegrees;
+  }
+
+  public void incrementArmAngleOffsetDegrees() {
+    adjustArmAngleOffsetDegrees(1.0);
+  }
+
+  public void decrementArmAngleOffsetDegrees() {
+    adjustArmAngleOffsetDegrees(-1.0);
   }
 
   public Command toggleIntake() {
