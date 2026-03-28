@@ -288,6 +288,21 @@ public class RobotContainer {
                 buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisUpDown)
                     <= Constants.ButtonBox.dpadDownValue + 0.1)
         .onTrue(launchSystem.adjustVelocityTrimDown());
+
+    buttonBox
+        .button(Constants.ButtonBox.topLeft)
+        .onTrue(
+            Commands.runOnce(
+                () ->
+                    intakeSystem.adjustArmAngleOffsetAndReapplySetpoint(
+                        Degrees.of(-Constants.Intake.ARM_OFFSET_STEP_DEG))));
+    buttonBox
+        .button(Constants.ButtonBox.topRight)
+        .onTrue(
+            Commands.runOnce(
+                () ->
+                    intakeSystem.adjustArmAngleOffsetAndReapplySetpoint(
+                        Degrees.of(Constants.Intake.ARM_OFFSET_STEP_DEG))));
   }
 
   /**
