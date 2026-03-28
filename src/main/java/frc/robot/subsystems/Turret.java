@@ -90,8 +90,8 @@ public class Turret extends SubsystemBase {
             .withControlMode(ControlMode.CLOSED_LOOP)
             .withExponentialProfile(Volts.of(12), RPM.of(120), RPM.per(Second).of(400))
             // ROBOT
-            .withClosedLoopController(9.0, 0, 0.0)
-            .withFeedforward(new SimpleMotorFeedforward(0.0, 4.2, 0.0))
+            .withClosedLoopController(13.0, 1.0, 0.0)
+            .withFeedforward(new SimpleMotorFeedforward(0.0, 4.4, 0.0))
             // SIM
             .withSimClosedLoopController(10.0, 0, 0.2)
             .withSimFeedforward(new SimpleMotorFeedforward(0.0, 5.1, 0.0))
