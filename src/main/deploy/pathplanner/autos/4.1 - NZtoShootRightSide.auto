@@ -13,7 +13,25 @@
         {
           "type": "named",
           "data": {
+            "name": "rollerStop"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
             "name": "startShootingSequence"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 6.0
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "armToggle"
           }
         }
       ]
