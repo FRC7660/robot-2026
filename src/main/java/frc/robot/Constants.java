@@ -149,6 +149,8 @@ public final class Constants {
     public static final int LIMIT_SWITCH_PORT = 0; // DIO port
     // Operator fine-adjust step for arm angle offset (degrees).
     public static final double ARM_OFFSET_STEP_DEG = 1.0;
+    // Roller is disabled if the arm angle (including offset) exceeds this value (degrees).
+    public static final double ARM_ROLLER_MAX_ANGLE_DEG = 90.0;
   }
 
   // Launch Constants

@@ -101,6 +101,12 @@ public class Intake extends SubsystemBase {
 
     // Update limit switch status on SmartDashboard
     DashboardTelemetry.putBoolean("Intake/LimitSwitchPressed", isLimitSwitchPressed());
+    DashboardTelemetry.putNumber("Intake/ArmAngleAdjustedDegrees", getAdjustedArmAngleDegrees());
+    DashboardTelemetry.putBoolean("Intake/RollerBlockedByArmAngle", isArmAngleAboveRollerMax());
+
+    if (isArmAngleAboveRollerMax()) {
+      stopRoller();
+    }
   }
 
   @Override
@@ -149,6 +155,10 @@ public class Intake extends SubsystemBase {
   public void setArmSpeed(double speed) {}
 
   public void setRollerSpeed(double speed) {
+    if (Math.abs(speed) > 1e-4 && isArmAngleAboveRollerMax()) {
+      this.rollerMotor.setControl(rollerDutyCycle.withOutput(0.0));
+      return;
+    }
     this.rollerMotor.setControl(rollerDutyCycle.withOutput(speed));
   }
 
@@ -291,5 +301,14 @@ public class Intake extends SubsystemBase {
     } else {
       lift.getMotor().setIdleMode(MotorMode.COAST);
     }
+  }
+
+  private boolean isArmAngleAboveRollerMax() {
+    return getAdjustedArmAngleDegrees() > Constants.Intake.ARM_ROLLER_MAX_ANGLE_DEG;
+  }
+
+  private double getAdjustedArmAngleDegrees() {
+    double mechanismDeg = getAngle().in(Degrees);
+    return mechanismDeg - armAngleOffset.in(Degrees);
   }
 }
