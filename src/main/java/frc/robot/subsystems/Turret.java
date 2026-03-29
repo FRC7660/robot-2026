@@ -88,10 +88,10 @@ public class Turret extends SubsystemBase {
     SmartMotorControllerConfig smcConfig =
         new SmartMotorControllerConfig(this)
             .withControlMode(ControlMode.CLOSED_LOOP)
-            .withExponentialProfile(Volts.of(12), RPM.of(120), RPM.per(Second).of(400))
+            .withExponentialProfile(Volts.of(12), RPM.of(100), RPM.per(Second).of(300))
             // ROBOT
-            .withClosedLoopController(13.0, 1.0, 0.0)
-            .withFeedforward(new SimpleMotorFeedforward(0.0, 4.4, 0.0))
+            .withClosedLoopController(25.0, 4.0, 0.5)
+            .withFeedforward(new SimpleMotorFeedforward(0.4, 4.0, 0.0))
             // SIM
             .withSimClosedLoopController(10.0, 0, 0.2)
             .withSimFeedforward(new SimpleMotorFeedforward(0.0, 5.1, 0.0))
