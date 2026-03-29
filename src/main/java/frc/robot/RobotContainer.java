@@ -28,13 +28,11 @@ import frc.robot.subsystems.Launch;
 import frc.robot.subsystems.Turret;
 import frc.robot.subsystems.swervedrive.FuelPalantir.FuelPalantirMode;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
-import java.io.IOException;
 import java.io.File;
-import java.nio.file.DirectoryStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.attribute.FileTime;
 import java.util.function.DoubleSupplier;
 import swervelib.SwerveInputStream;
 
@@ -335,81 +333,39 @@ public class RobotContainer {
   }
 
   private void copyLatestRevLogForMatch() {
-    String eventName = DriverStation.getEventName();
-    if (eventName == null) {
-      return;
-    }
-    String eventCode = eventName.trim().toLowerCase().replaceAll("[^a-z0-9]", "");
-    if (eventCode.isEmpty()) {
-      return;
-    }
-    var matchType = DriverStation.getMatchType();
-    if (matchType == DriverStation.MatchType.None) {
-      return;
-    }
-    int matchNumber = DriverStation.getMatchNumber();
-    if (matchNumber <= 0) {
-      return;
-    }
-    int matchInstance = DriverStation.getMatchInstance();
-    String matchToken;
-    switch (matchType) {
-      case Qualification -> matchToken = String.format("q%d", matchNumber);
-      case Practice -> matchToken = String.format("p%d", matchNumber);
-      case Elimination -> {
-        if (matchInstance > 1) {
-          matchToken = String.format("e%dm%d", matchNumber, matchInstance);
-        } else {
-          matchToken = String.format("e%d", matchNumber);
-        }
-      }
-      default -> {
-        return;
-      }
-    }
-
     Path logsDir = Paths.get("/u/logs");
     if (!Files.isDirectory(logsDir)) {
       return;
     }
-
-    Path latest = null;
-    FileTime latestTime = null;
-    try (DirectoryStream<Path> stream = Files.newDirectoryStream(logsDir, "REV_*.revlog")) {
-      for (Path path : stream) {
-        FileTime modified = Files.getLastModifiedTime(path);
-        if (latestTime == null || modified.compareTo(latestTime) > 0) {
-          latestTime = modified;
-          latest = path;
-        }
-      }
-    } catch (IOException e) {
-      DriverStation.reportWarning(
-          "REV log copy skipped: failed to scan /u/logs: " + e.getMessage(), false);
-      return;
-    }
-
-    if (latest == null) {
-      return;
-    }
-
-    String latestName = latest.getFileName().toString();
-    String base =
-        latestName.replaceFirst("(?i)\\.revlog$", "");
-    String destName = String.format("%s-%s-%s.revlog", base, eventCode, matchToken);
-    Path destPath = logsDir.resolve(destName);
-
-    if (Files.exists(destPath)) {
-      return;
-    }
-
+    Path renamedDir = logsDir.resolve("renamed");
     try {
-      Files.copy(latest, destPath);
-      DriverStation.reportWarning(
-          "Copied REV log to " + destPath.toString(), false);
+      Files.createDirectories(renamedDir);
     } catch (IOException e) {
       DriverStation.reportWarning(
-          "REV log copy failed: " + e.getMessage(), false);
+          "Log rename skipped: failed to create /u/logs/renamed: " + e.getMessage(), false);
+      return;
+    }
+
+    var plan =
+        frc.robot.lib.LogRenameHelper.planRenames(
+            logsDir,
+            new frc.robot.lib.LogRenameHelper.FmsInfo(
+                RobotBase.isSimulation(),
+                DriverStation.getEventName(),
+                DriverStation.getMatchType(),
+                DriverStation.getMatchNumber(),
+                DriverStation.getReplayNumber()));
+
+    for (var action : plan) {
+      if (Files.exists(action.destination())) {
+        continue;
+      }
+      try {
+        Files.copy(action.source(), action.destination());
+        DriverStation.reportWarning("Renamed log to " + action.destination().toString(), false);
+      } catch (IOException e) {
+        DriverStation.reportWarning("Log rename failed: " + e.getMessage(), false);
+      }
     }
   }
 }
