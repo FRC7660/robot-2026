@@ -257,7 +257,6 @@ public class RobotContainer {
     // ZEROS
     driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
     driverXbox.back().whileTrue(intakeSystem.zeroArm());
-    driverXbox.povDown().onTrue(turret.zeroTurret());
     driverXbox.leftStick().onTrue(drivebase.resetOdometryFromRecentVisionCommand(1, 2));
 
     // LED STAND-IN
