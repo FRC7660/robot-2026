@@ -276,12 +276,14 @@ public class RobotContainer {
             () ->
                 buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisLeftRight)
                     <= Constants.ButtonBox.dpadLeftValue + 0.1)
-        .onTrue(turret.adjustLeft());
+        .onTrue(turret.adjustLeft())
+        .onFalse(turret.adjustCancel());
     new Trigger(
             () ->
                 buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisLeftRight)
                     >= Constants.ButtonBox.dpadRightValue - 0.1)
-        .onTrue(turret.adjustRight());
+        .onTrue(turret.adjustRight())
+        .onFalse(turret.adjustCancel());
     new Trigger(
             () ->
                 buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisUpDown)

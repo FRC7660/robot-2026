@@ -172,7 +172,7 @@ public final class Constants {
     public static final int MOTOR_ID = 30;
     public static final double TURRET_SPEED = 0.05;
     // Operator fine-adjust step for turret zero alignment (degrees).
-    public static final double ZERO_TRIM_STEP_DEG = 0.5;
+    public static final double ZERO_TRIM_STEP_DEG = 2.0;
     // Offset from robot-relative target frame to turret mechanism frame.
     // +180 means "robot-forward 0 deg" maps to mechanism 180 deg.
     public static final double MECHANISM_ZERO_OFFSET_DEG = 0.0;
