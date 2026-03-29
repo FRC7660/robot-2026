@@ -153,16 +153,12 @@ public class Turret extends SubsystemBase {
 
   /** Nudge the turret zero trim left (CCW) by a small step. */
   public Command adjustLeft() {
-    return this.runOnce(() -> adjustZeroTrimDeg(Constants.Turret.ZERO_TRIM_STEP_DEG)).andThen(this.autoSetAngle());
+    return Commands.runOnce(() -> adjustZeroTrimDeg(Constants.Turret.ZERO_TRIM_STEP_DEG));
   }
 
   /** Nudge the turret zero trim right (CW) by a small step. */
   public Command adjustRight() {
-    return this.runOnce(() -> adjustZeroTrimDeg(-Constants.Turret.ZERO_TRIM_STEP_DEG)).andThen(this.autoSetAngle());
-  }
-
-  public Command adjustCancel() {
-    return this.runOnce(() -> adjustZeroTrimDeg(0.0));
+    return Commands.runOnce(() -> adjustZeroTrimDeg(-Constants.Turret.ZERO_TRIM_STEP_DEG));
   }
 
   /**
