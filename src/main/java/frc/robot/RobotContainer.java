@@ -163,9 +163,9 @@ public class RobotContainer {
       //    "startAutoAim",
       // turret.autoSetAngle().repeatedly().andThen(Commands.run(turret::freeze)));
       NamedCommands.registerCommand(
-          "startShootingSequence",
-          launchSystem.shotSequenceStartWithTurret(indexSystem, turret));
-      NamedCommands.registerCommand("forceVision", drivebase.resetOdometryFromRecentVisionCommand(1, 2));
+          "startShootingSequence", launchSystem.shotSequenceStartWithTurret(indexSystem, turret));
+      NamedCommands.registerCommand(
+          "forceVision", drivebase.resetOdometryFromRecentVisionCommand(1, 2));
       NamedCommands.registerCommand("armOut&Running", intakeSystem.fullIntake());
       NamedCommands.registerCommand("armIn", intakeSystem.retract());
       NamedCommands.registerCommand("armToggle", intakeSystem.toggleIntake());
@@ -276,14 +276,12 @@ public class RobotContainer {
             () ->
                 buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisLeftRight)
                     <= Constants.ButtonBox.dpadLeftValue + 0.1)
-        .onTrue(turret.adjustLeft())
-        .onFalse(turret.adjustCancel());
+        .onTrue(turret.adjustLeft());
     new Trigger(
             () ->
                 buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisLeftRight)
                     >= Constants.ButtonBox.dpadRightValue - 0.1)
-        .onTrue(turret.adjustRight())
-        .onFalse(turret.adjustCancel());
+        .onTrue(turret.adjustRight());
     new Trigger(
             () ->
                 buttonBox.getRawAxis(Constants.ButtonBox.dpadAxisUpDown)
