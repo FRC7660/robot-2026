@@ -259,6 +259,10 @@ public class RobotContainer {
     driverXbox.rightStick().onTrue(Commands.idle());
     // R3 (right stick button/button 10) is used within the LED class to enable vision display
 
+    // LED STAND-IN
+    driverXbox.rightStick().onTrue(Commands.idle());
+    // R3 (right stick button/button 10) is used within the LED class to enable vision display
+
     if (Robot.isSimulation()) {
       driverXbox.back().onTrue(Commands.runOnce(() -> drivebase.resetToStartingPosition()));
     }
