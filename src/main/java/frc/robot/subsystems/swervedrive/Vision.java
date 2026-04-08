@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.photonvision.EstimatedRobotPose;
+import org.photonvision.PhotonPoseEstimator;
 import org.photonvision.PhotonUtils;
 import org.photonvision.simulation.VisionSystemSim;
 import org.photonvision.targeting.PhotonPipelineResult;
@@ -226,7 +227,7 @@ public class Vision {
   public Map<Cameras, CameraSnapshot> getCameraData() {
     EnumMap<Cameras, CameraSnapshot> data = new EnumMap<>(Cameras.class);
     for (Cameras camera : Cameras.values()) {
-      List<PhotonPipelineResult> results = camera.getCamera().getAllUnreadResults();
+      List<PhotonPipelineResult> results = camera.drainUnreadResults();
 
       PhotonPipelineResult latestResult =
           results.isEmpty() ? null : results.get(results.size() - 1);
@@ -260,7 +261,7 @@ public class Vision {
       // accurate. Only the final (most recent) estimate is surfaced; intermediate estimates
       // are intentionally discarded because the latest frame has the freshest geometry.
       for (PhotonPipelineResult result : aprilTagResults) {
-        visionEst = camera.getPoseEstimator().update(result);
+        visionEst = estimatePose(camera.getPoseEstimator(), result);
         List<PhotonTrackedTarget> targets =
             visionEst.isPresent() ? visionEst.get().targetsUsed : result.getTargets();
         stdDevs =
@@ -278,6 +279,15 @@ public class Vision {
       results.add(new PoseEstimationResult(camera, visionEst, stdDevs, processedCount, latestTs));
     }
     return results;
+  }
+
+  private static Optional<EstimatedRobotPose> estimatePose(
+      PhotonPoseEstimator poseEstimator, PhotonPipelineResult result) {
+    Optional<EstimatedRobotPose> visionEst = poseEstimator.estimateCoprocMultiTagPose(result);
+    if (visionEst.isEmpty()) {
+      visionEst = poseEstimator.estimateLowestAmbiguityPose(result);
+    }
+    return visionEst;
   }
 
   // -- Pipeline Step 2b: computeStdDevs() (pure static) ---------------------

@@ -444,7 +444,7 @@ final class SwerveAutonomousCommands {
     Cameras[] tagCameras = {Cameras.BACK_LEFT, Cameras.FRONT_LEFT};
 
     for (Cameras camera : tagCameras) {
-      var latest = camera.getCamera().getLatestResult();
+      var latest = camera.getLatestResult();
       if (!latest.hasTargets()) {
         continue;
       }
@@ -472,7 +472,7 @@ final class SwerveAutonomousCommands {
     Cameras[] tagCameras = {Cameras.BACK_LEFT, Cameras.FRONT_LEFT};
 
     for (Cameras camera : tagCameras) {
-      var latest = camera.getCamera().getLatestResult();
+      var latest = camera.getLatestResult();
       if (!latest.hasTargets()) {
         continue;
       }
@@ -494,7 +494,7 @@ final class SwerveAutonomousCommands {
     if (tagId <= 0) {
       return Optional.empty();
     }
-    var latest = camera.getCamera().getLatestResult();
+    var latest = camera.getLatestResult();
     if (!latest.hasTargets()) {
       return Optional.empty();
     }
@@ -519,7 +519,7 @@ final class SwerveAutonomousCommands {
     Cameras[] cameras = {Cameras.BACK_LEFT, Cameras.FRONT_LEFT};
     StringBuilder sb = new StringBuilder();
     for (Cameras cam : cameras) {
-      var latest = cam.getCamera().getLatestResult();
+      var latest = cam.getLatestResult();
       int count = 0;
       int chosenId = -1;
       if (latest.hasTargets()) {

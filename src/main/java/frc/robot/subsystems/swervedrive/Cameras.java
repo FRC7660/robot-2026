@@ -10,12 +10,13 @@ import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
+import java.util.List;
 import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonPoseEstimator;
-import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 import org.photonvision.simulation.PhotonCameraSim;
 import org.photonvision.simulation.SimCameraProperties;
 import org.photonvision.simulation.VisionSystemSim;
+import org.photonvision.targeting.PhotonPipelineResult;
 
 /** Camera Enum to select each camera */
 public enum Cameras {
@@ -60,6 +61,7 @@ public enum Cameras {
   private Alert latencyAlert;
   private PhotonCamera camera;
   private PhotonPoseEstimator poseEstimator;
+  private PhotonPipelineResult lastResult;
 
   /** Simulated camera instance which only exists during simulations. */
   public PhotonCameraSim cameraSim;
@@ -95,10 +97,7 @@ public enum Cameras {
       latencyAlert =
           new Alert("'" + name + "' Camera is experiencing high latency.", AlertType.kWarning);
       camera = new PhotonCamera(name);
-      poseEstimator =
-          new PhotonPoseEstimator(
-              Vision.fieldLayout, PoseStrategy.MULTI_TAG_PNP_ON_COPROCESSOR, robotToCamTransform);
-      poseEstimator.setMultiTagFallbackStrategy(PoseStrategy.LOWEST_AMBIGUITY);
+      poseEstimator = new PhotonPoseEstimator(Vision.fieldLayout, robotToCamTransform);
     }
   }
 
@@ -120,6 +119,34 @@ public enum Cameras {
   public PhotonCamera getCamera() {
     ensureInitialized();
     return camera;
+  }
+
+  /**
+   * Drain all unread results from the camera and update the cached latest result.
+   *
+   * <p>Call this once per loop if possible, then use {@link #getLatestResult()} elsewhere.
+   */
+  public List<PhotonPipelineResult> drainUnreadResults() {
+    ensureInitialized();
+    List<PhotonPipelineResult> results = camera.getAllUnreadResults();
+    if (!results.isEmpty()) {
+      lastResult = results.get(results.size() - 1);
+    }
+    return results;
+  }
+
+  /** Get the latest cached pipeline result for this camera. */
+  public PhotonPipelineResult getLatestResult() {
+    ensureInitialized();
+    if (lastResult == null) {
+      List<PhotonPipelineResult> results = camera.getAllUnreadResults();
+      if (!results.isEmpty()) {
+        lastResult = results.get(results.size() - 1);
+      } else {
+        lastResult = new PhotonPipelineResult();
+      }
+    }
+    return lastResult;
   }
 
   /** Get the pose estimator for this camera. */
