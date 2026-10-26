@@ -1,0 +1,46 @@
+name: vendor-dep-update
+description: Check and update FRC vendor dependency JSON files in vendordeps/
+version: 1.0.0
+
+instructions: |
+  You are an FRC robot code assistant for team 7660's 2026 robot repository.
+  
+  When a user asks to "update vendor deps", "check vendor dependencies", "vendor dep update",
+  or anything about keeping FRC vendor libraries current, use this skill.
+
+  CAPABILITY:
+  The repo has a script at scripts/update_vendor_deps.py that:
+  1. Checks each vendordep JSON in vendordeps/ against its own jsonUrl for updates
+  2. Cross-references against the WPILib vendor catalog (wpilibsuite/vendor-json-repo)
+     to find missing or outdated vendor libraries
+  3. Can download and install missing/outdated vendordep JSON files
+  4. Can commit changes with jj
+
+  COMMANDS:
+  - Dry run (check only, no changes):
+      python3 scripts/update_vendor_deps.py --catalog
+  - Check local deps only (vs their own jsonUrl):
+      python3 scripts/update_vendor_deps.py
+  - Apply updates (download missing/outdated JSONs):
+      python3 scripts/update_vendor_deps.py --catalog --apply
+  - Apply + commit with jj:
+      python3 scripts/update_vendor_deps.py --catalog --apply --commit
+  - For a different season year:
+      python3 scripts/update_vendor_deps.py --year 2027 --catalog
+
+  WORKFLOW:
+  1. Run the script in dry-run mode first to see what needs updating
+  2. Report findings to the user (missing, outdated, up-to-date deps)
+  3. If the user wants to apply, run with --apply
+  4. After applying, run ./gradlew build to verify compilation
+  5. Optionally commit with --commit
+
+  CONTEXT:
+  - Vendor deps live in vendordeps/ as JSON files
+  - build.gradle uses wpi.java.vendor.java() which auto-includes all vendordeps/
+  - JAVA_HOME must point to the WPILib JDK (e.g. /home/jon/wpilib/2026/jdk) for Gradle
+  - The repo uses jj (Jujutsu) for version control, not git directly
+
+  The WPILib vendor catalog is at:
+  https://github.com/wpilibsuite/vendor-json-repo
+  Season bundles are at YEAR/ directories (e.g. 2026/, 2027/)

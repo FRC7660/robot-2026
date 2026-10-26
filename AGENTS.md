@@ -50,3 +50,42 @@ if ! echo "$JAVA_REAL" | grep -qi "wpilib"; then
   echo "Expected path to include 'wpilib' (for example ~/wpilib/YYYY/jdk)."
 fi
 ```
+
+## Vendor Dependency Management
+
+Vendor libraries live as JSON files in `vendordeps/`. `build.gradle` uses
+`wpi.java.vendor.java()` which auto-includes every file in that directory — no
+`build.gradle` edit is needed when adding or updating a dep.
+
+There is a helper script at `scripts/update_vendor_deps.py` (also registered as
+an OpenCode skill: `.opencode/vendor-dep-update/skill.yaml`).
+
+```bash
+# Dry-run — check for missing/outdated deps vs the WPILib catalog (no changes)
+python3 scripts/update_vendor_deps.py --catalog
+
+# Check local deps only (vs each dep's own jsonUrl)
+python3 scripts/update_vendor_deps.py
+
+# Apply updates — download missing/outdated vendordep JSONs into vendordeps/
+python3 scripts/update_vendor_deps.py --catalog --apply
+
+# Apply + commit with jj
+python3 scripts/update_vendor_deps.py --catalog --apply --commit
+
+# For a different season year (e.g. next season)
+python3 scripts/update_vendor_deps.py --year 2027 --catalog
+```
+
+After applying updates, verify the build:
+
+```bash
+export JAVA_HOME=/home/jon/wpilib/2026/jdk
+export PATH="$JAVA_HOME/bin:$PATH"
+./gradlew build
+```
+
+The WPILib vendor catalog is maintained at
+https://github.com/wpilibsuite/vendor-json-repo (season bundles under `YEAR/`).
+The script fetches the catalog from that repo and cross-references it against
+your local `vendordeps/` to surface missing or outdated libraries.
