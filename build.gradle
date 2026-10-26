@@ -190,3 +190,14 @@ spotless {
         endWithNewline()
     }
 }
+
+// Keep Spotless available for CI to run explicitly (./gradlew spotlessCheck / spotlessApply),
+// but do not let it gate the local/CI build. All spotless *Check tasks are skipped unless a
+// spotless task was explicitly requested on the command line.
+tasks.all { task ->
+    if (task.name.startsWith('spotless') && task.name.endsWith('Check')) {
+        task.onlyIf {
+            gradle.startParameter.taskNames.any { it.startsWith('spotless') }
+        }
+    }
+}

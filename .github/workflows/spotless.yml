@@ -1,0 +1,41 @@
+name: Spotless
+# Run Spotless on pull request branches and push formatting fixes back to the
+# PR branch so the local/CI build is never gated on formatting.
+on:
+  pull_request:
+
+jobs:
+  spotless:
+    runs-on: ubuntu-22.04
+    container: wpilib/roborio-cross-ubuntu:2025-22.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+          ref: ${{ github.head_ref }}
+
+      - name: Add repository to git safe directories
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Configure git user for the spotless bot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Apply spotless formatting
+        run: ./gradlew spotlessApply
+
+      - name: Push formatting fixes back to the PR branch
+        run: |
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: apply spotless formatting"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
